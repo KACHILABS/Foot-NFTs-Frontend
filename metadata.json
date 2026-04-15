@@ -1,0 +1,7 @@
+{
+  "name": "FOOT NFTs mini app",
+  "description": "A fan-first football engagement and digital ownership platform powered by the TON blockchain. Join the waitlist, create your fan profile, and rep your club.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

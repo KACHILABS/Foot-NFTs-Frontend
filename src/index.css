@@ -1,0 +1,278 @@
+/* src/index.css - FOOT NFTs Colors with Visible Gridlines */
+
+:root {
+  /* Primary colors - from footnfts.com */
+  --green: #22c55e;
+  --dark-green: #15803d;
+  --orange: #FF6D00;
+  --teal: #00E5FF;
+  --dark: #0A0A0F;
+  --surface: #111827;
+  --surface2: #0D1B2A;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-active: rgba(34, 197, 94, 0.4);
+  --text: #FFFFFF;
+  --text-secondary: #AAAAAA;
+  --text-muted: rgba(255, 255, 255, 0.35);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--dark);
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  line-height: 1.5;
+  background: var(--dark);
+  position: relative;
+}
+
+/* ===== GRID LINES - VISIBLE ===== */
+.grid-lines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(34, 197, 94, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.12) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glow effects */
+.glow {
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 700px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow2 {
+  position: fixed;
+  bottom: -100px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(34, 197, 94, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Content sits above grid */
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  background-color: transparent;
+}
+
+/* Background Classes - TRANSPARENT */
+.bg-darkBg {
+  background-color: transparent !important;
+}
+
+.bg-darkCard {
+  background: rgba(17, 24, 39, 0.50) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border) !important;
+}
+
+.bg-darkDeep {
+  background: rgba(13, 27, 42, 0.50) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border) !important;
+}
+
+/* Card styling - SEMI-TRANSPARENT */
+.card {
+  background: rgba(17, 24, 39, 0.50) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border) !important;
+  border-radius: 1.5rem;
+}
+
+/* Solid Green Cards - KEEP SOLID */
+.bg-green-600,
+.bg-green-500,
+.green-card {
+  background-color: var(--green) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #000 !important;
+}
+
+/* Button Styles - ALL GREEN NOW */
+.btn-primary,
+button[class*="btn-primary"],
+.btn-secondary,
+button[class*="btn-secondary"],
+.bg-green-600,
+.bg-green-500 {
+  background-color: var(--green) !important;
+  color: #000 !important;
+  font-weight: 900 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3) !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.bg-green-600:hover {
+  background-color: #1e9e4e !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 28px rgba(34, 197, 94, 0.4) !important;
+}
+
+/* Outline Buttons */
+.btn-outline {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+.btn-outline:hover {
+  border-color: var(--green) !important;
+  color: var(--green) !important;
+}
+
+/* Text Colors */
+.text-green-600,
+.text-green-500 {
+  color: var(--green) !important;
+}
+
+.text-orange-600,
+.text-orange-500 {
+  color: var(--orange) !important;
+}
+
+.text-teal {
+  color: var(--teal) !important;
+}
+
+.text-white {
+  color: var(--text) !important;
+}
+
+.text-gray-400,
+.text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-600,
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* Borders */
+.border-gray-800,
+.border-gray-100,
+.border-white\/10 {
+  border-color: var(--border) !important;
+}
+
+/* Input Fields */
+input, 
+textarea, 
+select {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 1rem !important;
+  transition: all 0.2s ease;
+}
+
+input:focus, 
+textarea:focus, 
+select:focus {
+  border-color: var(--border-active) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.05) !important;
+}
+
+select option {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+select option:checked {
+  background: var(--green) !important;
+  color: #000 !important;
+}
+
+::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--green);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1e9e4e;
+}
+
+::selection {
+  background-color: var(--green);
+  color: #000;
+}
+
+/* Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}

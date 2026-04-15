@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>FOOT NFTs</title>
+    
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/index.css?v=17">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0A0A0F',
+                        darkCard: '#111827',
+                        darkDeep: '#0D1B2A',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #0A0A0F !important;
+        }
+
+        /* === LAYERING ORDER ===
+           z-index 0: .abstract-glow  ← SVG shape sits here, BELOW grid
+           z-index 1: .grid-lines     ← grid renders ON TOP of glow
+           z-index 2: .glow / .glow2  ← radial gradients above grid
+           z-index 3: #root           ← app content on top of everything
+        */
+
+        .abstract-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .abstract-glow svg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120%;
+            height: 120%;
+            opacity: 0.13;
+            filter: blur(120px);
+        }
+
+        .grid-lines {
+            z-index: 1 !important;
+        }
+
+        .glow {
+            z-index: 2 !important;
+        }
+
+        .glow2 {
+            z-index: 2 !important;
+        }
+
+        #root {
+            position: relative;
+            z-index: 3;
+            background: transparent !important;
+        }
+
+        .bg-darkCard\/80 {
+            background: rgba(17, 24, 39, 0.50) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+      }
+    }
+    </script>
+</head>
+<body>
+
+    <!-- Layer 0: Abstract SVG glow — sits BELOW the grid -->
+    <div class="abstract-glow">
+        <svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+            <path d="M500 100 L700 300 L600 800 L300 900 L200 400 Z" fill="#00C853"/>
+        </svg>
+    </div>
+
+    <!-- Layer 1: Grid lines — renders ON TOP of the glow -->
+    <div class="grid-lines"></div>
+
+    <!-- Layer 2: Radial glows -->
+    <div class="glow"></div>
+    <div class="glow2"></div>
+
+    <!-- Layer 3: App -->
+    <div id="root"></div>
+
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
