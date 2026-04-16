@@ -3,6 +3,29 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { Club, OnboardingState } from '../types';
 
+// Add this inside TriviaScreen component, before the useEffect
+const generateTriviaQuestion = async (clubName: string | null = null) => {
+  // Fallback questions
+  const fallbackQuestions = [
+    { question: "Which player has won the most Ballon d'Or awards?", options: ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"], correctAnswer: 1, fact: "Lionel Messi has won a record 8 Ballon d'Or awards." },
+    { question: "Which country has won the most FIFA World Cup titles?", options: ["Germany", "Italy", "Argentina", "Brazil"], correctAnswer: 3, fact: "Brazil has won the World Cup 5 times." },
+    { question: "Which club has won the most UEFA Champions League titles?", options: ["AC Milan", "Bayern Munich", "Liverpool", "Real Madrid"], correctAnswer: 3, fact: "Real Madrid has won 14 Champions League titles." }
+  ];
+  
+  const random = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
+  return {
+    success: true,
+    question: {
+      id: Date.now().toString(),
+      question: random.question,
+      options: random.options,
+      correctAnswer: random.correctAnswer,
+      fact: random.fact
+    }
+  };
+};
+
+
 interface TriviaScreenProps {
   club: Club;
   onboarding: OnboardingState;
@@ -11,19 +34,6 @@ interface TriviaScreenProps {
   onComplete?: () => void;
 }
 
-const ALL_QUESTIONS = [
-  { id: 1, question: "Which player has won the most Ballon d'Or awards in history?", options: ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"], correct: 1, fact: "Lionel Messi has won a record 8 Ballon d'Or awards." },
-  { id: 2, question: "Which country has won the most FIFA World Cup titles?", options: ["Germany", "Italy", "Argentina", "Brazil"], correct: 3, fact: "Brazil has won the World Cup 5 times (1958, 1962, 1970, 1994, 2002)." },
-  { id: 3, question: "In which year was the first ever Premier League season?", options: ["1988/89", "1990/91", "1992/93", "1994/95"], correct: 2, fact: "The Premier League was founded on February 20, 1992." },
-  { id: 4, question: "Who is the all-time top scorer in the UEFA Champions League?", options: ["Lionel Messi", "Robert Lewandowski", "Cristiano Ronaldo", "Karim Benzema"], correct: 2, fact: "Cristiano Ronaldo holds the record for most UCL goals." },
-  { id: 5, question: "Which club has won the most UEFA Champions League titles?", options: ["AC Milan", "Bayern Munich", "Liverpool", "Real Madrid"], correct: 3, fact: "Real Madrid has won an incredible 14 (now 15) titles." },
-  { id: 6, question: "What is the nicknames of the Belgian national football team?", options: ["The Red Devils", "The Lions", "The Eagles", "The Blues"], correct: 0, fact: "They are known globally as the Red Devils." },
-  { id: 7, question: "Who was the first ever host of the FIFA World Cup in 1930?", options: ["Brazil", "Uruguay", "France", "Italy"], correct: 1, fact: "Uruguay hosted and won the first World Cup." },
-  { id: 8, question: "Which player is famously known as 'The Phenomenon'?", options: ["Ronaldinho", "Pelé", "Ronaldo Nazário", "Romário"], correct: 2, fact: "Ronaldo Nazário is the original 'O Fenômeno'." },
-  { id: 9, question: "Which stadium is known as 'The Theatre of Dreams'?", options: ["Anfield", "Wembley", "Old Trafford", "Etihad"], correct: 2, fact: "Sir Bobby Charlton famously gave Old Trafford this nickname." },
-  { id: 10, question: "Which manager famously won the 'Treble' with Manchester United in 1999?", options: ["Sir Alex Ferguson", "Matt Busby", "Jose Mourinho", "Arsene Wenger"], correct: 0, fact: "Sir Alex Ferguson led them to Premier League, FA Cup, and UCL glory." },
-];
-
 const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, onEarn, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -31,22 +41,103 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [isDailyLocked, setIsDailyLocked] = useState(false);
-  const [questions, setQuestions] = useState<typeof ALL_QUESTIONS>([]);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    if (onboarding.lastTriviaDate === today) {
-      setIsDailyLocked(true);
-    }
-
-    const seed = today.split('-').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const shuffled = [...ALL_QUESTIONS].sort((a, b) => {
-      return (seed * a.id) % 11 - (seed * b.id) % 11;
-    });
-    setQuestions(shuffled.slice(0, 4));
-  }, [onboarding.lastTriviaDate]);
+  const [timeUntilReset, setTimeUntilReset] = useState<string>('');
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generatingError, setGeneratingError] = useState(false);
 
   const currentQuestion = questions[currentStep];
+
+  // Check if daily trivia is locked
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastCompleted = localStorage.getItem('trivia_last_completed_date');
+    
+    if (lastCompleted === today) {
+      setIsDailyLocked(true);
+      updateCountdown();
+    }
+    
+    // Load or generate questions
+    const loadQuestions = async () => {
+      setLoading(true);
+      setGeneratingError(false);
+      
+      // Try to load cached questions for today
+      const cachedQuestions = localStorage.getItem('trivia_todays_questions');
+      const cachedDate = localStorage.getItem('trivia_cache_date');
+      const today = new Date().toISOString().split('T')[0];
+      
+      if (cachedQuestions && cachedDate === today) {
+        setQuestions(JSON.parse(cachedQuestions));
+        setLoading(false);
+        return;
+      }
+      
+      // Generate new questions from Gemini
+      try {
+        const clubName = club?.name || null;
+        const generatedQuestions = [];
+        
+        for (let i = 0; i < 5; i++) {
+          const result = await generateTriviaQuestion(clubName);
+          if (result.success) {
+            generatedQuestions.push({
+              id: i,
+              question: result.question.question,
+              options: result.question.options,
+              correct: result.question.correctAnswer,
+              fact: result.question.fact
+            });
+          } else {
+            // Use fallback if generation fails
+            generatedQuestions.push(getFallbackQuestion(i));
+          }
+        }
+        
+        setQuestions(generatedQuestions);
+        localStorage.setItem('trivia_todays_questions', JSON.stringify(generatedQuestions));
+        localStorage.setItem('trivia_cache_date', today);
+      } catch (error) {
+        console.error('Failed to generate questions:', error);
+        setGeneratingError(true);
+        // Load fallback questions
+        const fallbackQuestions = [];
+        for (let i = 0; i < 5; i++) {
+          fallbackQuestions.push(getFallbackQuestion(i));
+        }
+        setQuestions(fallbackQuestions);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (!isDailyLocked) {
+      loadQuestions();
+    }
+  }, [onboarding.lastTriviaDate, club]);
+
+  // Update countdown timer
+  const updateCountdown = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const diff = tomorrow.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    setTimeUntilReset(`${hours}h ${minutes}m ${seconds}s`);
+  };
+
+  useEffect(() => {
+    if (isDailyLocked) {
+      const timer = setInterval(updateCountdown, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isDailyLocked]);
 
   const handleOptionSelect = (index: number) => {
     if (isAnswered) return;
@@ -65,11 +156,26 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
+      // Mark as completed for today
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem('trivia_last_completed_date', today);
       setShowResult(true);
       if (onComplete) onComplete();
     }
   };
 
+  const getFallbackQuestion = (seed: number) => {
+    const fallbacks = [
+      { question: "Which player has won the most Ballon d'Or awards?", options: ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"], correct: 1, fact: "Lionel Messi has won a record 8 Ballon d'Or awards." },
+      { question: "Which country has won the most FIFA World Cup titles?", options: ["Germany", "Italy", "Argentina", "Brazil"], correct: 3, fact: "Brazil has won the World Cup 5 times." },
+      { question: "Which club has won the most UEFA Champions League titles?", options: ["AC Milan", "Bayern Munich", "Liverpool", "Real Madrid"], correct: 3, fact: "Real Madrid has won 14 Champions League titles." },
+      { question: "Who is known as 'The Phenomenon'?", options: ["Ronaldinho", "Pelé", "Ronaldo Nazário", "Romário"], correct: 2, fact: "Ronaldo Nazário is the original 'O Fenômeno'." },
+      { question: "Which stadium is called 'The Theatre of Dreams'?", options: ["Anfield", "Wembley", "Old Trafford", "Etihad"], correct: 2, fact: "Sir Bobby Charlton gave Old Trafford this nickname." }
+    ];
+    return fallbacks[seed % fallbacks.length];
+  };
+
+  // Locked screen (already completed today)
   if (isDailyLocked) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
@@ -88,17 +194,17 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
               </div>
            </div>
            <h3 className="text-2xl font-black text-white mb-2">Today's IQ Task Complete</h3>
-           <p className="text-sm text-gray-400 mb-8 leading-relaxed">
-             You've already claimed your daily trivia reward. The locker room is resting. Come back tomorrow for a fresh set of challenges.
+           <p className="text-sm text-gray-400 mb-4 leading-relaxed">
+             You've already claimed your daily trivia reward. Come back tomorrow for a fresh set of challenges.
            </p>
            <div className="w-full space-y-4">
              <Card className="bg-green-950/20 border border-green-500/30 p-5">
                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-green-500">
                  <span>Next Daily Unlock</span>
-                 <span>00:00 UTC</span>
+                 <span className="font-mono">{timeUntilReset}</span>
                </div>
                <div className="mt-2 w-full h-1 bg-gray-800 rounded-full overflow-hidden">
-                 <div className="h-full bg-green-500 w-[75%] animate-pulse"></div>
+                 <div className="h-full bg-green-500 transition-all duration-1000" style={{ width: '100%' }}></div>
                </div>
              </Card>
              <Button onClick={onBack}>Back to Fan Arena</Button>
@@ -108,6 +214,48 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     );
   }
 
+  // Loading screen
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
+        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
+          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
+          <div className="w-10"></div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+          <div className="w-20 h-20 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <p className="text-gray-400">Generating today's football questions...</p>
+          <p className="text-xs text-gray-600 mt-2">Powered by Gemini AI</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error screen (if Gemini fails)
+  if (generatingError && questions.length === 0) {
+    return (
+      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
+        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
+          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
+          <div className="w-10"></div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h3 className="text-xl font-black text-white mb-2">Unable to load questions</h3>
+          <p className="text-sm text-gray-400 mb-6">Please check your internet connection and try again.</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show results screen
   if (showResult) {
     return (
       <div className="flex flex-col h-full bg-darkBg px-6 pt-20 pb-10 animate-in zoom-in duration-500">
@@ -129,9 +277,10 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
             </Card>
           </div>
           
-          <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-10">
-            Tomorrow's Trivia Locked 🔒
-          </p>
+          <div className="bg-darkDeep rounded-xl p-4 mb-6 border border-gray-800 w-full">
+            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Next Trivia</p>
+            <p className="text-sm text-white font-mono">Tomorrow at 00:00 UTC</p>
+          </div>
         </div>
         <Button onClick={onBack}>Return to Arena</Button>
       </div>
@@ -169,7 +318,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         </h3>
 
         <div className="space-y-4 flex-1">
-          {currentQuestion?.options.map((option, idx) => {
+          {currentQuestion?.options.map((option: string, idx: number) => {
             let stateClass = "bg-darkCard border border-gray-800 text-white";
             if (isAnswered) {
               if (idx === currentQuestion.correct) {

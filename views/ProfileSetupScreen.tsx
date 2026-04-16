@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { UserProfile } from '../types';
@@ -13,9 +13,53 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ onBack, onSave 
   const [name, setName] = useState('');
   const [selectedClub, setSelectedClub] = useState('');
   const [avatar, setAvatar] = useState('https://picsum.photos/200');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large. Please select an image under 2MB.');
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatar(reader.result as string);
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRandomAvatar = () => {
+    setAvatar(`https://picsum.photos/200?random=${Math.random()}`);
+  };
+
+  const handleUseTelegramAvatar = () => {
+    const tg = (window as any).Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    if (user?.photo_url) {
+      setAvatar(user.photo_url);
+    } else {
+      alert('Telegram avatar not available. Using random avatar instead.');
+      handleRandomAvatar();
+    }
+  };
 
   const handleSave = () => {
-    if (!name) return alert('Please enter a display name');
+    if (!name.trim()) return alert('Please enter a display name');
+    if (!selectedClub) return alert('Please select your favorite club');
+    
     onSave({
       displayName: name,
       avatar: avatar,
@@ -41,29 +85,47 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ onBack, onSave 
       </div>
 
       <div className="flex-1 flex flex-col gap-6">
+        {/* Avatar Section */}
         <div className="flex flex-col items-center gap-4">
           <div className="relative group">
-            <img src={avatar} className="w-32 h-32 rounded-3xl object-cover shadow-lg border-4 border-gray-800" alt="Avatar" />
+            <img 
+              src={avatar} 
+              className="w-32 h-32 rounded-3xl object-cover shadow-lg border-4 border-gray-800" 
+              alt="Avatar" 
+            />
+            {uploading && (
+              <div className="absolute inset-0 bg-black/50 rounded-3xl flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
             <button 
-              onClick={() => setAvatar('https://picsum.photos/200?random=' + Math.random())}
-              className="absolute -bottom-2 -right-2 bg-darkCard p-2 rounded-xl shadow-md border border-gray-700 text-orange-500 active:scale-90 transition-transform"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute -bottom-2 -right-2 bg-darkCard p-2 rounded-xl shadow-md border border-gray-700 text-green-500 active:scale-90 transition-transform"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="py-2 px-4 text-xs" fullWidth={false} onClick={() => setAvatar('https://picsum.photos/200?random=' + Math.random())}>
-              Upload Photo
+          <div className="flex gap-2 flex-wrap justify-center">
+            <Button variant="outline" className="py-2 px-3 text-xs" fullWidth={false} onClick={handleRandomAvatar}>
+              Random Photo
             </Button>
-            <Button variant="outline" className="py-2 px-4 text-xs" fullWidth={false}>
+            <Button variant="outline" className="py-2 px-3 text-xs" fullWidth={false} onClick={handleUseTelegramAvatar}>
               Use Telegram Avatar
             </Button>
           </div>
         </div>
 
+        {/* Name Input */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-300 mb-2">Display Name</label>
@@ -72,17 +134,18 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ onBack, onSave 
               placeholder="e.g. LeoFan10"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-4 rounded-2xl bg-darkCard border border-gray-800 text-white shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+              className="w-full p-4 rounded-2xl bg-darkCard border border-gray-800 text-white shadow-sm focus:ring-2 focus:ring-green-500 outline-none transition-all"
             />
           </div>
 
+          {/* Club Selection */}
           <div>
             <label className="block text-sm font-semibold text-gray-300 mb-2">Favorite Club</label>
             <div className="relative">
               <select 
                 value={selectedClub}
                 onChange={(e) => setSelectedClub(e.target.value)}
-                className="w-full p-4 rounded-2xl bg-darkCard border border-gray-800 text-white shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                className="w-full p-4 rounded-2xl bg-darkCard border border-gray-800 text-white shadow-sm focus:ring-2 focus:ring-green-500 outline-none transition-all appearance-none"
               >
                 <option value="">Select a club...</option>
                 {CLUBS.map(club => (
@@ -98,7 +161,8 @@ const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({ onBack, onSave 
           </div>
         </div>
 
-        <Card className="mt-4 bg-[#FF6D00] text-white border-none">
+        {/* Bonus Card */}
+        <Card className="mt-4 bg-green-600 text-black border-none">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-xs uppercase tracking-wider opacity-80 mb-1">Onboarding Bonus</p>
