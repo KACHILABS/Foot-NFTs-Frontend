@@ -37,6 +37,14 @@ const api = {
         body: JSON.stringify({ userId, displayName: newName })
       });
       return res.json();
+    },
+    claimWelcomeBonus: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/user/claim-welcome-bonus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      return res.json();
     }
   },
   highlights: {
@@ -112,6 +120,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [userFTCBalance, setUserFTCBalance] = useState<number>(wallet?.balanceFTC || 0);
   const [userRank, setUserRank] = useState<number>(12500);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [isClaimingBonus, setIsClaimingBonus] = useState(false);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -156,13 +165,43 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   }, [wallet?.balanceFTC]);
 
-  // Check for welcome bonus
+  // Check for welcome bonus - check backend to see if already claimed
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('has_seen_welcome_bonus');
-    if (!hasSeenWelcome && (wallet?.balanceFTC === 0 || !wallet?.balanceFTC)) {
-      setShowWelcomeBonus(true);
-    }
-  }, [wallet?.balanceFTC]);
+    const checkWelcomeBonus = async () => {
+      const hasSeenWelcome = localStorage.getItem('has_seen_welcome_bonus');
+      const bonusClaimed = localStorage.getItem('welcome_bonus_claimed');
+      
+      // If already claimed in localStorage, don't show
+      if (hasSeenWelcome || bonusClaimed === 'true') {
+        return;
+      }
+      
+      // Check backend if user already claimed bonus
+      if (backendUserId && profile?.favoriteClubId) {
+        // Use the stored telegramId from onboarding or props
+        const telegramId = (onboarding as any).telegramId || localStorage.getItem('telegramId');
+        if (telegramId) {
+          try {
+            const res = await api.user.getProfile(Number(telegramId));
+            if (res.success && res.profile.hasClaimedWelcomeBonus) {
+              localStorage.setItem('welcome_bonus_claimed', 'true');
+              localStorage.setItem('has_seen_welcome_bonus', 'true');
+              return;
+            }
+          } catch (error) {
+            console.error('Failed to check bonus status:', error);
+          }
+        }
+      }
+      
+      // Show bonus if balance is 0 and not claimed
+      if ((wallet?.balanceFTC === 0 || !wallet?.balanceFTC) && !hasSeenWelcome) {
+        setShowWelcomeBonus(true);
+      }
+    };
+    
+    checkWelcomeBonus();
+  }, [wallet?.balanceFTC, backendUserId, profile?.favoriteClubId, onboarding]);
 
   // ===== NOTIFICATION SYSTEM =====
   
@@ -257,6 +296,70 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
+  // ===== CLAIM WELCOME BONUS =====
+  const handleClaimWelcomeBonus = async () => {
+    if (isClaimingBonus) return;
+    
+    setIsClaimingBonus(true);
+    
+    try {
+      // Use backendUserId
+      const userId = backendUserId;
+      
+      if (!userId) {
+        console.error('No user ID found');
+        tg?.showAlert?.('Unable to claim bonus. Please try again.');
+        setIsClaimingBonus(false);
+        return;
+      }
+      
+      // Call backend to claim bonus
+      const response = await api.user.claimWelcomeBonus(userId);
+      
+      if (response.success) {
+        // Update local wallet balance
+        if (onUpdateWallet && wallet) {
+          const newBalance = (wallet.balanceFTC || 0) + response.bonusAmount;
+          onUpdateWallet({ balanceFTC: newBalance });
+          setUserFTCBalance(newBalance);
+        }
+        
+        // Show success notification
+        notifyEarnings(response.bonusAmount, 'welcome bonus');
+        setShowWelcomeBonus(false);
+        localStorage.setItem('has_seen_welcome_bonus', 'true');
+        localStorage.setItem('welcome_bonus_claimed', 'true');
+        
+        tg?.HapticFeedback.notificationOccurred('success');
+        
+        // Refresh leaderboard to show new rank
+        const res = await api.leaderboard.getTop();
+        if (res.success) {
+          setLeaderboardData(res.leaderboard || []);
+          const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
+          if (userIndex !== undefined && userIndex !== -1) {
+            setUserRank(userIndex + 1);
+          }
+        }
+      } else {
+        console.error('Failed to claim bonus:', response.error);
+        if (response.alreadyClaimed) {
+          // If already claimed, just hide the popup
+          setShowWelcomeBonus(false);
+          localStorage.setItem('has_seen_welcome_bonus', 'true');
+          localStorage.setItem('welcome_bonus_claimed', 'true');
+        } else {
+          tg?.showAlert?.(response.error || 'Failed to claim bonus. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error claiming bonus:', error);
+      tg?.showAlert?.('Network error. Please check your connection.');
+    } finally {
+      setIsClaimingBonus(false);
+    }
+  };
+
   // ===== EDIT PROFILE =====
   const handleSaveProfile = async () => {
     if (editName.trim() && editName !== profile?.displayName) {
@@ -341,16 +444,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [showNotifications, showMarketplace, inChat, inBanterHall, inJerseyDay, inTrivia, inFanPod, inHopeCampaign, navigationHistory, tg]);
 
   useEffect(() => {
+    const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
     if (!isOverlayVisible && activeTab === 'home' && navigationHistory[navigationHistory.length - 1] !== 'home') {
       setNavigationHistory(['home']);
     }
   }, [activeTab, showNotifications, showMarketplace, inChat, inBanterHall, inJerseyDay, inTrivia, inFanPod, inHopeCampaign]);
-
-  const handleClaimWelcomeBonus = () => {
-    handleEarnFTC(50, 'onboarding bonus');
-    setShowWelcomeBonus(false);
-    localStorage.setItem('has_seen_welcome_bonus', 'true');
-  };
 
   const fanLevel = Math.floor((userFTCBalance || 0) / 10) + 1;
   const badgeTitle = fanLevel > 10 ? 'Ultra Fan' : fanLevel > 5 ? 'Loyal Supporter' : 'New Signing';
@@ -547,7 +645,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       )}
 
-      {/* Welcome Bonus Popup */}
+      {/* Welcome Bonus Popup - FIXED VERSION */}
       {showWelcomeBonus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30 animate-in zoom-in duration-300">
@@ -563,7 +661,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <div className="flex items-center justify-center gap-3"><span className="text-2xl">🎁</span><span className="text-xl font-black text-green-500">+50 FTC</span></div>
                 <p className="text-xs text-gray-500 mt-1">Onboarding Bonus</p>
               </div>
-              <button onClick={handleClaimWelcomeBonus} className="w-full bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all active:scale-95">Claim Bonus</button>
+              <button 
+                onClick={handleClaimWelcomeBonus} 
+                disabled={isClaimingBonus}
+                className="w-full bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isClaimingBonus ? 'Claiming...' : 'Claim Bonus'}
+              </button>
             </div>
           </div>
         </div>

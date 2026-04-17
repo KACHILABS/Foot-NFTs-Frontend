@@ -65,6 +65,15 @@ export const api = {
         headers: headers()
       });
       return res.json();
+    },
+    
+    claimWelcomeBonus: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/user/claim-welcome-bonus`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ userId })
+      });
+      return res.json();
     }
   },
   
