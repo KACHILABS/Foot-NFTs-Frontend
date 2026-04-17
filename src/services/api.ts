@@ -24,6 +24,8 @@ export const api = {
         // Store session
         const { setAuthSession } = await import('../utils/versionControl');
         setAuthSession(data.token, data.user.id);
+        // Also store telegramId for profile requests
+        localStorage.setItem('telegramId', telegramId.toString());
       }
       return data;
     },
@@ -31,14 +33,19 @@ export const api = {
     logout: async () => {
       const { clearAuthSession } = await import('../utils/versionControl');
       clearAuthSession();
+      localStorage.removeItem('telegramId');
       return { success: true };
     }
   },
   
   // User Profile (all data from backend)
   user: {
-    getProfile: async () => {
-      const res = await fetch(`${API_BASE}/user/profile`, {
+    getProfile: async (telegramId?: number) => {
+      // Get telegramId from param, localStorage, or use default
+      const storedTelegramId = localStorage.getItem('telegramId');
+      const finalTelegramId = telegramId || (storedTelegramId ? parseInt(storedTelegramId) : 123456789);
+      
+      const res = await fetch(`${API_BASE}/user/profile?telegramId=${finalTelegramId}`, {
         headers: headers()
       });
       return res.json();

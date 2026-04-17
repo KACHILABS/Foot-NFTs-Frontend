@@ -62,7 +62,9 @@ const App: React.FC = () => {
     const loadUserData = async () => {
       if (backendUserId) {
         try {
-          const profileRes = await api.user.getProfile();
+          // Get telegramId from localStorage or use default
+          const telegramId = localStorage.getItem('telegramId');
+          const profileRes = await api.user.getProfile(telegramId ? parseInt(telegramId) : undefined);
           if (profileRes.success) {
             setProfile(profileRes.profile);
             setWallet({
@@ -154,12 +156,12 @@ const App: React.FC = () => {
           });
         }}
         onClaimBonus={(amount) => {
-  console.log('🎁 Bonus claimed in SplashScreen:', amount);
-  // Update local wallet if needed
-  if (wallet) {
-    handleUpdateWallet({ balanceFTC: (wallet.balanceFTC || 0) + amount });
-  }
-}}
+          console.log('🎁 Bonus claimed in SplashScreen:', amount);
+          // Update local wallet if needed
+          if (wallet) {
+            handleUpdateWallet({ balanceFTC: (wallet.balanceFTC || 0) + amount });
+          }
+        }}
       />
     );
   }
