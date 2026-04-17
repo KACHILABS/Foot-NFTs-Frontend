@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Button from '../components/Button';
 import { CLUBS } from '../constants';
+import { api } from '../src/services/api';
 
 interface SplashScreenProps {
   onComplete: (name: string, clubId: string, customClub?: string) => void;
@@ -13,6 +14,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
   const [customClub, setCustomClub] = useState('');
   const [showBonus, setShowBonus] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [error, setError] = useState('');
 
   const handleContinue = () => {
     if (!name.trim()) {
@@ -31,24 +33,57 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
     setShowBonus(true);
   };
 
-  const handleClaimBonus = () => {
+  const handleClaimBonus = async () => {
     setClaiming(true);
+    setError('');
     
-    // Claim the bonus first
-    if (onClaimBonus) {
-      onClaimBonus(50);
-    }
-    
-    // Short delay to ensure bonus is processed, then complete onboarding
-    setTimeout(() => {
-      setClaiming(false);
-      // Pass the club info to parent - THIS WILL TRIGGER NAVIGATION
-      if (selectedClub === 'other') {
-        onComplete(name, 'other', customClub);
-      } else {
-        onComplete(name, selectedClub);
+    try {
+      // Get Telegram user data
+      const tg = (window as any).Telegram?.WebApp;
+      const telegramUser = tg?.initDataUnsafe?.user;
+      const telegramId = telegramUser?.id || 123456789;
+      const telegramUsername = telegramUser?.username || 'User';
+      
+      // FIRST: Login/create user via backend
+      console.log('📝 Creating user...');
+      const loginResult = await api.auth.login(telegramId, telegramUsername);
+      
+      if (!loginResult.success) {
+        throw new Error('Failed to create user');
       }
-    }, 500);
+      
+      console.log('✅ User created:', loginResult.user.id);
+      
+      // SECOND: Claim the welcome bonus
+      console.log('🎁 Claiming bonus...');
+      const bonusResult = await api.user.claimWelcomeBonus(loginResult.user.id);
+      
+      if (bonusResult.success) {
+        console.log('✅ Bonus claimed:', bonusResult.bonusAmount);
+        
+        // Call onClaimBonus to update UI
+        if (onClaimBonus) {
+          onClaimBonus(bonusResult.bonusAmount);
+        }
+        
+        // Short delay then complete onboarding
+        setTimeout(() => {
+          setClaiming(false);
+          // Pass the club info to parent
+          if (selectedClub === 'other') {
+            onComplete(name, 'other', customClub);
+          } else {
+            onComplete(name, selectedClub);
+          }
+        }, 500);
+      } else {
+        throw new Error(bonusResult.error || 'Failed to claim bonus');
+      }
+    } catch (err: any) {
+      console.error('Error in claim bonus:', err);
+      setError(err.message || 'Something went wrong. Please try again.');
+      setClaiming(false);
+    }
   };
 
   // Bonus Screen
@@ -77,6 +112,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
             <p className="text-sm text-gray-400">Onboarding Bonus • Claim now to start your journey</p>
           </div>
           
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+          
           <Button 
             onClick={handleClaimBonus} 
             disabled={claiming}
@@ -88,7 +129,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Claiming Bonus...
+                Creating Account & Claiming Bonus...
               </span>
             ) : (
               'Claim 50 FTC Bonus 🎁'

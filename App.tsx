@@ -154,17 +154,12 @@ const App: React.FC = () => {
           });
         }}
         onClaimBonus={(amount) => {
-          console.log('🎁 Claiming bonus:', amount);
-          withHaptic(async () => {
-            // Bonus should be claimed via backend
-            if (backendUserId) {
-              const result = await api.user.updateProfile({});
-              if (result.success) {
-                handleUpdateWallet({ balanceFTC: result.user.ftcBalance });
-              }
-            }
-          });
-        }}
+  console.log('🎁 Bonus claimed in SplashScreen:', amount);
+  // Update local wallet if needed
+  if (wallet) {
+    handleUpdateWallet({ balanceFTC: (wallet.balanceFTC || 0) + amount });
+  }
+}}
       />
     );
   }
