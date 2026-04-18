@@ -14,6 +14,7 @@ import VotingScreen from './VotingScreen';
 import ChatLobbyScreen from './ChatLobbyScreen';
 import FanPodScreen from './FanPodScreen';
 import HopeCampaignScreen from './HopeCampaignScreen';
+import LeaderboardModal from './LeaderboardModal';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -121,6 +122,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [userRank, setUserRank] = useState<number>(12500);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false); // ADD THIS LINE
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -544,7 +546,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="relative group"><Button disabled variant="secondary" className="py-4 text-[10px] font-black uppercase tracking-widest border border-gray-800 opacity-60 grayscale bg-darkCard">Swap FTC</Button><div className="absolute -top-2 left-1/2 -translate-x-1/2"><span className="bg-gray-800 text-gray-500 text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-gray-700 shadow-sm">Soon</span></div></div>
       </div>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between px-1"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Leaderboard Top 5</p><button className="text-[10px] text-green-500 font-black uppercase tracking-widest" onClick={() => tg?.HapticFeedback.selectionChanged()}>View All</button></div>
+        <div className="flex items-center justify-between px-1"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Leaderboard Top 5</p>
+          <button 
+            className="text-[10px] text-green-500 font-black uppercase tracking-widest" 
+            onClick={() => {
+              tg?.HapticFeedback.selectionChanged();
+              setShowLeaderboardModal(true);
+            }}
+          >
+            View All
+          </button>
+        </div>
         <div className="flex flex-col gap-3">
           {leaderboardData.slice(0, 5).map((user, idx) => (
             <div key={user.id} className="bg-darkCard rounded-2xl p-4 flex items-center justify-between border border-gray-800 shadow-sm">
@@ -759,6 +771,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           { id: 'wallet', label: 'Wallet', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' }
         ].map(tab => (<button key={tab.id} onClick={() => navigateTo(tab.id)} className={`flex flex-col items-center gap-1 transition-all relative px-2 ${activeTab === tab.id ? 'text-green-500' : 'text-gray-600'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={tab.icon} /></svg><span className={`text-[7px] font-black uppercase tracking-widest transition-opacity ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span></button>))}
       </div>
+
+      {/* Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={showLeaderboardModal}
+        onClose={() => setShowLeaderboardModal(false)}
+        currentUserId={backendUserId || undefined}
+        apiBase={API_BASE}
+      />
     </div>
   );
 };
