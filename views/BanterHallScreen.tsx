@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Card from '../components/Card';
-import Button from '../components/Button';
 import { UserProfile } from '../types';
 
 interface BanterMessage {
@@ -24,7 +22,8 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 3000; // 3 seconds for real-time feel
+const POLL_INTERVAL = 2000; // 2 seconds for real-time feel
+const MIN_MESSAGE_LENGTH = 15;
 
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({ 
   profile, 
@@ -37,11 +36,19 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [showRewardToast, setShowRewardToast] = useState(false);
+  const [rewardAmount, setRewardAmount] = useState(0);
+  const [charCount, setCharCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastMessageCount = useRef(0);
 
   const tg = (window as any).Telegram?.WebApp;
+
+  // Update char count
+  useEffect(() => {
+    setCharCount(inputText.trim().length);
+  }, [inputText]);
 
   // Load messages from backend
   const loadMessages = useCallback(async () => {
@@ -62,29 +69,31 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
-        // Check for new messages
-        if (formattedMessages.length > 0) {
-          const newestId = formattedMessages[0].id;
-          if (lastMessageId && newestId !== lastMessageId && !formattedMessages[0].isMe) {
-            // New message from someone else - trigger notification
-            const newMsg = formattedMessages[0];
-            if (onBanterNotify) {
-              onBanterNotify(newMsg.content, newMsg.senderName);
+        // Sort by newest first (most recent at bottom)
+        const sortedMessages = formattedMessages.sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        
+        // Check for new messages from others
+        if (lastMessageCount.current > 0 && sortedMessages.length > lastMessageCount.current) {
+          const newMessages = sortedMessages.slice(lastMessageCount.current);
+          newMessages.forEach(msg => {
+            if (!msg.isMe && onBanterNotify) {
+              onBanterNotify(msg.content, msg.senderName);
+              tg?.HapticFeedback.impactOccurred('light');
             }
-            // Vibrate on new message
-            tg?.HapticFeedback.impactOccurred('light');
-          }
-          setLastMessageId(newestId);
+          });
         }
         
-        setMessages(formattedMessages.reverse()); // Reverse for chronological order
+        lastMessageCount.current = sortedMessages.length;
+        setMessages(sortedMessages);
       }
     } catch (error) {
       console.error('Failed to load messages:', error);
     } finally {
       setLoading(false);
     }
-  }, [backendUserId, lastMessageId, onBanterNotify, tg]);
+  }, [backendUserId, onBanterNotify, tg]);
 
   // Poll for new messages
   useEffect(() => {
@@ -100,17 +109,25 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     }
   }, [messages]);
 
-  // Send message to backend
+  // Send message
   const sendMessage = async () => {
     const text = inputText.trim();
-    if (!text || sending) return;
-
+    
+    // Validation
+    if (!text) return;
+    if (text.length < MIN_MESSAGE_LENGTH) {
+      tg?.showAlert?.(`Message must be at least ${MIN_MESSAGE_LENGTH} characters. Current: ${text.length}`);
+      tg?.HapticFeedback.notificationOccurred('error');
+      return;
+    }
+    
+    if (sending) return;
+    
     setSending(true);
     
     try {
       const token = localStorage.getItem('token');
       const isBanter = text.toLowerCase().includes('#banter');
-      const clubTag = isBanter ? extractClubTag(text) : null;
       
       const response = await fetch(`${API_BASE}/banter/post`, {
         method: 'POST',
@@ -121,7 +138,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         body: JSON.stringify({
           userId: backendUserId,
           content: text,
-          clubTag: clubTag
+          clubTag: null
         })
       });
       
@@ -130,20 +147,15 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       if (data.success) {
         // Clear input
         setInputText('');
+        setCharCount(0);
         
         // Award FTC for banter messages
         if (isBanter) {
+          setRewardAmount(2);
+          setShowRewardToast(true);
           onEarn(2, 'banter');
           tg?.HapticFeedback.notificationOccurred('success');
-          
-          // Show quick feedback
-          if (tg?.showPopup) {
-            tg.showPopup({
-              title: '🔥 Banter Bonus!',
-              message: '+2 FTC earned for your banter!',
-              buttons: [{ type: 'ok' }]
-            });
-          }
+          setTimeout(() => setShowRewardToast(false), 2000);
         }
         
         // Reload messages
@@ -162,16 +174,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     }
   };
 
-  const extractClubTag = (text: string): string | null => {
-    const clubs = ['Barcelona', 'Real Madrid', 'Manchester United', 'Liverpool', 'Arsenal', 'Chelsea', 'Manchester City', 'Bayern Munich', 'PSG', 'Juventus', 'AC Milan', 'Inter Milan'];
-    for (const club of clubs) {
-      if (text.toLowerCase().includes(club.toLowerCase())) {
-        return club;
-      }
-    }
-    return null;
-  };
-
+  // Vote on message
   const handleVote = async (postId: string, authorId: string) => {
     if (authorId === backendUserId) {
       tg?.showAlert?.("You can't vote on your own banter!");
@@ -195,8 +198,11 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       const data = await response.json();
       
       if (data.success) {
+        setRewardAmount(3);
+        setShowRewardToast(true);
         onEarn(3, 'voting');
         tg?.HapticFeedback.notificationOccurred('success');
+        setTimeout(() => setShowRewardToast(false), 2000);
         
         // Reload messages to update vote count
         loadMessages();
@@ -209,23 +215,32 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     }
   };
 
+  // Format time
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
     
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return date.toLocaleDateString();
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  // Get progress color
+  const getProgressColor = () => {
+    if (charCount >= MIN_MESSAGE_LENGTH) return '#22c55e';
+    if (charCount >= 10) return '#eab308';
+    return '#ef4444';
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-[#0a0a0a]">
-        <div className="bg-[#1a1a1a] px-4 py-4 flex items-center gap-3 border-b border-gray-800">
+      <div className="flex flex-col h-full bg-darkBg">
+        <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
           <button onClick={onBack} className="text-gray-400">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -233,7 +248,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </button>
           <div>
             <h2 className="text-lg font-bold text-white">Banter Hall</h2>
-            <p className="text-xs text-gray-500">Global Fan Chat</p>
+            <p className="text-xs text-green-500">Global Fan Chat</p>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -247,45 +262,67 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
-      {/* Header - Facebook Messenger Style */}
-      <div className="bg-[#1a1a1a] px-4 py-3 flex items-center gap-3 border-b border-gray-800 sticky top-0 z-20">
-        <button onClick={onBack} className="text-blue-500 font-medium">
+    <div className="flex flex-col h-full bg-darkBg">
+      {/* Reward Toast */}
+      {showRewardToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in zoom-in duration-300">
+          <div className="bg-green-600 px-4 py-2 rounded-full shadow-2xl flex items-center gap-2">
+            <span className="text-lg">💰</span>
+            <span className="text-sm font-black text-black">+{rewardAmount} FTC Earned!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Header - Green themed */}
+      <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800 sticky top-0 z-20">
+        <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1">
           <h2 className="text-lg font-bold text-white">Banter Hall</h2>
-          <p className="text-xs text-green-500">{messages.length} participants • LIVE</p>
+          <p className="text-xs text-green-500">🔥 Live • {messages.length} messages</p>
         </div>
         <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-          <span className="text-sm">🔥</span>
+          <span className="text-sm">💬</span>
         </div>
       </div>
 
-      {/* Messages Area - Facebook Messenger Style */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3" ref={scrollRef}>
+      {/* Info Banner */}
+      <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
+        <p className="text-[10px] text-green-400">
+          💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
+        </p>
+        <div className="flex -space-x-2">
+          {messages.slice(-3).map((msg, i) => (
+            <div key={i} className="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center text-[8px]">
+              👤
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-              <span className="text-4xl">💬</span>
+              <span className="text-4xl">🔥</span>
             </div>
-            <p className="text-gray-400 font-medium">No messages yet</p>
-            <p className="text-xs text-gray-600 mt-2">Be the first to start the conversation!</p>
+            <p className="text-gray-400 font-medium">No banter yet!</p>
+            <p className="text-xs text-gray-600 mt-2">Be the first to start the conversation</p>
             <p className="text-xs text-gray-600 mt-1">Use #banter to earn 2 FTC</p>
           </div>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[75%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-2`}>
+              <div className={`flex max-w-[80%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-2`}>
                 {/* Avatar */}
                 {!msg.isMe && (
-                  <img 
-                    src={msg.senderAvatar} 
-                    className="w-8 h-8 rounded-full object-cover mt-1" 
-                    alt={msg.senderName}
-                  />
+                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                    <span className="text-xs">⚽</span>
+                  </div>
                 )}
                 
                 {/* Message Bubble */}
@@ -296,14 +333,14 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
                   <div
                     className={`relative px-4 py-2 rounded-2xl ${
                       msg.isMe
-                        ? 'bg-blue-600 text-white rounded-br-none'
-                        : 'bg-[#1a1a1a] text-gray-200 rounded-bl-none border border-gray-800'
+                        ? 'bg-green-600 text-white rounded-br-none'
+                        : 'bg-darkCard text-gray-200 rounded-bl-none border border-gray-700'
                     }`}
                   >
                     <p className="text-sm break-words">{msg.content}</p>
-                    {msg.clubTag && (
-                      <span className="inline-block text-[9px] font-bold text-green-500 mt-1">
-                        #{msg.clubTag}
+                    {msg.content.toLowerCase().includes('#banter') && (
+                      <span className="inline-block text-[9px] font-bold text-yellow-400 mt-1">
+                        🔥 #banter
                       </span>
                     )}
                   </div>
@@ -314,12 +351,9 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
                         onClick={() => handleVote(msg.id, msg.userId)}
                         className="text-[9px] text-gray-500 hover:text-yellow-500 transition-colors flex items-center gap-1"
                       >
-                        🔥 {msg.votes > 0 && <span className="text-yellow-500">{msg.votes}</span>}
-                        <span>Vote</span>
+                        🔥 Vote {msg.votes > 0 && <span className="text-yellow-500">({msg.votes})</span>}
+                        <span className="text-green-500">+3 FTC</span>
                       </button>
-                    )}
-                    {msg.isMe && msg.content.toLowerCase().includes('#banter') && (
-                      <span className="text-[9px] text-green-500">+2 FTC earned</span>
                     )}
                   </div>
                 </div>
@@ -327,9 +361,11 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             </div>
           ))
         )}
+        
+        {/* Typing indicator */}
         {sending && (
           <div className="flex justify-end">
-            <div className="bg-blue-600/50 px-4 py-2 rounded-2xl rounded-br-none">
+            <div className="bg-green-600/50 px-4 py-2 rounded-2xl rounded-br-none">
               <div className="flex gap-1">
                 <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -340,21 +376,40 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         )}
       </div>
 
-      {/* Input Area - Facebook Messenger Style */}
-      <div className="bg-[#1a1a1a] px-3 py-3 border-t border-gray-800">
+      {/* Input Area - Green themed with character counter */}
+      <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
+        {/* Character counter bar */}
+        <div className="mb-2 px-1 flex items-center justify-between gap-3">
+          <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full rounded-full transition-all duration-300" 
+              style={{ 
+                width: `${Math.min((charCount / MIN_MESSAGE_LENGTH) * 100, 100)}%`, 
+                backgroundColor: getProgressColor() 
+              }}
+            />
+          </div>
+          <span 
+            className="text-[9px] font-black tabular-nums transition-colors duration-300"
+            style={{ color: charCount >= MIN_MESSAGE_LENGTH ? '#22c55e' : '#6b7280' }}
+          >
+            {charCount}/{MIN_MESSAGE_LENGTH}
+          </span>
+        </div>
+
         <div className="flex items-center gap-2">
-          <div className="flex-1 bg-[#2a2a2a] rounded-full px-4 py-2 flex items-center">
+          <div className="flex-1 bg-darkDeep rounded-full px-4 py-2 flex items-center border border-gray-700 focus-within:border-green-500 transition-colors">
             <input
               ref={inputRef}
               type="text"
-              placeholder="Say something..."
+              placeholder={`Say something (min ${MIN_MESSAGE_LENGTH} chars)...`}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !sending && inputText.trim() && sendMessage()}
+              onKeyPress={(e) => e.key === 'Enter' && !sending && charCount >= MIN_MESSAGE_LENGTH && sendMessage()}
               className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-gray-500"
               autoFocus
             />
-            {inputText.trim() && (
+            {inputText && (
               <button 
                 onClick={() => setInputText('')}
                 className="text-gray-500 hover:text-gray-400 ml-2"
@@ -368,10 +423,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           
           <button
             onClick={sendMessage}
-            disabled={!inputText.trim() || sending}
+            disabled={!inputText.trim() || sending || charCount < MIN_MESSAGE_LENGTH}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !sending
-                ? 'bg-blue-600 text-white active:scale-95'
+              inputText.trim() && !sending && charCount >= MIN_MESSAGE_LENGTH
+                ? 'bg-green-600 text-black active:scale-95'
                 : 'bg-gray-700 text-gray-500 cursor-not-allowed'
             }`}
           >
@@ -381,11 +436,11 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </button>
         </div>
         
-        {/* Tip Banner */}
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <span className="text-[8px] text-gray-600">💡 Use</span>
-          <span className="text-[8px] font-bold text-yellow-500">#banter</span>
-          <span className="text-[8px] text-gray-600">to earn 2 FTC per message</span>
+        {/* Tip */}
+        <div className="mt-2 text-center">
+          <span className="text-[8px] text-gray-600">
+            💡 Use <span className="text-yellow-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
+          </span>
         </div>
       </div>
     </div>
