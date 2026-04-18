@@ -122,7 +122,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [userRank, setUserRank] = useState<number>(12500);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
-  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false); // ADD THIS LINE
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -167,20 +167,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   }, [wallet?.balanceFTC]);
 
-  // Check for welcome bonus - check backend to see if already claimed
+  // Check for welcome bonus
   useEffect(() => {
     const checkWelcomeBonus = async () => {
       const hasSeenWelcome = localStorage.getItem('has_seen_welcome_bonus');
       const bonusClaimed = localStorage.getItem('welcome_bonus_claimed');
       
-      // If already claimed in localStorage, don't show
       if (hasSeenWelcome || bonusClaimed === 'true') {
         return;
       }
       
-      // Check backend if user already claimed bonus
       if (backendUserId && profile?.favoriteClubId) {
-        // Use the stored telegramId from onboarding or props
         const telegramId = (onboarding as any).telegramId || localStorage.getItem('telegramId');
         if (telegramId) {
           try {
@@ -196,7 +193,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }
       }
       
-      // Show bonus if balance is 0 and not claimed
       if ((wallet?.balanceFTC === 0 || !wallet?.balanceFTC) && !hasSeenWelcome) {
         setShowWelcomeBonus(true);
       }
@@ -207,7 +203,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // ===== NOTIFICATION SYSTEM =====
   
-  // Add a notification
   const addNotification = (title: string, message: string, type: NotificationItem['type'], actionData?: any) => {
     const newNotification: NotificationItem = {
       id: Date.now().toString(),
@@ -220,7 +215,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     };
     setNotifications(prev => [newNotification, ...prev]);
     
-    // Show popup for important notifications
     if (type === 'banter' || type === 'referral') {
       tg?.showPopup?.({
         title: title,
@@ -231,28 +225,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (type === 'referral') setActiveTab('profile');
       });
       
-      // Also show floating alert
       setShowBanterAlert(newNotification);
       if (alertTimer.current) clearTimeout(alertTimer.current);
       alertTimer.current = setTimeout(() => setShowBanterAlert(null), 5000);
     }
   };
 
-  // Handle banter notification from BanterHall
-  const handleBanterNotify = (message: string, mentionedClub: string) => {
-    const userClubName = club?.name || '';
-    const isRelevant = mentionedClub === 'all' || mentionedClub.toLowerCase() === userClubName.toLowerCase();
-    if (!isRelevant) return;
-    
-    addNotification(
-      '🔥 Banter Alert!',
-      `Someone mentioned ${mentionedClub === 'all' ? 'your club' : mentionedClub}: "${message.slice(0, 60)}${message.length > 60 ? '…' : ''}"`,
-      'banter',
-      { message, mentionedClub }
-    );
+  const handleBanterNotify = (message: string, senderName: string) => {
+    // Only notify if it's not your own message
+    if (senderName !== profile?.displayName) {
+      addNotification(
+        '💬 New Banter',
+        `${senderName}: "${message.slice(0, 60)}${message.length > 60 ? '…' : ''}"`,
+        'banter',
+        { message, senderName }
+      );
+      // Vibrate for new message
+      tg?.HapticFeedback.impactOccurred('light');
+    }
   };
 
-  // Handle earnings notification
   const notifyEarnings = (amount: number, reason: string) => {
     addNotification(
       '🎉 FTC Earned!',
@@ -261,7 +253,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     );
   };
 
-  // Handle referral notification
   const notifyReferral = (referrerName: string) => {
     addNotification(
       '👥 Referral Bonus!',
@@ -276,26 +267,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // ===== EARNING FUNCTION =====
+  // ===== EARNING FUNCTION - PERSISTENT TO DATABASE =====
   const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
     tg?.HapticFeedback.notificationOccurred('success');
-    if (onUpdateWallet && wallet) {
-      const newBalance = (wallet.balanceFTC || 0) + amount;
-      onUpdateWallet({ balanceFTC: newBalance });
-      setUserFTCBalance(newBalance);
-      notifyEarnings(amount, reason);
-    }
-    onRecordActivity();
     
-    // Refresh leaderboard
-    const res = await api.leaderboard.getTop();
-    if (res.success) {
-      setLeaderboardData(res.leaderboard || []);
-      const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
-      if (userIndex !== undefined && userIndex !== -1) {
-        setUserRank(userIndex + 1);
+    // Save to backend database
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/user/add-ftc`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: backendUserId,
+          amount: amount,
+          reason: reason
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update local state
+        if (onUpdateWallet && wallet) {
+          const newBalance = (wallet.balanceFTC || 0) + amount;
+          onUpdateWallet({ balanceFTC: newBalance });
+          setUserFTCBalance(newBalance);
+          notifyEarnings(amount, reason);
+        }
+        
+        // Refresh leaderboard
+        const res = await api.leaderboard.getTop();
+        if (res.success) {
+          setLeaderboardData(res.leaderboard || []);
+          const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
+          if (userIndex !== undefined && userIndex !== -1) {
+            setUserRank(userIndex + 1);
+          }
+        }
+      } else {
+        console.error('Failed to save FTC to database:', data.error);
       }
+    } catch (error) {
+      console.error('Error saving FTC:', error);
     }
+    
+    onRecordActivity();
   };
 
   // ===== CLAIM WELCOME BONUS =====
@@ -305,7 +324,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     setIsClaimingBonus(true);
     
     try {
-      // Use backendUserId
       const userId = backendUserId;
       
       if (!userId) {
@@ -315,18 +333,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         return;
       }
       
-      // Call backend to claim bonus
       const response = await api.user.claimWelcomeBonus(userId);
       
       if (response.success) {
-        // Update local wallet balance
         if (onUpdateWallet && wallet) {
           const newBalance = (wallet.balanceFTC || 0) + response.bonusAmount;
           onUpdateWallet({ balanceFTC: newBalance });
           setUserFTCBalance(newBalance);
         }
         
-        // Show success notification
         notifyEarnings(response.bonusAmount, 'welcome bonus');
         setShowWelcomeBonus(false);
         localStorage.setItem('has_seen_welcome_bonus', 'true');
@@ -334,7 +349,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         
         tg?.HapticFeedback.notificationOccurred('success');
         
-        // Refresh leaderboard to show new rank
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
@@ -346,7 +360,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       } else {
         console.error('Failed to claim bonus:', response.error);
         if (response.alreadyClaimed) {
-          // If already claimed, just hide the popup
           setShowWelcomeBonus(false);
           localStorage.setItem('has_seen_welcome_bonus', 'true');
           localStorage.setItem('welcome_bonus_claimed', 'true');
@@ -365,11 +378,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // ===== EDIT PROFILE =====
   const handleSaveProfile = async () => {
     if (editName.trim() && editName !== profile?.displayName) {
-      // Update local state
       onUpdateProfile(editName.trim());
       if (profile) profile.displayName = editName.trim();
       
-      // Also update backend if possible
       if (backendUserId) {
         try {
           await api.user.updateDisplayName(backendUserId, editName.trim());
@@ -507,7 +518,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             }`}
           >
             <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center text-xl shrink-0">
-              {notif.type === 'banter' ? '🔥' : notif.type === 'referral' ? '👥' : '🎉'}
+              {notif.type === 'banter' ? '💬' : notif.type === 'referral' ? '👥' : '🎉'}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -622,7 +633,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Screen routing
   if (inTrivia && club) return <TriviaScreen club={club} onboarding={onboarding} onBack={() => setInTrivia(false)} onEarn={handleEarnFTC} onComplete={onTriviaComplete} />;
   if (inJerseyDay && club) return <JerseyDayScreen club={club} profile={profile} onBack={() => setInJerseyDay(false)} onCheckIn={handleEarnFTC} />;
-  if (inBanterHall) return <BanterHallScreen profile={profile} onBack={() => setInBanterHall(false)} onEarn={handleEarnFTC} onBanterNotify={handleBanterNotify} backendUserId={backendUserId} />;
+  if (inBanterHall) return <BanterHallScreen 
+    profile={profile} 
+    onBack={() => setInBanterHall(false)} 
+    onEarn={handleEarnFTC} 
+    onBanterNotify={handleBanterNotify} 
+    backendUserId={backendUserId} 
+  />;
   if (inFanPod) return <FanPodScreen profile={profile} onBack={() => setInFanPod(false)} onEarn={handleEarnFTC} />;
   if (inHopeCampaign) return <HopeCampaignScreen onBack={() => setInHopeCampaign(false)} onEarn={handleEarnFTC} />;
   if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} />;
@@ -634,7 +651,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="fixed top-4 left-4 right-4 z-[60] animate-in slide-in-from-top-4 fade-in duration-300">
           <div className="bg-darkCard border border-green-500/40 rounded-2xl p-4 shadow-2xl flex items-start gap-3">
             <div className="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-xl">{showBanterAlert.type === 'banter' ? '🔥' : '🎉'}</span>
+              <span className="text-xl">{showBanterAlert.type === 'banter' ? '💬' : '🎉'}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-0.5">{showBanterAlert.title}</p>
@@ -657,7 +674,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       )}
 
-      {/* Welcome Bonus Popup - FIXED VERSION */}
+      {/* Welcome Bonus Popup */}
       {showWelcomeBonus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30 animate-in zoom-in duration-300">
