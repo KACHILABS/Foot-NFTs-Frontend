@@ -22,7 +22,7 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 2000; // 2 seconds for real-time feel
+const POLL_INTERVAL = 2000;
 const MIN_MESSAGE_LENGTH = 15;
 
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({ 
@@ -45,7 +45,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   const tg = (window as any).Telegram?.WebApp;
 
-  // Update char count
   useEffect(() => {
     setCharCount(inputText.trim().length);
   }, [inputText]);
@@ -69,12 +68,11 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
-        // Sort by oldest first (chronological order for display)
         const sortedMessages = formattedMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         
-        // Check for new messages from others
+        // Check for new messages
         if (lastMessageCount.current > 0 && sortedMessages.length > lastMessageCount.current) {
           const newMessages = sortedMessages.slice(lastMessageCount.current);
           newMessages.forEach(msg => {
@@ -102,33 +100,37 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Format time - FIXED for correct timezone handling
+  // Format time - FIXED with timezone offset
   const formatTime = (dateString: string) => {
     try {
-      // Parse the date - handle ISO string
-      const date = new Date(dateString);
+      // Parse the UTC date and adjust for local timezone
+      const utcDate = new Date(dateString);
+      
+      // Get local timezone offset in minutes
+      const localOffset = new Date().getTimezoneOffset();
+      
+      // Adjust UTC date to local time
+      const localDate = new Date(utcDate.getTime() - (localOffset * 60000));
+      
       const now = new Date();
+      const nowLocal = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.error('Invalid date:', dateString);
-        return 'Just now';
-      }
-      
-      const diffMs = now.getTime() - date.getTime();
+      const diffMs = nowLocal.getTime() - localDate.getTime();
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMins / 60);
       const diffDays = Math.floor(diffHours / 24);
       
-      // For messages posted in the future (clock skew), show Just now
-      if (diffMs < 0) return 'Just now';
+      // Debug log (remove in production)
+      console.log('UTC:', dateString);
+      console.log('Local:', localDate.toLocaleString());
+      console.log('Diff mins:', diffMins);
       
       if (diffMins < 1) return 'Just now';
       if (diffMins === 1) return '1 min ago';
@@ -147,7 +149,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const sendMessage = async () => {
     const text = inputText.trim();
     
-    // Validation
     if (!text) return;
     if (text.length < MIN_MESSAGE_LENGTH) {
       tg?.showAlert?.(`Message must be at least ${MIN_MESSAGE_LENGTH} characters. Current: ${text.length}`);
@@ -179,11 +180,9 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       const data = await response.json();
       
       if (data.success) {
-        // Clear input
         setInputText('');
         setCharCount(0);
         
-        // Award FTC for banter messages
         if (isBanter) {
           setRewardAmount(2);
           setShowRewardToast(true);
@@ -192,10 +191,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           setTimeout(() => setShowRewardToast(false), 2000);
         }
         
-        // Reload messages
         await loadMessages();
-        
-        // Focus back on input
         inputRef.current?.focus();
       } else {
         tg?.showAlert?.(data.error || 'Failed to send message');
@@ -237,8 +233,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         onEarn(3, 'voting');
         tg?.HapticFeedback.notificationOccurred('success');
         setTimeout(() => setShowRewardToast(false), 2000);
-        
-        // Reload messages to update vote count
         loadMessages();
       } else {
         tg?.showAlert?.(data.error || 'Failed to vote');
@@ -249,7 +243,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     }
   };
 
-  // Get progress color
   const getProgressColor = () => {
     if (charCount >= MIN_MESSAGE_LENGTH) return '#22c55e';
     if (charCount >= 10) return '#eab308';
@@ -282,7 +275,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-darkBg">
-      {/* Reward Toast */}
       {showRewardToast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in zoom-in duration-300">
           <div className="bg-green-600 px-4 py-2 rounded-full shadow-2xl flex items-center gap-2">
@@ -292,7 +284,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* Header - Green themed */}
+      {/* Header */}
       <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800 sticky top-0 z-20">
         <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,14 +329,12 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex max-w-[80%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-2`}>
-                {/* Avatar */}
                 {!msg.isMe && (
                   <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
                     <span className="text-xs">⚽</span>
                   </div>
                 )}
                 
-                {/* Message Bubble */}
                 <div>
                   {!msg.isMe && (
                     <p className="text-xs font-semibold text-gray-400 mb-1 ml-1">{msg.senderName}</p>
@@ -381,7 +371,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           ))
         )}
         
-        {/* Typing indicator */}
         {sending && (
           <div className="flex justify-end">
             <div className="bg-green-600/50 px-4 py-2 rounded-2xl rounded-br-none">
@@ -395,9 +384,8 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         )}
       </div>
 
-      {/* Input Area - Green themed with character counter */}
+      {/* Input Area */}
       <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
-        {/* Character counter bar */}
         <div className="mb-2 px-1 flex items-center justify-between gap-3">
           <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
             <div 
@@ -455,7 +443,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </button>
         </div>
         
-        {/* Tip */}
         <div className="mt-2 text-center">
           <span className="text-[8px] text-gray-600">
             💡 Use <span className="text-yellow-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
