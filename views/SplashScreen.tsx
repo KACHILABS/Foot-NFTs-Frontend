@@ -44,18 +44,41 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
       const telegramId = telegramUser?.id || 123456789;
       const telegramUsername = telegramUser?.username || 'User';
       
-      // FIRST: Login/create user via backend
-      console.log('📝 Creating user...');
+      // Login/signup via backend
+      console.log('📝 Creating/loading user...');
       const loginResult = await api.auth.login(telegramId, telegramUsername);
       
       if (!loginResult.success) {
-        throw new Error('Failed to create user');
+        throw new Error('Failed to create/load user');
       }
       
-      console.log('✅ User created:', loginResult.user.id);
+      console.log('✅ User loaded:', loginResult.user.id);
+      console.log('Has claimed bonus:', loginResult.user.hasClaimedWelcomeBonus);
+      console.log('Profile completed:', loginResult.user.profileCompleted);
       
-      // SECOND: Claim the welcome bonus
-      console.log('🎁 Claiming bonus...');
+      // Check if user already has a profile completed (existing user)
+      if (loginResult.user.profileCompleted || loginResult.user.hasClaimedWelcomeBonus) {
+        console.log('Existing user detected, skipping bonus claim');
+        
+        // Call onClaimBonus with 0 (no bonus to add)
+        if (onClaimBonus) {
+          onClaimBonus(0);
+        }
+        
+        // Complete onboarding immediately
+        setTimeout(() => {
+          setClaiming(false);
+          if (selectedClub === 'other') {
+            onComplete(name, 'other', customClub);
+          } else {
+            onComplete(name, selectedClub);
+          }
+        }, 500);
+        return;
+      }
+      
+      // New user - claim the welcome bonus
+      console.log('🎁 New user - Claiming bonus...');
       const bonusResult = await api.user.claimWelcomeBonus(loginResult.user.id);
       
       if (bonusResult.success) {
@@ -66,10 +89,9 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
           onClaimBonus(bonusResult.bonusAmount);
         }
         
-        // Short delay then complete onboarding
+        // Complete onboarding
         setTimeout(() => {
           setClaiming(false);
-          // Pass the club info to parent
           if (selectedClub === 'other') {
             onComplete(name, 'other', customClub);
           } else {
@@ -77,7 +99,23 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
           }
         }, 500);
       } else {
-        throw new Error(bonusResult.error || 'Failed to claim bonus');
+        // If bonus already claimed but somehow flagged wrong
+        if (bonusResult.alreadyClaimed) {
+          console.log('Bonus already claimed, proceeding to dashboard');
+          if (onClaimBonus) {
+            onClaimBonus(0);
+          }
+          setTimeout(() => {
+            setClaiming(false);
+            if (selectedClub === 'other') {
+              onComplete(name, 'other', customClub);
+            } else {
+              onComplete(name, selectedClub);
+            }
+          }, 500);
+        } else {
+          throw new Error(bonusResult.error || 'Failed to claim bonus');
+        }
       }
     } catch (err: any) {
       console.error('Error in claim bonus:', err);
@@ -129,7 +167,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Creating Account & Claiming Bonus...
+                {claiming ? 'Processing...' : 'Creating Account & Claiming Bonus...'}
               </span>
             ) : (
               'Claim 50 FTC Bonus 🎁'

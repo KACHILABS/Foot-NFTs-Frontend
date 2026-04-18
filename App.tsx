@@ -84,6 +84,24 @@ const App: React.FC = () => {
   const [backendUserId, setBackendUserId] = useState<string | null>(getUserId());
   const [loading, setLoading] = useState(true);
 
+  // Function to mark profile as completed in database
+  const markProfileCompleted = async (userId: string) => {
+    try {
+      const response = await fetch(`https://footnfts.up.railway.app/api/user/complete-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ userId })
+      });
+      const data = await response.json();
+      console.log('Profile completion saved:', data);
+    } catch (error) {
+      console.error('Failed to save profile completion:', error);
+    }
+  };
+
   // Load user data from backend on app start
   useEffect(() => {
     const loadUserData = async () => {
@@ -130,15 +148,17 @@ const App: React.FC = () => {
             balanceFTC: profileRes.profile.ftcBalance || 0,
             isConnected: true
           }));
-          localStorage.setItem('profile_completed', 'true');
           
-          // Update onboarding state
-          setOnboarding(prev => ({
-            ...prev,
-            profileCompleted: true,
-            walletConnected: true,
-            clubSelected: true
-          }));
+          // Check if profile is completed (has name and club)
+          if (userProfile.displayName && userProfile.favoriteClubId) {
+            localStorage.setItem('profile_completed', 'true');
+            setOnboarding(prev => ({
+              ...prev,
+              profileCompleted: true,
+              walletConnected: true,
+              clubSelected: true
+            }));
+          }
         } else {
           // Profile not found, need to complete onboarding
           console.log('Profile not complete, needs onboarding');
@@ -254,6 +274,9 @@ const App: React.FC = () => {
               }));
               localStorage.setItem('profile_completed', 'true');
               localStorage.setItem('telegramId', telegramId.toString());
+              
+              // Mark profile as completed in database
+              await markProfileCompleted(result.user.id);
               
               setOnboarding(prev => ({
                 ...prev,
