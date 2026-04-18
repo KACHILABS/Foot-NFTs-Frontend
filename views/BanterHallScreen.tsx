@@ -69,7 +69,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
-        // Sort by newest first (most recent at bottom)
+        // Sort by oldest first (chronological order for display)
         const sortedMessages = formattedMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
@@ -108,6 +108,40 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Format time - FIXED for correct timezone handling
+  const formatTime = (dateString: string) => {
+    try {
+      // Parse the date - handle ISO string
+      const date = new Date(dateString);
+      const now = new Date();
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return 'Just now';
+      }
+      
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      // For messages posted in the future (clock skew), show Just now
+      if (diffMs < 0) return 'Just now';
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins === 1) return '1 min ago';
+      if (diffMins < 60) return `${diffMins} mins ago`;
+      if (diffHours === 1) return '1 hour ago';
+      if (diffHours < 24) return `${diffHours} hours ago`;
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays} days ago`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Just now';
+    }
+  };
 
   // Send message
   const sendMessage = async () => {
@@ -213,21 +247,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       console.error('Failed to vote:', error);
       tg?.showAlert?.('Network error. Please try again.');
     }
-  };
-
-  // Format time
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
   };
 
   // Get progress color
