@@ -22,7 +22,7 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 2000;
+const POLL_INTERVAL = 3000;
 const MIN_MESSAGE_LENGTH = 15;
 
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({ 
@@ -41,13 +41,44 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const [charCount, setCharCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lastMessageCount = useRef(0);
+  const lastMessageId = useRef<string | null>(null);
 
   const tg = (window as any).Telegram?.WebApp;
 
   useEffect(() => {
     setCharCount(inputText.trim().length);
   }, [inputText]);
+
+  // Format time - FIXED for timezone (Nigeria UTC+1)
+  const formatTime = (dateString: string) => {
+    try {
+      const dbDate = new Date(dateString);
+      const now = new Date();
+      
+      // Get timezone offset in minutes (Nigeria is UTC+1, so offset is -60)
+      const offset = now.getTimezoneOffset();
+      
+      // Adjust database UTC time to local time
+      const localDate = new Date(dbDate.getTime() - (offset * 60000));
+      const localNow = new Date(now.getTime() - (offset * 60000));
+      
+      const diffMs = localNow.getTime() - localDate.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      if (diffMs < 0) return 'Just now';
+      if (diffMins < 1) return 'Just now';
+      if (diffMins === 1) return '1 min ago';
+      if (diffMins < 60) return `${diffMins} mins ago`;
+      if (diffHours === 1) return '1 hour ago';
+      if (diffHours < 24) return `${diffHours} hours ago`;
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays} days ago`;
+    } catch (error) {
+      return 'Just now';
+    }
+  };
 
   // Load messages from backend
   const loadMessages = useCallback(async () => {
@@ -68,22 +99,24 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
+        // Sort chronologically (oldest first for display)
         const sortedMessages = formattedMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         
-        // Check for new messages
-        if (lastMessageCount.current > 0 && sortedMessages.length > lastMessageCount.current) {
-          const newMessages = sortedMessages.slice(lastMessageCount.current);
-          newMessages.forEach(msg => {
-            if (!msg.isMe && onBanterNotify) {
-              onBanterNotify(msg.content, msg.senderName);
-              tg?.HapticFeedback.impactOccurred('light');
-            }
-          });
+        // Check for new messages (notifications)
+        if (lastMessageId.current && sortedMessages.length > 0) {
+          const lastMsg = sortedMessages[sortedMessages.length - 1];
+          if (lastMsg.id !== lastMessageId.current && !lastMsg.isMe && onBanterNotify) {
+            onBanterNotify(lastMsg.content, lastMsg.senderName);
+            tg?.HapticFeedback.impactOccurred('light');
+          }
         }
         
-        lastMessageCount.current = sortedMessages.length;
+        if (sortedMessages.length > 0) {
+          lastMessageId.current = sortedMessages[sortedMessages.length - 1].id;
+        }
+        
         setMessages(sortedMessages);
       }
     } catch (error) {
@@ -100,50 +133,12 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
-  // Auto-scroll
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Format time - FIXED with timezone offset
-  const formatTime = (dateString: string) => {
-    try {
-      // Parse the UTC date and adjust for local timezone
-      const utcDate = new Date(dateString);
-      
-      // Get local timezone offset in minutes
-      const localOffset = new Date().getTimezoneOffset();
-      
-      // Adjust UTC date to local time
-      const localDate = new Date(utcDate.getTime() - (localOffset * 60000));
-      
-      const now = new Date();
-      const nowLocal = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
-      
-      const diffMs = nowLocal.getTime() - localDate.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-      
-      // Debug log (remove in production)
-      console.log('UTC:', dateString);
-      console.log('Local:', localDate.toLocaleString());
-      console.log('Diff mins:', diffMins);
-      
-      if (diffMins < 1) return 'Just now';
-      if (diffMins === 1) return '1 min ago';
-      if (diffMins < 60) return `${diffMins} mins ago`;
-      if (diffHours === 1) return '1 hour ago';
-      if (diffHours < 24) return `${diffHours} hours ago`;
-      if (diffDays === 1) return 'Yesterday';
-      return `${diffDays} days ago`;
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Just now';
-    }
-  };
 
   // Send message
   const sendMessage = async () => {
@@ -204,7 +199,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     }
   };
 
-  // Vote on message
+  // Vote on message - earns 3 FTC
   const handleVote = async (postId: string, authorId: string) => {
     if (authorId === backendUserId) {
       tg?.showAlert?.("You can't vote on your own banter!");
@@ -252,7 +247,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-darkBg">
-        <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
+        <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800 sticky top-0 z-20">
           <button onClick={onBack} className="text-gray-400">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -275,6 +270,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-darkBg">
+      {/* Reward Toast */}
       {showRewardToast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in zoom-in duration-300">
           <div className="bg-green-600 px-4 py-2 rounded-full shadow-2xl flex items-center gap-2">
@@ -284,37 +280,39 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800 sticky top-0 z-20">
-        <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="flex-1">
-          <h2 className="text-lg font-bold text-white">Banter Hall</h2>
-          <p className="text-xs text-green-500">🔥 Live • {messages.length} messages</p>
+      {/* Header - STICKY (fixed when scrolling) */}
+      <div className="sticky top-0 z-20 bg-darkCard border-b border-gray-800">
+        <div className="px-4 py-4 flex items-center gap-3">
+          <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-white">Banter Hall</h2>
+            <p className="text-xs text-green-500">🔥 Live • {messages.length} messages</p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+            <span className="text-sm">💬</span>
+          </div>
         </div>
-        <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-          <span className="text-sm">💬</span>
+
+        {/* Info Banner */}
+        <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
+          <p className="text-[10px] text-green-400">
+            💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
+          </p>
+          <div className="flex -space-x-2">
+            {messages.slice(-3).map((msg, i) => (
+              <div key={i} className="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center text-[8px]">
+                👤
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
-        <p className="text-[10px] text-green-400">
-          💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
-        </p>
-        <div className="flex -space-x-2">
-          {messages.slice(-3).map((msg, i) => (
-            <div key={i} className="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center text-[8px]">
-              👤
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Messages Area */}
+      {/* Messages Area - Scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -329,12 +327,14 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex max-w-[80%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-2`}>
+                {/* Avatar */}
                 {!msg.isMe && (
                   <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
                     <span className="text-xs">⚽</span>
                   </div>
                 )}
                 
+                {/* Message Bubble */}
                 <div>
                   {!msg.isMe && (
                     <p className="text-xs font-semibold text-gray-400 mb-1 ml-1">{msg.senderName}</p>
@@ -371,6 +371,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           ))
         )}
         
+        {/* Typing indicator */}
         {sending && (
           <div className="flex justify-end">
             <div className="bg-green-600/50 px-4 py-2 rounded-2xl rounded-br-none">
@@ -384,8 +385,9 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
+      {/* Input Area - Sticky at bottom */}
+      <div className="sticky bottom-0 bg-darkCard px-4 py-3 border-t border-gray-800">
+        {/* Character counter bar */}
         <div className="mb-2 px-1 flex items-center justify-between gap-3">
           <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
             <div 
@@ -443,6 +445,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </button>
         </div>
         
+        {/* Tip */}
         <div className="mt-2 text-center">
           <span className="text-[8px] text-gray-600">
             💡 Use <span className="text-yellow-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
