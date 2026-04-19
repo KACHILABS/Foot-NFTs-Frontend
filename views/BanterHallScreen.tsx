@@ -22,7 +22,7 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 2000;
+const POLL_INTERVAL = 3000;
 const MIN_MESSAGE_LENGTH = 15;
 
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({ 
@@ -49,7 +49,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     setCharCount(inputText.trim().length);
   }, [inputText]);
 
-  // Load messages from backend
+  // Load messages from backend - OLDEST FIRST so newest at BOTTOM
   const loadMessages = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/banter/feed`);
@@ -68,6 +68,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
+        // Sort OLDEST FIRST (ascending) - newest messages at the BOTTOM
         const sortedMessages = formattedMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
@@ -100,16 +101,18 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
-  // Auto-scroll — setTimeout lets the DOM finish painting before scrolling
+  // Auto-scroll to BOTTOM when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
-      setTimeout(() => {
-        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
-      }, 50);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      });
     }
   }, [messages]);
 
-  // Timestamp fix — append Z to force UTC parsing if backend omits it
+  // Format time
   const formatTime = (dateString: string) => {
     try {
       const utcString = dateString.endsWith('Z') ? dateString : `${dateString}Z`;
@@ -271,9 +274,8 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* Sticky wrapper — header + info banner locked together at top */}
+      {/* Sticky Header */}
       <div className="sticky top-0 z-20">
-        {/* Header */}
         <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
           <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,7 +291,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </div>
         </div>
 
-        {/* Info Banner */}
         <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
           <p className="text-[10px] text-green-400">
             💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
@@ -304,7 +305,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Messages appear at BOTTOM like WhatsApp */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
