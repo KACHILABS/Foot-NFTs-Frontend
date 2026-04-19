@@ -100,18 +100,20 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
-  // Auto-scroll
+  // Auto-scroll — setTimeout lets the DOM finish painting before scrolling
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTimeout(() => {
+        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
+      }, 50);
     }
   }, [messages]);
 
-  // FIX 2: Corrected formatTime — no manual offset needed,
-  // JS automatically converts UTC strings to local time via new Date()
+  // Timestamp fix — append Z to force UTC parsing if backend omits it
   const formatTime = (dateString: string) => {
     try {
-      const date = new Date(dateString); // auto-converts UTC → local
+      const utcString = dateString.endsWith('Z') ? dateString : `${dateString}Z`;
+      const date = new Date(utcString);
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
@@ -269,8 +271,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* FIX 1: Sticky wrapper — both header and info banner are now children
-          of a single sticky container so they scroll together as one unit */}
+      {/* Sticky wrapper — header + info banner locked together at top */}
       <div className="sticky top-0 z-20">
         {/* Header */}
         <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
