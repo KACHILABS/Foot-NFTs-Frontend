@@ -140,6 +140,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { id: 'hope', name: 'Hope Campaign', icon: '🕊️', description: 'Football for a cause', comingSoon: true, locked: true },
   ];
 
+  const NOTIFICATIONS_STORAGE_KEY = 'footnfts_notifications';
+
+  // Load notifications from localStorage
+  const loadNotificationsFromStorage = () => {
+    try {
+      const saved = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setNotifications(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    }
+  };
+
+  // Save notifications to localStorage
+  const saveNotificationsToStorage = (notifs: NotificationItem[]) => {
+    try {
+      const toSave = notifs.slice(0, 50);
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(toSave));
+    } catch (error) {
+      console.error('Failed to save notifications:', error);
+    }
+  };
+
   // Load leaderboard data
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -166,6 +191,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       setUserFTCBalance(wallet.balanceFTC);
     }
   }, [wallet?.balanceFTC]);
+
+  // Load persistent notifications on mount
+  useEffect(() => {
+    loadNotificationsFromStorage();
+  }, []);
 
   // Check for welcome bonus
   useEffect(() => {
@@ -213,7 +243,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       read: false,
       actionData
     };
-    setNotifications(prev => [newNotification, ...prev]);
+    
+    setNotifications(prev => {
+      const updated = [newNotification, ...prev];
+      saveNotificationsToStorage(updated);
+      return updated;
+    });
     
     if (type === 'banter' || type === 'referral') {
       tg?.showPopup?.({
@@ -232,7 +267,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   const handleBanterNotify = (message: string, senderName: string) => {
-    // Only notify if it's not your own message
     if (senderName !== profile?.displayName) {
       addNotification(
         '💬 New Banter',
@@ -240,7 +274,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         'banter',
         { message, senderName }
       );
-      // Vibrate for new message
       tg?.HapticFeedback.impactOccurred('light');
     }
   };
@@ -262,7 +295,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   const markAllNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, read: true }));
+      saveNotificationsToStorage(updated);
+      return updated;
+    });
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    saveNotificationsToStorage([]);
+    tg?.HapticFeedback.notificationOccurred('success');
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -271,7 +314,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
     tg?.HapticFeedback.notificationOccurred('success');
     
-    // Save to backend database
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE}/user/add-ftc`, {
@@ -290,7 +332,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const data = await response.json();
       
       if (data.success) {
-        // Update local state
         if (onUpdateWallet && wallet) {
           const newBalance = (wallet.balanceFTC || 0) + amount;
           onUpdateWallet({ balanceFTC: newBalance });
@@ -298,7 +339,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           notifyEarnings(amount, reason);
         }
         
-        // Refresh leaderboard
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
@@ -485,11 +525,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <div className="flex flex-col gap-4 pb-20 animate-in fade-in duration-300">
       <div className="flex items-center justify-between px-1">
         <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Notifications</p>
-        {unreadCount > 0 && (
-          <button onClick={markAllNotificationsRead} className="text-[10px] text-green-500 font-black uppercase tracking-widest">
-            Mark all read
-          </button>
-        )}
+        <div className="flex gap-2">
+          {unreadCount > 0 && (
+            <button onClick={markAllNotificationsRead} className="text-[10px] text-green-500 font-black uppercase tracking-widest">
+              Mark read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button onClick={clearAllNotifications} className="text-[10px] text-red-500 font-black uppercase tracking-widest">
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (
@@ -503,7 +550,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <div
             key={notif.id}
             onClick={() => {
-              setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+              setNotifications(prev => {
+                const updated = prev.map(n => n.id === notif.id ? { ...n, read: true } : n);
+                saveNotificationsToStorage(updated);
+                return updated;
+              });
               if (notif.type === 'banter') {
                 setShowNotifications(false);
                 setInBanterHall(true);
