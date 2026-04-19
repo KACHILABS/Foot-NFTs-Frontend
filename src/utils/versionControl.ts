@@ -1,6 +1,6 @@
 // src/utils/versionControl.ts
 
-export const APP_VERSION = '2.0.0'; // Increment on major updates
+export const APP_VERSION = '3.0.0'; // Match the version in index.html
 
 const SESSION_KEYS = {
   APP_VERSION: 'footnfts_app_version',
@@ -8,21 +8,20 @@ const SESSION_KEYS = {
   USER_ID: 'footnfts_user_id',
 };
 
-// Check and clear if version changed
+// Check if version changed - but DON'T clear user data
 export const checkAppVersion = (): boolean => {
   const savedVersion = localStorage.getItem(SESSION_KEYS.APP_VERSION);
   
   if (savedVersion !== APP_VERSION) {
-    // Clear ONLY session data, not user data (that's in backend)
-    localStorage.removeItem(SESSION_KEYS.AUTH_TOKEN);
-    localStorage.removeItem(SESSION_KEYS.USER_ID);
+    console.log('🔄 Version mismatch:', savedVersion, '->', APP_VERSION);
+    // ONLY update version, DO NOT clear auth data
     localStorage.setItem(SESSION_KEYS.APP_VERSION, APP_VERSION);
     return true;
   }
   return false;
 };
 
-// Session management
+// Session management - preserve user data
 export const setAuthSession = (token: string, userId: string) => {
   localStorage.setItem(SESSION_KEYS.AUTH_TOKEN, token);
   localStorage.setItem(SESSION_KEYS.USER_ID, userId);
