@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>FOOT NFTs</title>
     
+    <!-- Force no cache for HTML only -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -12,7 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/index.css?v=17">
+    <link rel="stylesheet" href="/src/index.css?v=18">
     
     <script>
         tailwind.config = {
@@ -93,6 +94,24 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    
+    <!-- Force reload script - checks version without clearing data -->
+    <script>
+        (function() {
+            const APP_VERSION = '3.0.0';
+            const cachedVersion = localStorage.getItem('app_cached_version');
+            
+            if (cachedVersion !== APP_VERSION) {
+                console.log('🔄 New version detected, refreshing...');
+                localStorage.setItem('app_cached_version', APP_VERSION);
+                // Force reload the page without clearing user data
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 100);
+            }
+        })();
+    </script>
+    
     <script type="importmap">
     {
       "imports": {
