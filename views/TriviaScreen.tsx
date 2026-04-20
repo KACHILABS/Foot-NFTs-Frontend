@@ -92,6 +92,28 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     setError(false);
     
     try {
+      // FIRST: Record that user has started trivia today (lock immediately)
+      // This prevents re-entry even if they don't finish
+      console.log('🔒 Locking trivia for today...');
+      const completeResponse = await fetch(`${API_BASE}/trivia/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ userId: backendUserId })
+      });
+      
+      if (!completeResponse.ok) {
+        console.error('Failed to lock trivia');
+      } else {
+        console.log('✅ Trivia locked for today');
+      }
+      
+      // Also set local storage
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem('trivia_last_completed_date', today);
+      
       const generatedQuestions = [];
       
       // Generate 5 questions from backend Groq API
@@ -120,20 +142,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       }
       
       setQuestions(generatedQuestions);
-      
-      // Record that user has started/played trivia today
-      try {
-        await fetch(`${API_BASE}/trivia/complete`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ userId: backendUserId })
-        });
-      } catch (err) {
-        console.error('Failed to record trivia completion:', err);
-      }
       
     } catch (err) {
       console.error('Failed to generate questions:', err);
@@ -216,8 +224,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
-      const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('trivia_last_completed_date', today);
       setShowResult(true);
       if (onComplete) onComplete();
     }
@@ -311,7 +317,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         </div>
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <div className="w-20 h-20 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <p className="text-gray-400">Checking your daily trivia status...</p>
+          <p className="text-gray-400">Preparing your daily trivia...</p>
           <p className="text-xs text-gray-600 mt-2">Powered by AI</p>
         </div>
       </div>
