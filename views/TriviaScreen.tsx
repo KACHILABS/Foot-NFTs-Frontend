@@ -21,69 +21,14 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [isDailyLocked, setIsDailyLocked] = useState(false);
+  const [cannotPlay, setCannotPlay] = useState(false);
+  const [alreadyPlayedMessage, setAlreadyPlayedMessage] = useState('');
   const [timeUntilReset, setTimeUntilReset] = useState<string>('');
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const currentQuestion = questions[currentStep];
-
-  // Check if daily trivia is locked
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const lastCompleted = localStorage.getItem('trivia_last_completed_date');
-    
-    if (lastCompleted === today) {
-      setIsDailyLocked(true);
-      updateCountdown();
-    }
-    
-    // Generate NEW questions from BACKEND only
-    const loadQuestions = async () => {
-      setLoading(true);
-      setError(false);
-      
-      try {
-        const generatedQuestions = [];
-        
-        // Generate 5 questions from backend Groq API
-        for (let i = 0; i < 5; i++) {
-          const response = await fetch(`${API_BASE}/trivia/question`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          const data = await response.json();
-          
-          if (!data.success || !data.question) {
-            throw new Error('Failed to generate question from backend');
-          }
-          
-          generatedQuestions.push({
-            id: data.question.id,
-            question: data.question.question,
-            options: data.question.options,
-            correct: data.question.correctAnswer,
-            fact: data.question.fact
-          });
-          
-          // Small delay between requests
-          if (i < 4) await new Promise(r => setTimeout(r, 500));
-        }
-        
-        setQuestions(generatedQuestions);
-      } catch (err) {
-        console.error('Failed to generate questions:', err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (!isDailyLocked) {
-      loadQuestions();
-    }
-  }, []);
 
   const updateCountdown = () => {
     const now = new Date();
@@ -97,6 +42,105 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     
     setTimeUntilReset(`${hours}h ${minutes}m ${seconds}s`);
+  };
+
+  // Check if user can play trivia today
+  useEffect(() => {
+    const checkCanPlay = async () => {
+      if (!backendUserId) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/trivia/can-play?userId=${backendUserId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (!data.canPlay) {
+          setCannotPlay(true);
+          setAlreadyPlayedMessage(data.message || 'You have already completed today\'s trivia! Come back tomorrow.');
+          setLoading(false);
+          return;
+        }
+        
+        // Also check local storage for daily lock
+        const today = new Date().toISOString().split('T')[0];
+        const lastCompleted = localStorage.getItem('trivia_last_completed_date');
+        
+        if (lastCompleted === today) {
+          setIsDailyLocked(true);
+          updateCountdown();
+          setLoading(false);
+          return;
+        }
+        
+        // Load questions
+        await loadQuestions();
+        
+      } catch (error) {
+        console.error('Failed to check trivia status:', error);
+        setError(true);
+        setLoading(false);
+      }
+    };
+    
+    checkCanPlay();
+  }, [backendUserId]);
+
+  const loadQuestions = async () => {
+    setLoading(true);
+    setError(false);
+    
+    try {
+      const generatedQuestions = [];
+      
+      // Generate 5 questions from backend Groq API
+      for (let i = 0; i < 5; i++) {
+        const response = await fetch(`${API_BASE}/trivia/question`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const data = await response.json();
+        
+        if (!data.success || !data.question) {
+          throw new Error('Failed to generate question from backend');
+        }
+        
+        generatedQuestions.push({
+          id: data.question.id,
+          question: data.question.question,
+          options: data.question.options,
+          correct: data.question.correctAnswer,
+          fact: data.question.fact
+        });
+        
+        // Small delay between requests
+        if (i < 4) await new Promise(r => setTimeout(r, 500));
+      }
+      
+      setQuestions(generatedQuestions);
+      
+      // Record that user has started/played trivia today
+      try {
+        await fetch(`${API_BASE}/trivia/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ userId: backendUserId })
+        });
+      } catch (err) {
+        console.error('Failed to record trivia completion:', err);
+      }
+      
+    } catch (err) {
+      console.error('Failed to generate questions:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -179,7 +223,43 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     }
   };
 
-  // Locked screen
+  // Already played today screen (from backend check)
+  if (cannotPlay) {
+    return (
+      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
+        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
+          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
+          <div className="w-10"></div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+          <div className="w-32 h-32 bg-darkDeep rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 relative border border-gray-800">
+            🔒
+            <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-black border-4 border-darkBg shadow-lg">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+            </div>
+          </div>
+          <h3 className="text-2xl font-black text-white mb-2">Already Played Today</h3>
+          <p className="text-sm text-gray-400 mb-4 leading-relaxed">
+            {alreadyPlayedMessage}
+          </p>
+          <div className="w-full space-y-4">
+            <Card className="bg-orange-950/20 border border-orange-500/30 p-5">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-orange-500">
+                <span>Next Trivia Available</span>
+                <span className="font-mono">Tomorrow at 00:00 UTC</span>
+              </div>
+            </Card>
+            <Button onClick={onBack}>Back to Arena</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Daily locked screen (completed via localStorage)
   if (isDailyLocked) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
@@ -231,14 +311,14 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         </div>
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <div className="w-20 h-20 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <p className="text-gray-400">Generating fresh football questions...</p>
+          <p className="text-gray-400">Checking your daily trivia status...</p>
           <p className="text-xs text-gray-600 mt-2">Powered by AI</p>
         </div>
       </div>
     );
   }
 
-  // Error screen - NO FALLBACK, just retry
+  // Error screen
   if (error) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
