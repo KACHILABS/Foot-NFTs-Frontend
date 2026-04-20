@@ -24,8 +24,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   const [timeUntilReset, setTimeUntilReset] = useState<string>('');
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generatingError, setGeneratingError] = useState(false);
-  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   const currentQuestion = questions[currentStep];
 
@@ -39,26 +38,15 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       updateCountdown();
     }
     
-    // Load or generate questions
+    // Generate NEW questions from BACKEND only
     const loadQuestions = async () => {
       setLoading(true);
-      setGeneratingError(false);
+      setError(false);
       
-      // Try to load cached questions for today
-      const cachedQuestions = localStorage.getItem('trivia_todays_questions');
-      const cachedDate = localStorage.getItem('trivia_cache_date');
-      const today = new Date().toISOString().split('T')[0];
-      
-      if (cachedQuestions && cachedDate === today) {
-        setQuestions(JSON.parse(cachedQuestions));
-        setLoading(false);
-        return;
-      }
-      
-      // Generate new questions from BACKEND Gemini
       try {
         const generatedQuestions = [];
         
+        // Generate 5 questions from backend Groq API
         for (let i = 0; i < 5; i++) {
           const response = await fetch(`${API_BASE}/trivia/question`, {
             headers: {
@@ -67,31 +55,26 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
           });
           const data = await response.json();
           
-          if (data.success && data.question) {
-            generatedQuestions.push({
-              id: data.question.id,
-              question: data.question.question,
-              options: data.question.options,
-              correct: data.question.correctAnswer,
-              fact: data.question.fact
-            });
-          } else {
-            throw new Error('Failed to generate question');
+          if (!data.success || !data.question) {
+            throw new Error('Failed to generate question from backend');
           }
+          
+          generatedQuestions.push({
+            id: data.question.id,
+            question: data.question.question,
+            options: data.question.options,
+            correct: data.question.correctAnswer,
+            fact: data.question.fact
+          });
+          
+          // Small delay between requests
+          if (i < 4) await new Promise(r => setTimeout(r, 500));
         }
         
         setQuestions(generatedQuestions);
-        localStorage.setItem('trivia_todays_questions', JSON.stringify(generatedQuestions));
-        localStorage.setItem('trivia_cache_date', today);
-      } catch (error) {
-        console.error('Failed to generate questions:', error);
-        setGeneratingError(true);
-        // Load fallback questions
-        const fallbackQuestions = [];
-        for (let i = 0; i < 5; i++) {
-          fallbackQuestions.push(getFallbackQuestion(i));
-        }
-        setQuestions(fallbackQuestions);
+      } catch (err) {
+        console.error('Failed to generate questions:', err);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -133,7 +116,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     if (isCorrect) {
       setScore(prev => prev + 1);
       
-      // Award FTC via backend
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_BASE}/user/add-ftc`, {
@@ -158,7 +140,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         onEarn(10, 'trivia_correct');
       }
     } else {
-      // Award 2 FTC for wrong answer (participation)
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_BASE}/user/add-ftc`, {
@@ -196,17 +177,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       setShowResult(true);
       if (onComplete) onComplete();
     }
-  };
-
-  const getFallbackQuestion = (seed: number) => {
-    const fallbacks = [
-      { question: "Which player has won the most Ballon d'Or awards?", options: ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"], correct: 1, fact: "Lionel Messi has won a record 8 Ballon d'Or awards." },
-      { question: "Which country has won the most FIFA World Cup titles?", options: ["Germany", "Italy", "Argentina", "Brazil"], correct: 3, fact: "Brazil has won the World Cup 5 times." },
-      { question: "Which club has won the most UEFA Champions League titles?", options: ["AC Milan", "Bayern Munich", "Liverpool", "Real Madrid"], correct: 3, fact: "Real Madrid has won 14 Champions League titles." },
-      { question: "Who is known as 'The Phenomenon'?", options: ["Ronaldinho", "Pelé", "Ronaldo Nazário", "Romário"], correct: 2, fact: "Ronaldo Nazário is the original 'O Fenômeno'." },
-      { question: "Which stadium is called 'The Theatre of Dreams'?", options: ["Anfield", "Wembley", "Old Trafford", "Etihad"], correct: 2, fact: "Sir Bobby Charlton gave Old Trafford this nickname." }
-    ];
-    return fallbacks[seed % fallbacks.length];
   };
 
   // Locked screen
@@ -261,15 +231,15 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         </div>
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <div className="w-20 h-20 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <p className="text-gray-400">Generating today's football questions...</p>
-          <p className="text-xs text-gray-600 mt-2">Powered by Gemini AI</p>
+          <p className="text-gray-400">Generating fresh football questions...</p>
+          <p className="text-xs text-gray-600 mt-2">Powered by AI</p>
         </div>
       </div>
     );
   }
 
-  // Error screen
-  if (generatingError && questions.length === 0) {
+  // Error screen - NO FALLBACK, just retry
+  if (error) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
         <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
@@ -282,7 +252,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <div className="text-6xl mb-4">⚠️</div>
           <h3 className="text-xl font-black text-white mb-2">Unable to load questions</h3>
-          <p className="text-sm text-gray-400 mb-6">Please check your internet connection and try again.</p>
+          <p className="text-sm text-gray-400 mb-6">The AI service is temporarily unavailable. Please try again.</p>
           <Button onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       </div>
