@@ -165,6 +165,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
+  // ===== REFRESH BALANCE FROM BACKEND =====
+  const refreshBalance = async () => {
+    try {
+      const telegramId = localStorage.getItem('telegramId');
+      const token = localStorage.getItem('token');
+      if (!telegramId || !token) return;
+      
+      const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.profile) {
+        const newBalance = data.profile.ftcBalance;
+        setUserFTCBalance(newBalance);
+        if (onUpdateWallet) {
+          onUpdateWallet({ balanceFTC: newBalance });
+        }
+        console.log('💰 Balance refreshed:', newBalance);
+      }
+    } catch (error) {
+      console.error('Failed to refresh balance:', error);
+    }
+  };
+
   // Load leaderboard data
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -195,6 +220,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Load persistent notifications on mount
   useEffect(() => {
     loadNotificationsFromStorage();
+  }, []);
+
+  // Refresh balance when component mounts
+  useEffect(() => {
+    refreshBalance();
   }, []);
 
   // Check for welcome bonus
@@ -339,6 +369,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           notifyEarnings(amount, reason);
         }
         
+        // Refresh leaderboard
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
@@ -347,6 +378,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             setUserRank(userIndex + 1);
           }
         }
+        
+        // Refresh balance from backend to ensure sync
+        await refreshBalance();
       } else {
         console.error('Failed to save FTC to database:', data.error);
       }
@@ -397,6 +431,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             setUserRank(userIndex + 1);
           }
         }
+        
+        await refreshBalance();
       } else {
         console.error('Failed to claim bonus:', response.error);
         if (response.alreadyClaimed) {
@@ -681,7 +717,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     </div>
   );
 
-   // Screen routing
+  // Screen routing
   if (inTrivia && club) return <TriviaScreen club={club} onboarding={onboarding} onBack={() => setInTrivia(false)} onEarn={handleEarnFTC} onComplete={onTriviaComplete} backendUserId={backendUserId} />;
   if (inJerseyDay && club) return <JerseyDayScreen club={club} profile={profile} onBack={() => setInJerseyDay(false)} onCheckIn={handleEarnFTC} />;
   if (inBanterHall) return <BanterHallScreen 
