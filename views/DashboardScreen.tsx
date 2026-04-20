@@ -184,10 +184,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           onUpdateWallet({ balanceFTC: newBalance });
         }
         console.log('💰 Balance refreshed:', newBalance);
+        return newBalance;
       }
     } catch (error) {
       console.error('Failed to refresh balance:', error);
     }
+    return null;
   };
 
   // Load leaderboard data
@@ -226,6 +228,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   useEffect(() => {
     refreshBalance();
   }, []);
+
+  // Refresh balance when returning to home tab
+  useEffect(() => {
+    if (activeTab === 'home' || activeTab === 'wallet') {
+      refreshBalance();
+    }
+  }, [activeTab]);
 
   // Check for welcome bonus
   useEffect(() => {
@@ -362,12 +371,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const data = await response.json();
       
       if (data.success) {
+        // Update local state immediately
         if (onUpdateWallet && wallet) {
           const newBalance = (wallet.balanceFTC || 0) + amount;
           onUpdateWallet({ balanceFTC: newBalance });
           setUserFTCBalance(newBalance);
           notifyEarnings(amount, reason);
         }
+        
+        // FORCE REFRESH BALANCE FROM BACKEND
+        const freshBalance = await refreshBalance();
         
         // Refresh leaderboard
         const res = await api.leaderboard.getTop();
@@ -379,8 +392,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           }
         }
         
-        // Refresh balance from backend to ensure sync
-        await refreshBalance();
+        // If balance mismatch, force another refresh
+        if (freshBalance !== null && freshBalance !== (wallet?.balanceFTC || 0) + amount) {
+          console.log('⚠️ Balance mismatch detected, refreshing again...');
+          setTimeout(() => refreshBalance(), 500);
+        }
       } else {
         console.error('Failed to save FTC to database:', data.error);
       }
