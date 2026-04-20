@@ -305,17 +305,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  const handleBanterNotify = (message: string, senderName: string) => {
-    if (senderName !== profile?.displayName) {
-      addNotification(
-        '💬 New Banter',
-        `${senderName}: "${message.slice(0, 60)}${message.length > 60 ? '…' : ''}"`,
-        'banter',
-        { message, senderName }
-      );
-      tg?.HapticFeedback.impactOccurred('light');
-    }
-  };
+ const handleBanterNotify = (message: string, senderName: string) => {
+  // Always show notification for new banters (not just mentions)
+  addNotification(
+    '💬 New Banter',
+    `${senderName} posted: "${message.slice(0, 60)}${message.length > 60 ? '…' : ''}"`,
+    'banter',
+    { message, senderName }
+  );
+  tg?.HapticFeedback.impactOccurred('light');
+};
 
   const notifyEarnings = (amount: number, reason: string) => {
     addNotification(
