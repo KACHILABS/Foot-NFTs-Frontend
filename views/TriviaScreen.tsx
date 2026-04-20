@@ -3,38 +3,18 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { Club, OnboardingState } from '../types';
 
-// Add this inside TriviaScreen component, before the useEffect
-const generateTriviaQuestion = async (clubName: string | null = null) => {
-  // Fallback questions
-  const fallbackQuestions = [
-    { question: "Which player has won the most Ballon d'Or awards?", options: ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"], correctAnswer: 1, fact: "Lionel Messi has won a record 8 Ballon d'Or awards." },
-    { question: "Which country has won the most FIFA World Cup titles?", options: ["Germany", "Italy", "Argentina", "Brazil"], correctAnswer: 3, fact: "Brazil has won the World Cup 5 times." },
-    { question: "Which club has won the most UEFA Champions League titles?", options: ["AC Milan", "Bayern Munich", "Liverpool", "Real Madrid"], correctAnswer: 3, fact: "Real Madrid has won 14 Champions League titles." }
-  ];
-  
-  const random = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
-  return {
-    success: true,
-    question: {
-      id: Date.now().toString(),
-      question: random.question,
-      options: random.options,
-      correctAnswer: random.correctAnswer,
-      fact: random.fact
-    }
-  };
-};
-
+const API_BASE = 'https://footnfts.up.railway.app/api';
 
 interface TriviaScreenProps {
   club: Club;
   onboarding: OnboardingState;
   onBack: () => void;
-  onEarn: (amount: number) => void;
+  onEarn: (amount: number, reason: string) => void;
   onComplete?: () => void;
+  backendUserId?: string | null;
 }
 
-const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, onEarn, onComplete }) => {
+const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, onEarn, onComplete, backendUserId }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -45,6 +25,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingError, setGeneratingError] = useState(false);
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
 
   const currentQuestion = questions[currentStep];
 
@@ -74,24 +55,28 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         return;
       }
       
-      // Generate new questions from Gemini
+      // Generate new questions from BACKEND Gemini
       try {
-        const clubName = club?.name || null;
         const generatedQuestions = [];
         
         for (let i = 0; i < 5; i++) {
-          const result = await generateTriviaQuestion(clubName);
-          if (result.success) {
+          const response = await fetch(`${API_BASE}/trivia/question`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          const data = await response.json();
+          
+          if (data.success && data.question) {
             generatedQuestions.push({
-              id: i,
-              question: result.question.question,
-              options: result.question.options,
-              correct: result.question.correctAnswer,
-              fact: result.question.fact
+              id: data.question.id,
+              question: data.question.question,
+              options: data.question.options,
+              correct: data.question.correctAnswer,
+              fact: data.question.fact
             });
           } else {
-            // Use fallback if generation fails
-            generatedQuestions.push(getFallbackQuestion(i));
+            throw new Error('Failed to generate question');
           }
         }
         
@@ -115,9 +100,8 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     if (!isDailyLocked) {
       loadQuestions();
     }
-  }, [onboarding.lastTriviaDate, club]);
+  }, []);
 
-  // Update countdown timer
   const updateCountdown = () => {
     const now = new Date();
     const tomorrow = new Date(now);
@@ -139,14 +123,65 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     }
   }, [isDailyLocked]);
 
-  const handleOptionSelect = (index: number) => {
+  const handleOptionSelect = async (index: number) => {
     if (isAnswered) return;
     setSelectedOption(index);
     setIsAnswered(true);
     
-    if (index === currentQuestion.correct) {
+    const isCorrect = index === currentQuestion.correct;
+    
+    if (isCorrect) {
       setScore(prev => prev + 1);
-      onEarn(5);
+      
+      // Award FTC via backend
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/user/add-ftc`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId: backendUserId,
+            amount: 10,
+            reason: 'trivia_correct'
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          onEarn(10, 'trivia_correct');
+        }
+      } catch (error) {
+        console.error('Failed to award FTC:', error);
+        onEarn(10, 'trivia_correct');
+      }
+    } else {
+      // Award 2 FTC for wrong answer (participation)
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/user/add-ftc`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId: backendUserId,
+            amount: 2,
+            reason: 'trivia_participation'
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          onEarn(2, 'trivia_participation');
+        }
+      } catch (error) {
+        console.error('Failed to award FTC:', error);
+        onEarn(2, 'trivia_participation');
+      }
     }
   };
 
@@ -156,7 +191,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
-      // Mark as completed for today
       const today = new Date().toISOString().split('T')[0];
       localStorage.setItem('trivia_last_completed_date', today);
       setShowResult(true);
@@ -175,7 +209,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     return fallbacks[seed % fallbacks.length];
   };
 
-  // Locked screen (already completed today)
+  // Locked screen
   if (isDailyLocked) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
@@ -234,7 +268,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     );
   }
 
-  // Error screen (if Gemini fails)
+  // Error screen
   if (generatingError && questions.length === 0) {
     return (
       <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
@@ -255,7 +289,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     );
   }
 
-  // Show results screen
+  // Results screen
   if (showResult) {
     return (
       <div className="flex flex-col h-full bg-darkBg px-6 pt-20 pb-10 animate-in zoom-in duration-500">
@@ -273,7 +307,7 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
             </Card>
             <Card className="p-6 bg-green-950/20 border border-green-500/30">
               <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Earned</p>
-              <p className="text-3xl font-black text-green-500">{score * 5} FTC</p>
+              <p className="text-3xl font-black text-green-500">{(score * 10) + ((questions.length - score) * 2)} FTC</p>
             </Card>
           </div>
           
