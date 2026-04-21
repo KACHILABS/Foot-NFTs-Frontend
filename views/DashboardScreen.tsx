@@ -192,6 +192,33 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return null;
   };
 
+  // ===== REFRESH REFERRAL CODE FROM BACKEND =====
+const refreshReferralCode = async () => {
+  try {
+    const telegramId = localStorage.getItem('telegramId');
+    const token = localStorage.getItem('token');
+    if (!telegramId || !token) return;
+    
+    const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    if (data.success && data.profile && data.profile.referralCode) {
+      const oldCode = localStorage.getItem('referralCode');
+      const newCode = data.profile.referralCode;
+      
+      if (oldCode !== newCode) {
+        localStorage.setItem('referralCode', newCode);
+        console.log('📎 Referral code updated:', oldCode, '→', newCode);
+        // Reload to refresh the UI with new code
+        window.location.reload();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to refresh referral code:', error);
+  }
+};
   // Load leaderboard data
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -229,10 +256,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     refreshBalance();
   }, []);
 
+  // Refresh referral code when component mounts
+  useEffect(() => {
+    refreshReferralCode();
+  }, []);
+
   // Refresh balance when returning to home tab
   useEffect(() => {
     if (activeTab === 'home' || activeTab === 'wallet') {
       refreshBalance();
+    }
+  }, [activeTab]);
+
+  // Refresh referral code when returning to profile tab
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      refreshReferralCode();
     }
   }, [activeTab]);
 
