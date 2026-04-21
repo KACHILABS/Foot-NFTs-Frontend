@@ -1,4 +1,3 @@
-// views/SplashScreen.tsx
 import React, { useState, useEffect } from 'react';
 import Button from '../components/Button';
 import { CLUBS } from '../constants';
@@ -11,7 +10,7 @@ interface SplashScreenProps {
 
 /** Read the referral code from Telegram's start_param or the URL query string */
 function detectReferralCode(): string {
-  // 1. Telegram Mini App start_param  (e.g. startapp=ref_ABCD1234)
+  // 1. Telegram Mini App start_param (e.g. startapp=ref_ABCD1234)
   try {
     const tg = (window as any).Telegram?.WebApp;
     const startParam: string = tg?.initDataUnsafe?.start_param || '';
@@ -24,7 +23,7 @@ function detectReferralCode(): string {
     }
   } catch (_) {}
 
-  // 2. Fallback: plain URL query param  (?ref=ABCD1234  or  ?startapp=ref_ABCD1234)
+  // 2. Fallback: plain URL query param
   try {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref') || params.get('startapp') || '';
@@ -42,19 +41,17 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
   const [name, setName] = useState('');
   const [selectedClub, setSelectedClub] = useState('');
   const [customClub, setCustomClub] = useState('');
-  // Referral code — pre-filled from URL if available, user can also type one
   const [referralCode, setReferralCode] = useState('');
-  const [referralCodeLocked, setReferralCodeLocked] = useState(false); // true = came from URL, readonly
+  const [referralCodeLocked, setReferralCodeLocked] = useState(false);
   const [showBonus, setShowBonus] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState('');
 
-  // On mount, auto-detect referral code
   useEffect(() => {
     const detected = detectReferralCode();
     if (detected) {
       setReferralCode(detected);
-      setReferralCodeLocked(true); // came from a link — show but don't let user change it accidentally
+      setReferralCodeLocked(true);
     }
   }, []);
 
@@ -75,42 +72,30 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
       const telegramId = telegramUser?.id || 123456789;
       const telegramUsername = telegramUser?.username || 'User';
 
-      // Sanitise the code one more time before sending
-      const codeToSend = referralCode.trim().toUpperCase().replace(/^REF_/, '') || undefined;
+      const codeToSend = referralCode.trim().toUpperCase() || undefined;
 
-      console.log('📝 [SIGNUP] Creating/loading user...', { telegramId, codeToSend });
+      console.log('📝 [SIGNUP] Creating user...', { telegramId, codeToSend });
 
-      // ── KEY FIX: pass referralCode as the third argument ──────────────────
       const loginResult = await api.auth.login(telegramId, telegramUsername, codeToSend);
 
       if (!loginResult.success) {
-        throw new Error('Failed to create/load user');
+        throw new Error('Failed to create user');
       }
 
       console.log('✅ [SIGNUP] User loaded:', loginResult.user.id);
 
-      if (loginResult.user.profileCompleted || loginResult.user.hasClaimedWelcomeBonus) {
-        console.log('[SIGNUP] Existing user — skipping bonus');
-        if (onClaimBonus) onClaimBonus(0);
-        setTimeout(() => {
-          setClaiming(false);
-          onComplete(name, selectedClub === 'other' ? 'other' : selectedClub, selectedClub === 'other' ? customClub : undefined);
-        }, 500);
-        return;
+      // Check if this user was referred (has a referrer)
+      if (codeToSend && loginResult.referralProcessed) {
+        console.log('🎉 [SIGNUP] Referral bonus was credited to your referrer!');
       }
 
-      console.log('🎁 [SIGNUP] New user — claiming welcome bonus...');
-      const bonusResult = await api.user.claimWelcomeBonus(loginResult.user.id);
-
-      if (bonusResult.success || bonusResult.alreadyClaimed) {
-        if (onClaimBonus) onClaimBonus(bonusResult.bonusAmount || 0);
-        setTimeout(() => {
-          setClaiming(false);
-          onComplete(name, selectedClub === 'other' ? 'other' : selectedClub, selectedClub === 'other' ? customClub : undefined);
-        }, 500);
-      } else {
-        throw new Error(bonusResult.error || 'Failed to claim bonus');
-      }
+      if (onClaimBonus) onClaimBonus(0);
+      
+      setTimeout(() => {
+        setClaiming(false);
+        onComplete(name, selectedClub === 'other' ? 'other' : selectedClub, selectedClub === 'other' ? customClub : undefined);
+      }, 500);
+      
     } catch (err: any) {
       console.error('❌ [SIGNUP] Error:', err);
       setError(err.message || 'Something went wrong. Please try again.');
@@ -118,7 +103,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
     }
   };
 
-  // ── Bonus screen ────────────────────────────────────────────────────────────
   if (showBonus) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 relative bg-darkBg">
@@ -145,7 +129,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
             <p className="text-sm text-gray-400">Onboarding Bonus • Claim now to start your journey</p>
             {referralCode && (
               <p className="text-xs text-green-400 mt-2">
-                ✅ Referral code <span className="font-bold">{referralCode}</span> will be applied
+                ✅ Referral code <span className="font-bold">{referralCode}</span> applied
               </p>
             )}
           </div>
@@ -175,10 +159,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
     );
   }
 
-  // ── Registration form ───────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative bg-darkBg">
-      {/* Logo */}
       <div className="mb-10 text-center animate-fade-in-up relative z-10">
         <img
           src="/logo.png"
@@ -194,9 +176,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
         <p className="text-gray-400">Own the moment. Rep the club.</p>
       </div>
 
-      {/* Form */}
       <div className="w-full max-w-sm space-y-5 relative z-10">
-        {/* Name */}
         <div>
           <label className="block text-sm font-semibold text-gray-300 mb-2">Your Name</label>
           <input
@@ -208,7 +188,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
           />
         </div>
 
-        {/* Club picker */}
         <div>
           <label className="block text-sm font-semibold text-gray-300 mb-2">Favorite Club</label>
           <div className="relative">
@@ -231,7 +210,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
           </div>
         </div>
 
-        {/* Custom club */}
         {selectedClub === 'other' && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-300">
             <label className="block text-sm font-semibold text-gray-300 mb-2">Enter Your Club</label>
@@ -247,7 +225,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
           </div>
         )}
 
-        {/* ── Referral code field (NEW) ──────────────────────────────────────── */}
+        {/* Referral Code Input */}
         <div>
           <label className="block text-sm font-semibold text-gray-300 mb-2">
             Referral Code <span className="text-gray-500 font-normal">(optional)</span>
