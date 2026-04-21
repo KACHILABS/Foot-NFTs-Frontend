@@ -12,11 +12,11 @@ const headers = () => ({
 export const api = {
   // Auth (stores session)
   auth: {
-    login: async (telegramId: number, username?: string) => {
+    login: async (telegramId: number, username?: string, referralCode?: string) => {
       const res = await fetch(`${API_BASE}/auth/telegram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId, username })
+        body: JSON.stringify({ telegramId, username, referralCode })
       });
       const data = await res.json();
       
@@ -26,6 +26,10 @@ export const api = {
         setAuthSession(data.token, data.user.id);
         // Also store telegramId for profile requests
         localStorage.setItem('telegramId', telegramId.toString());
+        // Store referral code if available
+        if (data.user.referralCode) {
+          localStorage.setItem('referralCode', data.user.referralCode);
+        }
       }
       return data;
     },
@@ -34,6 +38,7 @@ export const api = {
       const { clearAuthSession } = await import('../utils/versionControl');
       clearAuthSession();
       localStorage.removeItem('telegramId');
+      localStorage.removeItem('referralCode');
       return { success: true };
     }
   },
@@ -184,6 +189,15 @@ export const api = {
     
     register: async (referralCode: string) => {
       const res = await fetch(`${API_BASE}/referral/register`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ referralCode })
+      });
+      return res.json();
+    },
+    
+    claim: async (referralCode: string) => {
+      const res = await fetch(`${API_BASE}/referral/claim`, {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ referralCode })

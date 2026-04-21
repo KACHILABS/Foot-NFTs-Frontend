@@ -16,6 +16,31 @@ const calculateRank = (activityCount: number, referralCount: number): FanRank =>
   return 'Amateur';
 };
 
+// Get referral code from Telegram startapp parameter
+const getReferralCodeFromUrl = (): string | null => {
+  try {
+    // Check if running in Telegram WebApp
+    const tg = (window as any).Telegram?.WebApp;
+    const startParam = tg?.initDataUnsafe?.start_param;
+    
+    if (startParam && startParam.startsWith('ref_')) {
+      console.log('📎 Referral code from Telegram:', startParam.replace('ref_', ''));
+      return startParam.replace('ref_', '');
+    }
+    
+    // Also check URL params for web testing
+    const urlParams = new URLSearchParams(window.location.search);
+    const startapp = urlParams.get('startapp');
+    if (startapp && startapp.startsWith('ref_')) {
+      console.log('📎 Referral code from URL:', startapp.replace('ref_', ''));
+      return startapp.replace('ref_', '');
+    }
+  } catch (error) {
+    console.error('Failed to get referral code:', error);
+  }
+  return null;
+};
+
 const App: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
   
@@ -239,13 +264,16 @@ const App: React.FC = () => {
             const telegramId = telegramUser?.id || 123456789;
             const telegramUsername = telegramUser?.username || 'User';
             
+            // Get referral code from URL/startapp
+            const referralCode = getReferralCodeFromUrl();
+            
             // Save club info to localStorage
             localStorage.setItem('user_club_id', finalClubId);
             localStorage.setItem('user_club_name', finalClubName);
             localStorage.setItem('user_display_name', name);
             
-            // Login/signup via backend
-            const result = await api.auth.login(telegramId, telegramUsername);
+            // Login/signup via backend with referral code
+            const result = await api.auth.login(telegramId, telegramUsername, referralCode || undefined);
             if (result.success) {
               setBackendUserId(result.user.id);
               
@@ -274,6 +302,9 @@ const App: React.FC = () => {
               }));
               localStorage.setItem('profile_completed', 'true');
               localStorage.setItem('telegramId', telegramId.toString());
+              if (result.user.referralCode) {
+                localStorage.setItem('referralCode', result.user.referralCode);
+              }
               
               // Mark profile as completed in database
               await markProfileCompleted(result.user.id);
