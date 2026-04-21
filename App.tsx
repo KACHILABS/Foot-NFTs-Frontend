@@ -4,7 +4,6 @@ import { CLUBS } from './constants';
 import { api } from './src/services/api';
 import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthToken } from './src/utils/versionControl';
 import SplashScreen from './views/SplashScreen';
-import WalletSetupScreen from './views/WalletSetupScreen';
 import DashboardScreen from './views/DashboardScreen';
 
 const calculateRank = (activityCount: number, referralCount: number): FanRank => {
@@ -19,7 +18,6 @@ const calculateRank = (activityCount: number, referralCount: number): FanRank =>
 // Get referral code from Telegram startapp parameter
 const getReferralCodeFromUrl = (): string | null => {
   try {
-    // Check if running in Telegram WebApp
     const tg = (window as any).Telegram?.WebApp;
     const startParam = tg?.initDataUnsafe?.start_param;
     
@@ -28,7 +26,6 @@ const getReferralCodeFromUrl = (): string | null => {
       return startParam.replace('ref_', '');
     }
     
-    // Also check URL params for web testing
     const urlParams = new URLSearchParams(window.location.search);
     const startapp = urlParams.get('startapp');
     if (startapp && startapp.startsWith('ref_')) {
@@ -44,7 +41,6 @@ const getReferralCodeFromUrl = (): string | null => {
 const App: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
   
-  // Force cache check on EVERY app load
   useEffect(() => {
     const wasCleared = checkAppVersion();
     if (wasCleared) {
@@ -53,7 +49,6 @@ const App: React.FC = () => {
   }, []);
 
   const [onboarding, setOnboarding] = useState<OnboardingState>(() => {
-    // Check if user is authenticated and has completed profile
     const isAuth = isAuthenticated();
     const hasCompletedProfile = localStorage.getItem('profile_completed') === 'true';
     
@@ -82,7 +77,6 @@ const App: React.FC = () => {
   });
 
   const [profile, setProfile] = useState<UserProfile | null>(() => {
-    // Try to load profile from localStorage
     const savedProfile = localStorage.getItem('user_profile');
     if (savedProfile) {
       try {
@@ -109,7 +103,6 @@ const App: React.FC = () => {
   const [backendUserId, setBackendUserId] = useState<string | null>(getUserId());
   const [loading, setLoading] = useState(true);
 
-  // Function to mark profile as completed in database
   const markProfileCompleted = async (userId: string) => {
     try {
       const response = await fetch(`https://footnfts.up.railway.app/api/user/complete-profile`, {
@@ -127,12 +120,10 @@ const App: React.FC = () => {
     }
   };
 
-  // Load user data from backend on app start
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);
       
-      // Check if user is authenticated
       const token = getAuthToken();
       if (!token) {
         setLoading(false);
@@ -148,7 +139,6 @@ const App: React.FC = () => {
       try {
         const profileRes = await api.user.getProfile(parseInt(telegramId));
         if (profileRes.success && profileRes.profile) {
-          // Save profile to state and localStorage
           const userProfile = {
             id: profileRes.profile.id,
             displayName: profileRes.profile.displayName,
@@ -166,7 +156,6 @@ const App: React.FC = () => {
           });
           setBackendUserId(profileRes.profile.id);
           
-          // Save to localStorage
           localStorage.setItem('user_profile', JSON.stringify(userProfile));
           localStorage.setItem('user_wallet', JSON.stringify({
             address: null,
@@ -174,7 +163,6 @@ const App: React.FC = () => {
             isConnected: true
           }));
           
-          // Check if profile is completed (has name and club)
           if (userProfile.displayName && userProfile.favoriteClubId) {
             localStorage.setItem('profile_completed', 'true');
             setOnboarding(prev => ({
@@ -185,7 +173,6 @@ const App: React.FC = () => {
             }));
           }
         } else {
-          // Profile not found, need to complete onboarding
           console.log('Profile not complete, needs onboarding');
           localStorage.removeItem('profile_completed');
         }
@@ -199,7 +186,6 @@ const App: React.FC = () => {
     loadUserData();
   }, []);
 
-  // TMA Initialization
   useEffect(() => {
     if (tg) {
       tg.ready();
@@ -220,9 +206,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleTriviaComplete = () => {
-    // This will be handled by backend
-  };
+  const handleTriviaComplete = () => {};
 
   const withHaptic = (fn: () => void) => {
     tg?.HapticFeedback.impactOccurred('medium');
@@ -238,7 +222,6 @@ const App: React.FC = () => {
   const isProfileComplete = profile?.displayName && profile?.favoriteClubId && 
     localStorage.getItem('profile_completed') === 'true';
 
-  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-darkBg">
@@ -250,7 +233,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Step 1: SplashScreen - Get name + favorite club
   if (!isProfileComplete) {
     return (
       <SplashScreen 
@@ -259,20 +241,16 @@ const App: React.FC = () => {
             const finalClubId = clubId === 'other' ? customClub || 'Other' : clubId;
             const finalClubName = clubId === 'other' ? customClub || 'Other' : getClubNameById(clubId);
             
-            // Get Telegram user data
             const telegramUser = tg?.initDataUnsafe?.user;
             const telegramId = telegramUser?.id || 123456789;
             const telegramUsername = telegramUser?.username || 'User';
             
-            // Get referral code from URL/startapp
             const referralCode = getReferralCodeFromUrl();
             
-            // Save club info to localStorage
             localStorage.setItem('user_club_id', finalClubId);
             localStorage.setItem('user_club_name', finalClubName);
             localStorage.setItem('user_display_name', name);
             
-            // Login/signup via backend with referral code
             const result = await api.auth.login(telegramId, telegramUsername, referralCode || undefined);
             if (result.success) {
               setBackendUserId(result.user.id);
@@ -293,7 +271,6 @@ const App: React.FC = () => {
                 isConnected: true
               });
               
-              // Save to localStorage
               localStorage.setItem('user_profile', JSON.stringify(newProfile));
               localStorage.setItem('user_wallet', JSON.stringify({
                 address: null,
@@ -302,25 +279,28 @@ const App: React.FC = () => {
               }));
               localStorage.setItem('profile_completed', 'true');
               localStorage.setItem('telegramId', telegramId.toString());
+              
+              // ✅ IMPORTANT: Update localStorage with the correct referral code from backend
               if (result.user.referralCode) {
                 localStorage.setItem('referralCode', result.user.referralCode);
+                console.log('📎 Referral code saved to localStorage:', result.user.referralCode);
               }
               
-              // Mark profile as completed in database
-              await markProfileCompleted(result.user.id);
-              
+              // ✅ IMPORTANT: Update onboarding state with the correct referral code
               setOnboarding(prev => ({
                 ...prev,
                 profileCompleted: true,
                 clubSelected: true,
-                walletConnected: true
+                walletConnected: true,
+                referralCode: result.user.referralCode || prev.referralCode
               }));
+              
+              await markProfileCompleted(result.user.id);
             }
           });
         }}
         onClaimBonus={(amount) => {
           console.log('🎁 Bonus claimed in SplashScreen:', amount);
-          // Update local wallet if needed
           if (wallet) {
             const newBalance = (wallet.balanceFTC || 0) + amount;
             handleUpdateWallet({ balanceFTC: newBalance });
@@ -330,7 +310,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Step 2: Dashboard - Main app
   return (
     <DashboardScreen 
       profile={profile} 
