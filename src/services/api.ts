@@ -1,115 +1,83 @@
 // src/services/api.ts
 
-import { getAuthToken } from '../utils/versionControl';
-
 const API_BASE = 'https://footnfts.up.railway.app/api';
 
-const headers = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getAuthToken()}`
-});
-
 export const api = {
-  // Auth (stores session)
+  // Auth
   auth: {
-    login: async (telegramId: number, username?: string, referralCode?: string) => {
+    login: async (telegramId: number | string, username: string, referralCode?: string) => {
       const res = await fetch(`${API_BASE}/auth/telegram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId, username, referralCode })
+        body: JSON.stringify({
+          telegramId,
+          username,
+          ...(referralCode ? { referralCode } : {}),
+        }),
       });
-      const data = await res.json();
-      
-      if (data.success) {
-        // Store session
-        const { setAuthSession } = await import('../utils/versionControl');
-        setAuthSession(data.token, data.user.id);
-        // Also store telegramId for profile requests
-        localStorage.setItem('telegramId', telegramId.toString());
-        // Store referral code if available
-        if (data.user.referralCode) {
-          localStorage.setItem('referralCode', data.user.referralCode);
-        }
-      }
-      return data;
-    },
-    
-    logout: async () => {
-      const { clearAuthSession } = await import('../utils/versionControl');
-      clearAuthSession();
-      localStorage.removeItem('telegramId');
-      localStorage.removeItem('referralCode');
-      return { success: true };
+      return res.json();
     }
   },
   
-  // User Profile (all data from backend)
+  // User
   user: {
-    getProfile: async (telegramId?: number) => {
-      // Get telegramId from param, localStorage, or use default
-      const storedTelegramId = localStorage.getItem('telegramId');
-      const finalTelegramId = telegramId || (storedTelegramId ? parseInt(storedTelegramId) : 123456789);
-      
-      const res = await fetch(`${API_BASE}/user/profile?telegramId=${finalTelegramId}`, {
-        headers: headers()
+    getProfile: async (telegramId: number) => {
+      const res = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`);
+      return res.json();
+    },
+    updateDisplayName: async (userId: string, newName: string) => {
+      const res = await fetch(`${API_BASE}/user/displayname`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, displayName: newName })
       });
       return res.json();
     },
-    
     updateProfile: async (data: { displayName?: string; avatar?: string }) => {
       const res = await fetch(`${API_BASE}/user/profile`, {
         method: 'PUT',
-        headers: headers(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
       return res.json();
     },
-    
-    getBalance: async () => {
-      const res = await fetch(`${API_BASE}/user/balance`, {
-        headers: headers()
-      });
-      return res.json();
-    },
-    
-    getTransactions: async () => {
-      const res = await fetch(`${API_BASE}/user/transactions`, {
-        headers: headers()
-      });
-      return res.json();
-    },
-    
     claimWelcomeBonus: async (userId: string) => {
       const res = await fetch(`${API_BASE}/user/claim-welcome-bonus`, {
         method: 'POST',
-        headers: headers(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
       return res.json();
     }
   },
   
-  // Trivia (questions from backend/Gemini)
-  trivia: {
-    getDailyQuestions: async () => {
-      const res = await fetch(`${API_BASE}/trivia/daily`, {
-        headers: headers()
-      });
+  // Highlights (Voting)
+  highlights: {
+    getAll: async () => {
+      const res = await fetch(`${API_BASE}/highlights`);
       return res.json();
     },
-    
-    submitAnswer: async (questionId: string, answer: number) => {
+    vote: async (highlightId: string, userId: string) => {
+      const res = await fetch(`${API_BASE}/highlights/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ highlightId, userId })
+      });
+      return res.json();
+    }
+  },
+  
+  // Trivia
+  trivia: {
+    getQuestion: async () => {
+      const res = await fetch(`${API_BASE}/trivia/question`);
+      return res.json();
+    },
+    submitAnswer: async (userId: string, questionId: string, answer: number) => {
       const res = await fetch(`${API_BASE}/trivia/answer`, {
         method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ questionId, answer })
-      });
-      return res.json();
-    },
-    
-    getStatus: async () => {
-      const res = await fetch(`${API_BASE}/trivia/status`, {
-        headers: headers()
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, questionId, answer })
       });
       return res.json();
     }
@@ -123,30 +91,13 @@ export const api = {
     }
   },
   
-  // Highlights/Voting
-  highlights: {
-    getAll: async () => {
-      const res = await fetch(`${API_BASE}/highlights`);
-      return res.json();
-    },
-    
-    vote: async (highlightId: string) => {
-      const res = await fetch(`${API_BASE}/highlights/vote`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ highlightId })
-      });
-      return res.json();
-    }
-  },
-  
   // Jersey Day
   jersey: {
-    select: async (club: string, kitType: string) => {
+    select: async (userId: string, club: string, kitType: string) => {
       const res = await fetch(`${API_BASE}/jersey/select`, {
         method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ club, kitType })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, club, kitType })
       });
       return res.json();
     }
@@ -158,21 +109,19 @@ export const api = {
       const res = await fetch(`${API_BASE}/banter/feed`);
       return res.json();
     },
-    
-    createPost: async (content: string, clubTag?: string) => {
+    createPost: async (userId: string, content: string, clubTag?: string) => {
       const res = await fetch(`${API_BASE}/banter/post`, {
         method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ content, clubTag })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, content, clubTag })
       });
       return res.json();
     },
-    
-    vote: async (postId: string) => {
+    vote: async (postId: string, voterId: string) => {
       const res = await fetch(`${API_BASE}/banter/vote`, {
         method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ postId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, voterId })
       });
       return res.json();
     }
@@ -180,28 +129,16 @@ export const api = {
   
   // Referral
   referral: {
-    getInfo: async () => {
-      const res = await fetch(`${API_BASE}/referral/info`, {
-        headers: headers()
-      });
-      return res.json();
-    },
-    
-    register: async (referralCode: string) => {
-      const res = await fetch(`${API_BASE}/referral/register`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ referralCode })
-      });
-      return res.json();
-    },
-    
     claim: async (referralCode: string) => {
       const res = await fetch(`${API_BASE}/referral/claim`, {
         method: 'POST',
-        headers: headers(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ referralCode })
       });
+      return res.json();
+    },
+    getInfo: async () => {
+      const res = await fetch(`${API_BASE}/referral/info`);
       return res.json();
     }
   }
