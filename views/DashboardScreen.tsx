@@ -208,10 +208,15 @@ const refreshReferralCode = async () => {
       const oldCode = localStorage.getItem('referralCode');
       const newCode = data.profile.referralCode;
       
+      localStorage.setItem('referralCode', newCode);
+      
+      // Also update the onboarding state through props if possible
+      // Since we can't directly modify onboarding, we update localStorage
+      
+      console.log('📎 Referral code refreshed:', oldCode, '→', newCode);
+      
+      // If code changed, reload to update UI
       if (oldCode !== newCode) {
-        localStorage.setItem('referralCode', newCode);
-        console.log('📎 Referral code updated:', oldCode, '→', newCode);
-        // Reload to refresh the UI with new code
         window.location.reload();
       }
     }
