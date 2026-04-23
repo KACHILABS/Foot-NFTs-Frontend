@@ -49,7 +49,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     setCharCount(inputText.trim().length);
   }, [inputText]);
 
-  // Add #banter to input
   const addBanterTag = () => {
     const currentText = inputText;
     const banterTag = '#banter';
@@ -282,10 +281,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* STICKY HEADER - Fixed on scroll with proper CSS */}
+      {/* STICKY HEADER - Fixed on scroll with proper CSS classes */}
       <div className="sticky top-0 z-20 bg-darkCard shadow-md">
         {/* Main Header */}
-        <div className="px-4 py-4 flex items-center gap-3 border-b border-gray-800">
+        <div className="px-4 py-4 flex items-center gap-3 border-b border-gray-800 bg-darkCard">
           <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -315,7 +314,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Scrollable */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -418,7 +417,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
               autoFocus
             />
             
-            {/* #banter button INSIDE the input field */}
+            {/* #banter button INSIDE input */}
             <button
               onClick={addBanterTag}
               className="ml-2 px-2 py-0.5 rounded-full bg-green-600/20 border border-green-500/50 text-green-500 text-[10px] font-bold uppercase tracking-wider hover:bg-green-600/30 transition-all active:scale-95 whitespace-nowrap"
@@ -439,7 +438,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             )}
           </div>
           
-          {/* SEND BUTTON - PRESERVED */}
+          {/* Send Button */}
           <button
             onClick={sendMessage}
             disabled={!inputText.trim() || sending || charCount < MIN_MESSAGE_LENGTH}
