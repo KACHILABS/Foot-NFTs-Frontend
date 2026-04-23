@@ -230,28 +230,39 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return null;
   };
 
-  // ===== REFRESH PROFILE FROM BACKEND =====
-  const refreshProfile = async () => {
-    try {
-      const telegramId = localStorage.getItem('telegramId');
-      const token = localStorage.getItem('token');
-      if (!telegramId || !token) return;
-      
-      const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
-      if (data.success && data.profile && onUpdateProfile) {
-        if (data.profile.walletAddress && onUpdateWallet) {
-          onUpdateWallet({ address: data.profile.walletAddress });
-          setTempWalletAddress(data.profile.walletAddress);
-        }
+// ===== REFRESH PROFILE FROM BACKEND =====
+const refreshProfile = async () => {
+  try {
+    const telegramId = localStorage.getItem('telegramId');
+    const token = localStorage.getItem('token');
+    if (!telegramId || !token) return;
+    
+    const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    if (data.success && data.profile) {
+      if (data.profile.walletAddress && onUpdateWallet) {
+        onUpdateWallet({ address: data.profile.walletAddress });
+        setTempWalletAddress(data.profile.walletAddress);
       }
-    } catch (error) {
-      console.error('Failed to refresh profile:', error);
+      // Update avatar in localStorage only (profile is a prop, can't set directly)
+      if (data.profile.avatar && profile) {
+        const savedProfile = localStorage.getItem('user_profile');
+        if (savedProfile) {
+          const profileData = JSON.parse(savedProfile);
+          profileData.avatar = data.profile.avatar;
+          localStorage.setItem('user_profile', JSON.stringify(profileData));
+        }
+        // Force reload to show new avatar
+        window.location.reload();
+      }
     }
-  };
+  } catch (error) {
+    console.error('Failed to refresh profile:', error);
+  }
+};
 
   // ===== REFRESH REFERRAL CODE FROM BACKEND =====
   const refreshReferralCode = async () => {
