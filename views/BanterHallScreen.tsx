@@ -49,6 +49,24 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     setCharCount(inputText.trim().length);
   }, [inputText]);
 
+  // Add #banter to input
+  const addBanterTag = () => {
+    const currentText = inputText;
+    const banterTag = '#banter';
+    
+    // Check if #banter already exists
+    if (currentText.toLowerCase().includes('#banter')) {
+      tg?.HapticFeedback.notificationOccurred('warning');
+      return;
+    }
+    
+    // Add space before if needed
+    const newText = currentText ? `${currentText} ${banterTag}` : banterTag;
+    setInputText(newText);
+    inputRef.current?.focus();
+    tg?.HapticFeedback.impactOccurred('light');
+  };
+
   // Load messages from backend - OLDEST FIRST so newest at BOTTOM
   const loadMessages = useCallback(async () => {
     try {
@@ -305,8 +323,8 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       </div>
 
-      {/* Messages Area - Messages appear at BOTTOM like WhatsApp */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" ref={scrollRef}>
+      {/* Messages Area - Smaller messages like WhatsApp */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center mb-4">
@@ -319,40 +337,40 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[80%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-2`}>
+              <div className={`flex max-w-[70%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-1.5`}>
                 {!msg.isMe && (
-                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
-                    <span className="text-xs">⚽</span>
+                  <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-[10px]">⚽</span>
                   </div>
                 )}
                 
                 <div>
                   {!msg.isMe && (
-                    <p className="text-xs font-semibold text-gray-400 mb-1 ml-1">{msg.senderName}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 mb-0.5 ml-1">{msg.senderName}</p>
                   )}
                   <div
-                    className={`relative px-4 py-2 rounded-2xl ${
+                    className={`relative px-3 py-1.5 rounded-xl text-[13px] ${
                       msg.isMe
                         ? 'bg-green-600 text-white rounded-br-none'
                         : 'bg-darkCard text-gray-200 rounded-bl-none border border-gray-700'
                     }`}
                   >
-                    <p className="text-sm break-words">{msg.content}</p>
+                    <p className="break-words leading-relaxed">{msg.content}</p>
                     {msg.content.toLowerCase().includes('#banter') && (
-                      <span className="inline-block text-[9px] font-bold text-yellow-400 mt-1">
+                      <span className="inline-block text-[8px] font-bold text-yellow-400 mt-0.5">
                         🔥 #banter
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 ml-1">
-                    <span className="text-[9px] text-gray-600">{formatTime(msg.createdAt)}</span>
+                  <div className="flex items-center gap-2 mt-0.5 ml-1">
+                    <span className="text-[8px] text-gray-600">{formatTime(msg.createdAt)}</span>
                     {!msg.isMe && (
                       <button 
                         onClick={() => handleVote(msg.id, msg.userId)}
-                        className="text-[9px] text-gray-500 hover:text-yellow-500 transition-colors flex items-center gap-1"
+                        className="text-[8px] text-gray-500 hover:text-yellow-500 transition-colors flex items-center gap-0.5"
                       >
                         🔥 Vote {msg.votes > 0 && <span className="text-yellow-500">({msg.votes})</span>}
-                        <span className="text-green-500">+3 FTC</span>
+                        <span className="text-green-500">+3</span>
                       </button>
                     )}
                   </div>
@@ -364,18 +382,18 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         
         {sending && (
           <div className="flex justify-end">
-            <div className="bg-green-600/50 px-4 py-2 rounded-2xl rounded-br-none">
+            <div className="bg-green-600/50 px-3 py-1.5 rounded-xl rounded-br-none">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Input Area */}
+      {/* Input Area with #banter button */}
       <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
         <div className="mb-2 px-1 flex items-center justify-between gap-3">
           <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -419,6 +437,15 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             )}
           </div>
           
+          {/* #banter Button */}
+          <button
+            onClick={addBanterTag}
+            className="w-10 h-10 rounded-full bg-yellow-600/20 border border-yellow-500/50 text-yellow-500 flex items-center justify-center hover:bg-yellow-600/30 transition-all active:scale-95"
+            title="Add #banter tag"
+          >
+            <span className="text-sm font-black">#</span>
+          </button>
+          
           <button
             onClick={sendMessage}
             disabled={!inputText.trim() || sending || charCount < MIN_MESSAGE_LENGTH}
@@ -436,7 +463,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         
         <div className="mt-2 text-center">
           <span className="text-[8px] text-gray-600">
-            💡 Use <span className="text-yellow-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
+            💡 Use <span className="text-yellow-500 font-bold">#banter</span> button to earn 2 FTC • Vote on others' posts to earn 3 FTC
           </span>
         </div>
       </div>
