@@ -63,7 +63,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
           return;
         }
         
-        // Also check local storage for daily lock
         const today = new Date().toISOString().split('T')[0];
         const lastCompleted = localStorage.getItem('trivia_last_completed_date');
         
@@ -74,7 +73,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
           return;
         }
         
-        // Load questions
         await loadQuestions();
         
       } catch (error) {
@@ -92,8 +90,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     setError(false);
     
     try {
-      // FIRST: Record that user has started trivia today (lock immediately)
-      // This prevents re-entry even if they don't finish
       console.log('🔒 Locking trivia for today...');
       const completeResponse = await fetch(`${API_BASE}/trivia/complete`, {
         method: 'POST',
@@ -110,13 +106,11 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         console.log('✅ Trivia locked for today');
       }
       
-      // Also set local storage
       const today = new Date().toISOString().split('T')[0];
       localStorage.setItem('trivia_last_completed_date', today);
       
       const generatedQuestions = [];
       
-      // Generate 5 questions from backend Groq API
       for (let i = 0; i < 5; i++) {
         const response = await fetch(`${API_BASE}/trivia/question`, {
           headers: {
@@ -137,7 +131,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
           fact: data.question.fact
         });
         
-        // Small delay between requests
         if (i < 4) await new Promise(r => setTimeout(r, 500));
       }
       
@@ -229,76 +222,49 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     }
   };
 
-  // Already played today screen (from backend check)
+  // Already played today screen
   if (cannotPlay) {
     return (
-      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
-        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
-          <div className="w-10"></div>
+      <div className="trivia-root">
+        <style>{TRIVIA_STYLES}</style>
+        <div className="trivia-header">
+          <button onClick={onBack} className="trivia-back-btn">←</button>
+          <span className="trivia-title">Daily Trivia IQ</span>
+          <div className="trivia-placeholder" />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-          <div className="w-32 h-32 bg-darkDeep rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 relative border border-gray-800">
-            🔒
-            <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center text-black border-4 border-darkBg shadow-lg">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-            </div>
+        <div className="trivia-locked">
+          <div className="trivia-locked-icon">🔒</div>
+          <h3 className="trivia-locked-title">Already Played Today</h3>
+          <p className="trivia-locked-text">{alreadyPlayedMessage}</p>
+          <div className="trivia-locked-card">
+            <span>Next Trivia Available</span>
+            <span className="trivia-countdown">{timeUntilReset || 'Tomorrow at 00:00 UTC'}</span>
           </div>
-          <h3 className="text-2xl font-black text-white mb-2">Already Played Today</h3>
-          <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-            {alreadyPlayedMessage}
-          </p>
-          <div className="w-full space-y-4">
-            <Card className="bg-orange-950/20 border border-orange-500/30 p-5">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-orange-500">
-                <span>Next Trivia Available</span>
-                <span className="font-mono">Tomorrow at 00:00 UTC</span>
-              </div>
-            </Card>
-            <Button onClick={onBack}>Back to Arena</Button>
-          </div>
+          <button className="trivia-back-btn-large" onClick={onBack}>Back to Arena</button>
         </div>
       </div>
     );
   }
 
-  // Daily locked screen (completed via localStorage)
+  // Daily locked screen
   if (isDailyLocked) {
     return (
-      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
-        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
-          <div className="w-10"></div>
+      <div className="trivia-root">
+        <style>{TRIVIA_STYLES}</style>
+        <div className="trivia-header">
+          <button onClick={onBack} className="trivia-back-btn">←</button>
+          <span className="trivia-title">Daily Trivia IQ</span>
+          <div className="trivia-placeholder" />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-           <div className="w-32 h-32 bg-darkDeep rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 relative border border-gray-800">
-              🔒
-              <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-black border-4 border-darkBg shadow-lg">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-              </div>
-           </div>
-           <h3 className="text-2xl font-black text-white mb-2">Today's IQ Task Complete</h3>
-           <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-             You've already claimed your daily trivia reward. Come back tomorrow for a fresh set of challenges.
-           </p>
-           <div className="w-full space-y-4">
-             <Card className="bg-green-950/20 border border-green-500/30 p-5">
-               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-green-500">
-                 <span>Next Daily Unlock</span>
-                 <span className="font-mono">{timeUntilReset}</span>
-               </div>
-               <div className="mt-2 w-full h-1 bg-gray-800 rounded-full overflow-hidden">
-                 <div className="h-full bg-green-500 transition-all duration-1000" style={{ width: '100%' }}></div>
-               </div>
-             </Card>
-             <Button onClick={onBack}>Back to Fan Arena</Button>
-           </div>
+        <div className="trivia-locked">
+          <div className="trivia-locked-icon">🔒</div>
+          <h3 className="trivia-locked-title">Today's IQ Task Complete</h3>
+          <p className="trivia-locked-text">You've already claimed your daily trivia reward. Come back tomorrow for a fresh set of challenges.</p>
+          <div className="trivia-locked-card">
+            <span>Next Daily Unlock</span>
+            <span className="trivia-countdown">{timeUntilReset}</span>
+          </div>
+          <button className="trivia-back-btn-large" onClick={onBack}>Back to Arena</button>
         </div>
       </div>
     );
@@ -307,18 +273,17 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   // Loading screen
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
-        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
-          <div className="w-10"></div>
+      <div className="trivia-root">
+        <style>{TRIVIA_STYLES}</style>
+        <div className="trivia-header">
+          <button onClick={onBack} className="trivia-back-btn">←</button>
+          <span className="trivia-title">Daily Trivia IQ</span>
+          <div className="trivia-placeholder" />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-          <div className="w-20 h-20 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <p className="text-gray-400">Preparing your daily trivia...</p>
-          <p className="text-xs text-gray-600 mt-2">Powered by AI</p>
+        <div className="trivia-loading">
+          <div className="trivia-spinner" />
+          <p>Preparing your daily trivia...</p>
+          <span>Powered by AI</span>
         </div>
       </div>
     );
@@ -327,19 +292,18 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   // Error screen
   if (error) {
     return (
-      <div className="flex flex-col h-full bg-darkBg animate-in fade-in duration-500 overflow-hidden">
-        <div className="bg-darkCard px-6 pt-12 pb-6 border-b border-gray-800 flex items-center justify-between sticky top-0 z-20">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <h2 className="text-xl font-black text-white">Daily Trivia IQ</h2>
-          <div className="w-10"></div>
+      <div className="trivia-root">
+        <style>{TRIVIA_STYLES}</style>
+        <div className="trivia-header">
+          <button onClick={onBack} className="trivia-back-btn">←</button>
+          <span className="trivia-title">Daily Trivia IQ</span>
+          <div className="trivia-placeholder" />
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-          <div className="text-6xl mb-4">⚠️</div>
-          <h3 className="text-xl font-black text-white mb-2">Unable to load questions</h3>
-          <p className="text-sm text-gray-400 mb-6">The AI service is temporarily unavailable. Please try again.</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        <div className="trivia-error">
+          <div className="trivia-error-icon">⚠️</div>
+          <h3>Unable to load questions</h3>
+          <p>The AI service is temporarily unavailable. Please try again.</p>
+          <button className="trivia-retry-btn" onClick={() => window.location.reload()}>Try Again</button>
         </div>
       </div>
     );
@@ -347,32 +311,35 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
 
   // Results screen
   if (showResult) {
+    const totalEarned = (score * 10) + ((questions.length - score) * 2);
     return (
-      <div className="flex flex-col h-full bg-darkBg px-6 pt-20 pb-10 animate-in zoom-in duration-500">
-        <div className="flex-1 flex flex-col items-center text-center">
-          <div className="w-32 h-32 bg-green-600 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-2xl animate-bounce">
-            🏆
-          </div>
-          <h2 className="text-3xl font-black text-white mb-2">Daily Quiz Complete!</h2>
-          <p className="text-gray-400 font-medium mb-8">You showed true football IQ today.</p>
-          
-          <div className="grid grid-cols-2 gap-4 w-full mb-10">
-            <Card className="p-6 bg-darkDeep border border-gray-800">
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Score</p>
-              <p className="text-3xl font-black text-white">{score}/{questions.length}</p>
-            </Card>
-            <Card className="p-6 bg-green-950/20 border border-green-500/30">
-              <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Earned</p>
-              <p className="text-3xl font-black text-green-500">{(score * 10) + ((questions.length - score) * 2)} FTC</p>
-            </Card>
-          </div>
-          
-          <div className="bg-darkDeep rounded-xl p-4 mb-6 border border-gray-800 w-full">
-            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Next Trivia</p>
-            <p className="text-sm text-white font-mono">Tomorrow at 00:00 UTC</p>
-          </div>
+      <div className="trivia-root">
+        <style>{TRIVIA_STYLES}</style>
+        <div className="trivia-header">
+          <button onClick={onBack} className="trivia-back-btn">←</button>
+          <span className="trivia-title">Daily Trivia IQ</span>
+          <div className="trivia-placeholder" />
         </div>
-        <Button onClick={onBack}>Return to Arena</Button>
+        <div className="trivia-result">
+          <div className="trivia-result-icon">🏆</div>
+          <h2 className="trivia-result-title">Daily Quiz Complete!</h2>
+          <p className="trivia-result-subtitle">You showed true football IQ today.</p>
+          <div className="trivia-result-stats">
+            <div className="trivia-result-stat">
+              <span>Score</span>
+              <strong>{score}/{questions.length}</strong>
+            </div>
+            <div className="trivia-result-stat">
+              <span>Earned</span>
+              <strong>{totalEarned} FTC</strong>
+            </div>
+          </div>
+          <div className="trivia-result-next">
+            <span>Next Trivia</span>
+            <span>Tomorrow at 00:00 UTC</span>
+          </div>
+          <button className="trivia-back-btn-large" onClick={onBack}>Return to Arena</button>
+        </div>
       </div>
     );
   }
@@ -380,46 +347,42 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
   if (questions.length === 0) return null;
 
   return (
-    <div className="flex flex-col h-full bg-darkBg animate-in slide-in-from-right-10 duration-500 overflow-hidden">
+    <div className="trivia-root">
+      <style>{TRIVIA_STYLES}</style>
+      
       {/* Header */}
-      <div className="bg-darkCard px-6 pt-12 pb-4 border-b border-gray-800 sticky top-0 z-20">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={onBack} className="text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Question {currentStep + 1} of {questions.length}</span>
-          </div>
-          <div className="w-6"></div>
-        </div>
-        <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-green-600 transition-all duration-500" 
-            style={{ width: `${((currentStep + 1) / questions.length) * 100}%` }}
-          ></div>
-        </div>
+      <div className="trivia-header">
+        <button onClick={onBack} className="trivia-back-btn">←</button>
+        <span className="trivia-title">Daily Trivia IQ</span>
+        <div className="trivia-progress-badge">{currentStep + 1}/{questions.length}</div>
+      </div>
+      
+      {/* Progress Bar */}
+      <div className="trivia-progress-bar">
+        <div 
+          className="trivia-progress-fill"
+          style={{ width: `${((currentStep + 1) / questions.length) * 100}%` }}
+        />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col no-scrollbar">
-        <h3 className="text-2xl font-black text-white mb-8 leading-tight">
-          {currentQuestion?.question}
-        </h3>
+      {/* Question */}
+      <div className="trivia-question-container">
+        <h3 className="trivia-question">{currentQuestion?.question}</h3>
 
-        <div className="space-y-4 flex-1">
+        {/* Options */}
+        <div className="trivia-options">
           {currentQuestion?.options.map((option: string, idx: number) => {
-            let stateClass = "bg-darkCard border border-gray-800 text-white";
+            let optionClass = "trivia-option";
             if (isAnswered) {
               if (idx === currentQuestion.correct) {
-                stateClass = "bg-green-950/30 border-green-500 text-green-400";
+                optionClass = "trivia-option correct";
               } else if (idx === selectedOption) {
-                stateClass = "bg-red-950/30 border-red-500 text-red-400";
+                optionClass = "trivia-option wrong";
               } else {
-                stateClass = "bg-darkCard border border-gray-800 text-gray-500 opacity-60";
+                optionClass = "trivia-option disabled";
               }
             } else if (selectedOption === idx) {
-              stateClass = "border-green-500 ring-1 ring-green-500 bg-darkCard";
+              optionClass = "trivia-option selected";
             }
 
             return (
@@ -427,35 +390,400 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
                 key={idx}
                 onClick={() => handleOptionSelect(idx)}
                 disabled={isAnswered}
-                className={`w-full p-5 rounded-2xl border-2 text-left transition-all active:scale-[0.99] flex items-center justify-between ${stateClass}`}
+                className={optionClass}
               >
-                <span className={`font-bold ${isAnswered && idx === currentQuestion.correct ? 'text-green-400' : ''}`}>
-                  {option}
-                </span>
+                <span>{String.fromCharCode(65 + idx)}. {option}</span>
                 {isAnswered && idx === currentQuestion.correct && (
-                   <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                   </svg>
+                  <span className="trivia-option-check">✓</span>
                 )}
               </button>
             );
           })}
         </div>
 
+        {/* Fact Card */}
         {isAnswered && (
-          <div className="mt-8 animate-in slide-in-from-bottom-4">
-            <Card className="bg-green-950/20 border border-green-500/30 p-5 mb-6">
-              <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Did you know?</p>
-              <p className="text-xs text-green-400 font-medium leading-relaxed">{currentQuestion?.fact}</p>
-            </Card>
-            <Button onClick={nextQuestion}>
-              {currentStep < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
-            </Button>
+          <div className="trivia-fact">
+            <span>📖 Did you know?</span>
+            <p>{currentQuestion?.fact}</p>
           </div>
+        )}
+
+        {/* Next Button */}
+        {isAnswered && (
+          <button className="trivia-next-btn" onClick={nextQuestion}>
+            {currentStep < questions.length - 1 ? 'Next Question →' : 'Finish Quiz →'}
+          </button>
         )}
       </div>
     </div>
   );
 };
+
+// ── GLOBAL STYLES ─────────────────────────────────────────────────────────────
+const TRIVIA_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+  .trivia-root {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #0d0d0d;
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    z-index: 100;
+  }
+
+  /* Header */
+  .trivia-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
+  }
+  .trivia-back-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    text-align: left;
+  }
+  .trivia-title {
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    letter-spacing: 0.05em;
+  }
+  .trivia-placeholder {
+    width: 32px;
+  }
+  .trivia-progress-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: #22c55e;
+    background: rgba(34,197,94,0.1);
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(34,197,94,0.3);
+  }
+
+  /* Progress Bar */
+  .trivia-progress-bar {
+    flex-shrink: 0;
+    height: 3px;
+    background: #1f2937;
+    width: 100%;
+  }
+  .trivia-progress-fill {
+    height: 100%;
+    background: #22c55e;
+    transition: width 0.3s ease;
+  }
+
+  /* Question Container */
+  .trivia-question-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Question Text */
+  .trivia-question {
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #fff;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  /* Options */
+  .trivia-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .trivia-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 16px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    text-align: left;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #f3f4f6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .trivia-option:hover:not(:disabled) {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.1);
+  }
+  .trivia-option.selected {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.15);
+  }
+  .trivia-option.correct {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.2);
+    color: #4ade80;
+  }
+  .trivia-option.wrong {
+    border-color: #ef4444;
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+  }
+  .trivia-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .trivia-option-check {
+    color: #22c55e;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  /* Fact Card */
+  .trivia-fact {
+    background: rgba(34,197,94,0.08);
+    border-left: 3px solid #22c55e;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  .trivia-fact span {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: #22c55e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .trivia-fact p {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    color: #9ca3af;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* Next Button */
+  .trivia-next-btn {
+    width: 100%;
+    padding: 14px;
+    background: #22c55e;
+    border: none;
+    border-radius: 30px;
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    color: #000;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s ease;
+  }
+  .trivia-next-btn:active {
+    transform: scale(0.98);
+    background: #16a34a;
+  }
+
+  /* Locked / Loading / Error States */
+  .trivia-locked, .trivia-loading, .trivia-error, .trivia-result {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    gap: 16px;
+  }
+  .trivia-locked-icon {
+    width: 80px;
+    height: 80px;
+    background: #1f2937;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+  }
+  .trivia-locked-title, .trivia-result-title {
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: #fff;
+    margin: 0;
+  }
+  .trivia-locked-text, .trivia-result-subtitle {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 0;
+    max-width: 280px;
+  }
+  .trivia-locked-card {
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 16px;
+    padding: 12px 20px;
+    width: 100%;
+    max-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .trivia-locked-card span:first-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #22c55e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .trivia-countdown {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .trivia-back-btn-large {
+    padding: 12px 24px;
+    background: #374151;
+    border: none;
+    border-radius: 30px;
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .trivia-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #22c55e;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .trivia-loading p {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    color: #9ca3af;
+    margin: 0;
+  }
+  .trivia-loading span {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: #4b5563;
+  }
+  .trivia-error-icon {
+    font-size: 48px;
+  }
+  .trivia-error h3 {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 18px;
+    color: #fff;
+    margin: 0;
+  }
+  .trivia-error p {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 0;
+  }
+  .trivia-retry-btn {
+    padding: 10px 24px;
+    background: #22c55e;
+    border: none;
+    border-radius: 30px;
+    font-family: 'Oxanium', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: #000;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .trivia-result-icon {
+    width: 80px;
+    height: 80px;
+    background: #22c55e;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+  }
+  .trivia-result-stats {
+    display: flex;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .trivia-result-stat {
+    background: #1f2937;
+    border-radius: 16px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 100px;
+  }
+  .trivia-result-stat span {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #6b7280;
+    text-transform: uppercase;
+    display: block;
+  }
+  .trivia-result-stat strong {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 20px;
+    color: #22c55e;
+    display: block;
+    margin-top: 4px;
+  }
+  .trivia-result-next {
+    background: rgba(34,197,94,0.08);
+    border-radius: 16px;
+    padding: 12px 20px;
+    text-align: center;
+    width: 100%;
+    max-width: 260px;
+  }
+  .trivia-result-next span:first-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #22c55e;
+    text-transform: uppercase;
+    display: block;
+  }
+  .trivia-result-next span:last-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: #fff;
+    display: block;
+    margin-top: 4px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
 
 export default TriviaScreen;
