@@ -157,6 +157,37 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const tg = (window as any).Telegram?.WebApp;
   const club = CLUBS.find(c => c.id === profile?.favoriteClubId);
 
+  // ===== INJECT WEB3 FONTS =====
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+      * {
+        font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      h1, h2, h3, h4, h5, h6,
+      .font-black, .font-bold, .font-extrabold,
+      [class*="font-black"], [class*="font-bold"], [class*="font-extrabold"],
+      .uppercase, [class*="uppercase"] {
+        font-family: 'Oxanium', 'Rajdhani', sans-serif;
+        letter-spacing: 0.05em;
+      }
+
+      code, pre, .font-mono,
+      [class*="font-mono"], .tracking-widest {
+        font-family: 'Space Mono', monospace;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
   const features = [
     { id: 'banter', name: 'Banter Hall', icon: '🔥', description: 'Global fan showdown', comingSoon: false, locked: false },
     { id: 'jersey', name: 'Jersey Day', icon: '👕', description: 'Rep your colors daily', comingSoon: false, locked: false },
@@ -230,39 +261,39 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return null;
   };
 
-  // ===== REFRESH PROFILE FROM BACKEND =====
-  const refreshProfile = async () => {
-    try {
-      const telegramId = localStorage.getItem('telegramId');
-      const token = localStorage.getItem('token');
-      if (!telegramId || !token) return;
-      
-      const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
-      if (data.success && data.profile) {
-        if (data.profile.walletAddress && onUpdateWallet) {
-          onUpdateWallet({ address: data.profile.walletAddress });
-          setTempWalletAddress(data.profile.walletAddress);
-        }
-        // Update avatar in localStorage only (profile is a prop, can't set directly)
-        if (data.profile.avatar && profile) {
-          const savedProfile = localStorage.getItem('user_profile');
-          if (savedProfile) {
-            const profileData = JSON.parse(savedProfile);
-            profileData.avatar = data.profile.avatar;
-            localStorage.setItem('user_profile', JSON.stringify(profileData));
-          }
-          // Force reload to show new avatar
-          window.location.reload();
-        }
+// ===== REFRESH PROFILE FROM BACKEND =====
+const refreshProfile = async () => {
+  try {
+    const telegramId = localStorage.getItem('telegramId');
+    const token = localStorage.getItem('token');
+    if (!telegramId || !token) return;
+    
+    const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    if (data.success && data.profile) {
+      if (data.profile.walletAddress && onUpdateWallet) {
+        onUpdateWallet({ address: data.profile.walletAddress });
+        setTempWalletAddress(data.profile.walletAddress);
       }
-    } catch (error) {
-      console.error('Failed to refresh profile:', error);
+      // Update avatar in localStorage only (profile is a prop, can't set directly)
+      if (data.profile.avatar && profile) {
+        const savedProfile = localStorage.getItem('user_profile');
+        if (savedProfile) {
+          const profileData = JSON.parse(savedProfile);
+          profileData.avatar = data.profile.avatar;
+          localStorage.setItem('user_profile', JSON.stringify(profileData));
+        }
+        // Force reload to show new avatar
+        window.location.reload();
+      }
     }
-  };
+  } catch (error) {
+    console.error('Failed to refresh profile:', error);
+  }
+};
 
   // ===== REFRESH REFERRAL CODE FROM BACKEND =====
   const refreshReferralCode = async () => {
@@ -847,15 +878,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const renderNotificationsPanel = () => (
     <div className="flex flex-col gap-4 pb-20 animate-in fade-in duration-300">
       <div className="flex items-center justify-between px-1">
-        <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] font-oxanium">Notifications</p>
+        <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Notifications</p>
         <div className="flex gap-2">
           {unreadCount > 0 && (
-            <button onClick={markAllNotificationsRead} className="text-[10px] text-green-500 font-black uppercase tracking-widest font-space-mono">
+            <button onClick={markAllNotificationsRead} className="text-[10px] text-green-500 font-black uppercase tracking-widest">
               Mark read
             </button>
           )}
           {notifications.length > 0 && (
-            <button onClick={clearAllNotifications} className="text-[10px] text-red-500 font-black uppercase tracking-widest font-space-mono">
+            <button onClick={clearAllNotifications} className="text-[10px] text-red-500 font-black uppercase tracking-widest">
               Clear all
             </button>
           )}
@@ -865,8 +896,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {notifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
           <span className="text-4xl opacity-30">🔔</span>
-          <p className="text-sm font-black text-gray-500 font-oxanium">No notifications yet</p>
-          <p className="text-[10px] text-gray-600 max-w-[180px] font-rajdhani">When you earn FTC or get mentioned, you'll see it here.</p>
+          <p className="text-sm font-black text-gray-500">No notifications yet</p>
+          <p className="text-[10px] text-gray-600 max-w-[180px]">When you earn FTC or get mentioned, you'll see it here.</p>
         </div>
       ) : (
         notifications.map(notif => (
@@ -896,12 +927,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <p className="text-[10px] font-black text-white font-oxanium">{notif.title}</p>
-                <span className="text-[8px] text-gray-500 font-bold shrink-0 font-space-mono">{notif.time}</span>
+                <p className="text-[10px] font-black text-white">{notif.title}</p>
+                <span className="text-[8px] text-gray-500 font-bold shrink-0">{notif.time}</span>
               </div>
-              <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 font-rajdhani">{notif.message}</p>
+              <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{notif.message}</p>
               {!notif.read && (
-                <span className="inline-block text-[7px] font-black uppercase bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-md mt-1 font-space-mono">
+                <span className="inline-block text-[7px] font-black uppercase bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-md mt-1">
                   New
                 </span>
               )}
@@ -919,22 +950,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <Card className="bg-green-600 text-black p-8 relative overflow-hidden flex flex-col items-center text-center shadow-xl border-none">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-        <p className="text-[10px] uppercase font-black tracking-[0.2em] opacity-80 mb-2 font-oxanium">Total Balance</p>
-        <h2 className="text-5xl font-black mb-6 tracking-tighter font-oxanium">{userFTCBalance} <span className="text-xl opacity-60">FTC</span></h2>
+        <p className="text-[10px] uppercase font-black tracking-[0.2em] opacity-80 mb-2">Total Balance</p>
+        <h2 className="text-5xl font-black mb-6 tracking-tighter">{userFTCBalance} <span className="text-xl opacity-60">FTC</span></h2>
         
         {/* Editable Wallet Address */}
         <div className="w-full bg-black/20 backdrop-blur-md p-4 rounded-2xl border border-white/10 group">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-[8px] font-black uppercase text-white/60 font-space-mono">TON Wallet Address</span>
+            <span className="text-[8px] font-black uppercase text-white/60">TON Wallet Address</span>
             <button 
               onClick={() => setShowWalletSettings(true)}
-              className="text-[8px] text-green-400 hover:text-green-300 transition-colors font-space-mono"
+              className="text-[8px] text-green-400 hover:text-green-300 transition-colors"
             >
               Edit
             </button>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <div className="font-space-mono text-xs truncate opacity-90">
+            <div className="font-mono text-xs truncate opacity-90">
               {wallet?.address || tempWalletAddress || 'Not set - tap Edit to add'}
             </div>
             {(wallet?.address || tempWalletAddress) && (
@@ -961,18 +992,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {showWalletSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
-            <h2 className="text-xl font-black text-white mb-4 font-oxanium">TON Wallet Address</h2>
-            <p className="text-xs text-gray-400 mb-4 font-rajdhani">Enter your TON wallet address to receive NFT rewards</p>
+            <h2 className="text-xl font-black text-white mb-4">TON Wallet Address</h2>
+            <p className="text-xs text-gray-400 mb-4">Enter your TON wallet address to receive NFT rewards</p>
             <input
               type="text"
               placeholder="EQA... or UQA..."
               value={tempWalletAddress}
               onChange={(e) => setTempWalletAddress(e.target.value)}
-              className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white focus:ring-2 focus:ring-green-500 outline-none font-space-mono text-sm mb-4"
+              className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white focus:ring-2 focus:ring-green-500 outline-none font-mono text-sm mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowWalletSettings(false)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black font-oxanium">Cancel</button>
-              <button onClick={handleUpdateWalletAddress} className="flex-1 bg-green-600 text-black py-3 rounded-xl font-black font-oxanium">Save</button>
+              <button onClick={() => setShowWalletSettings(false)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black">Cancel</button>
+              <button onClick={handleUpdateWalletAddress} className="flex-1 bg-green-600 text-black py-3 rounded-xl font-black">Save</button>
             </div>
           </div>
         </div>
@@ -982,23 +1013,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <button 
           onClick={() => tg?.showAlert?.('TON Deposit coming soon!')}
-          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg font-space-mono"
+          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
         >
           Deposit TON
         </button>
         <button 
           onClick={() => tg?.showAlert?.('FTC Swap coming soon!')}
-          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg font-space-mono"
+          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
         >
           Swap FTC
         </button>
       </div>
       
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between px-1">
-          <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] font-oxanium">Leaderboard Top 5</p>
+        <div className="flex items-center justify-between px-1"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Leaderboard Top 5</p>
           <button 
-            className="text-[10px] text-green-500 font-black uppercase tracking-widest font-space-mono" 
+            className="text-[10px] text-green-500 font-black uppercase tracking-widest" 
             onClick={() => {
               tg?.HapticFeedback.selectionChanged();
               setShowLeaderboardModal(true);
@@ -1015,17 +1045,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   {idx === 0 && <span className="text-xl">🥇</span>}
                   {idx === 1 && <span className="text-xl">🥈</span>}
                   {idx === 2 && <span className="text-xl">🥉</span>}
-                  {idx > 2 && <span className="text-lg font-black text-white font-oxanium">#{idx + 1}</span>}
+                  {idx > 2 && <span className="text-lg font-black text-white">#{idx + 1}</span>}
                 </div>
                 <div>
-                  <p className="text-sm font-black text-white leading-tight font-oxanium">{user.username || `Fan_${user.telegram_id}`}</p>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase font-space-mono">{user.ftc_balance} FTC</p>
+                  <p className="text-sm font-black text-white leading-tight">{user.username || `Fan_${user.telegram_id}`}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase">{user.ftc_balance} FTC</p>
                 </div>
               </div>
-              {user.id === backendUserId && <span className="text-[8px] bg-green-600 text-black px-2 py-1 rounded-full font-black font-space-mono">YOU</span>}
+              {user.id === backendUserId && <span className="text-[8px] bg-green-600 text-black px-2 py-1 rounded-full font-black">YOU</span>}
             </div>
           ))}
-          {leaderboardData.length === 0 && <p className="text-center text-gray-500 py-8 text-sm font-rajdhani">No users yet. Be the first!</p>}
+          {leaderboardData.length === 0 && <p className="text-center text-gray-500 py-8 text-sm">No users yet. Be the first!</p>}
         </div>
       </div>
     </div>
@@ -1036,39 +1066,39 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-2 gap-4">
         <Card className="bg-green-600 text-black border-none p-5 relative overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer" onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('wallet'); }}>
-          <p className="text-[10px] uppercase opacity-80 font-black tracking-widest mb-1 font-oxanium">FTC Balance</p>
-          <p className="text-3xl font-black font-oxanium">{userFTCBalance} <span className="text-xs font-bold opacity-60">FTC</span></p>
+          <p className="text-[10px] uppercase opacity-80 font-black tracking-widest mb-1">FTC Balance</p>
+          <p className="text-3xl font-black">{userFTCBalance} <span className="text-xs font-bold opacity-60">FTC</span></p>
         </Card>
         <Card className="p-5 border-gray-800 shadow-sm bg-darkCard">
-          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1 font-oxanium">Global Rank</p>
-          <p className="text-3xl font-black text-white font-oxanium">#{userRank.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Global Rank</p>
+          <p className="text-3xl font-black text-white">#{userRank.toLocaleString()}</p>
         </Card>
       </div>
       <Card className="bg-darkDeep text-white border border-gray-800 p-6 flex items-center justify-between relative overflow-hidden shadow-2xl transition-all">
-        <div className="absolute top-0 right-0 p-2 z-20"><span className="inline-block bg-orange-600 text-white text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest font-space-mono">COMING SOON</span></div>
-        <div className="relative z-10 flex-1"><h3 className="text-lg font-black mb-1 leading-tight tracking-tight font-oxanium">Physical × Digital<br />Jersey Pairing</h3><p className="text-[10px] text-gray-400 font-medium max-w-[140px] leading-relaxed font-rajdhani">Wear it in real life. Own it on the blockchain.</p></div>
+        <div className="absolute top-0 right-0 p-2 z-20"><span className="inline-block bg-orange-600 text-white text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest">COMING SOON</span></div>
+        <div className="relative z-10 flex-1"><h3 className="text-lg font-black mb-1 leading-tight tracking-tight">Physical × Digital<br />Jersey Pairing</h3><p className="text-[10px] text-gray-400 font-medium max-w-[140px] leading-relaxed">Wear it in real life. Own it on the blockchain.</p></div>
         <div className="relative z-10 flex items-center gap-2"><div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-2xl border border-white/10">👕</div></div>
       </Card>
       <div className="flex flex-col gap-3">
-        <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] font-oxanium">Current Affiliation</p>
+        <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Current Affiliation</p>
         <Card className="flex items-center gap-4 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer bg-darkCard border-gray-800" onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('club'); }}>
           <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center p-2">
-            {club?.badge ? <img src={club.badge} className="w-full h-full object-contain" alt="Club" /> : <div className="w-full h-full rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xl font-oxanium">{profile?.favoriteClubName?.charAt(0) || profile?.favoriteClubId?.charAt(0) || 'FC'}</div>}
+            {club?.badge ? <img src={club.badge} className="w-full h-full object-contain" alt="Club" /> : <div className="w-full h-full rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xl">{profile?.favoriteClubName?.charAt(0) || profile?.favoriteClubId?.charAt(0) || 'FC'}</div>}
           </div>
-          <div className="flex-1"><p className="text-xl font-black text-white leading-tight font-oxanium">{club?.name || profile?.favoriteClubName || profile?.favoriteClubId}</p><div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] bg-orange-950 text-orange-400 font-black px-2 py-0.5 rounded-md uppercase font-space-mono">Lvl {fanLevel}</span><FanRankBadge rank={profile?.fanRank} /></div></div>
+          <div className="flex-1"><p className="text-xl font-black text-white leading-tight">{club?.name || profile?.favoriteClubName || profile?.favoriteClubId}</p><div className="flex items-center gap-2 mt-0.5"><span className="text-[10px] bg-orange-950 text-orange-400 font-black px-2 py-0.5 rounded-md uppercase">Lvl {fanLevel}</span><FanRankBadge rank={profile?.fanRank} /></div></div>
           <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
         </Card>
       </div>
       <div className="flex flex-col gap-4 pb-10">
-        <h2 className="text-lg font-black text-white tracking-tight font-oxanium">Fan Arena</h2>
+        <h2 className="text-lg font-black text-white tracking-tight">Fan Arena</h2>
         <div className="grid grid-cols-2 gap-4">
           {features.map(f => (
             <div key={f.id} onClick={() => handleFeatureClick(f)} className={`bg-darkCard rounded-[2.5rem] p-5 border border-gray-800 shadow-sm flex flex-col items-center gap-2 active:scale-[0.98] transition-all cursor-pointer text-center group ${f.comingSoon ? 'opacity-80' : ''}`}>
               <div className={`w-14 h-14 rounded-2xl bg-gray-800 flex items-center justify-center text-3xl mb-1 transition-transform ${f.comingSoon ? 'grayscale' : 'group-hover:scale-110'}`}>{f.icon}</div>
-              <p className="font-black text-white text-sm tracking-tight font-oxanium">{f.name}</p>
-              <p className="text-[9px] text-gray-400 font-medium leading-none mt-0.5 line-clamp-1 font-rajdhani">{f.description}</p>
+              <p className="font-black text-white text-sm tracking-tight">{f.name}</p>
+              <p className="text-[9px] text-gray-400 font-medium leading-none mt-0.5 line-clamp-1">{f.description}</p>
               <div className="mt-auto w-full pt-2">
-                {f.comingSoon ? <div className="bg-gray-800 text-gray-500 rounded-xl py-2 px-3 flex items-center justify-center border border-gray-700"><span className="text-[8px] font-black uppercase tracking-widest font-space-mono">Coming Soon</span></div> : <div className="bg-green-600 text-black rounded-xl py-2 px-3 flex items-center justify-center shadow-md font-black"><span className="text-[8px] font-black uppercase tracking-widest font-space-mono">Access Now</span></div>}
+                {f.comingSoon ? <div className="bg-gray-800 text-gray-500 rounded-xl py-2 px-3 flex items-center justify-center border border-gray-700"><span className="text-[8px] font-black uppercase tracking-widest">Coming Soon</span></div> : <div className="bg-green-600 text-black rounded-xl py-2 px-3 flex items-center justify-center shadow-md font-black"><span className="text-[8px] font-black uppercase tracking-widest">Access Now</span></div>}
               </div>
             </div>
           ))}
@@ -1092,7 +1122,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} />;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden transition-colors duration-300 bg-transparent font-rajdhani">
+    <div className="h-screen flex flex-col overflow-hidden transition-colors duration-300 bg-transparent" style={{ fontFamily: "'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Floating Alert */}
       {showBanterAlert && (
         <div className="fixed top-4 left-4 right-4 z-[60] animate-in slide-in-from-top-4 fade-in duration-300">
@@ -1101,8 +1131,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <span className="text-xl">{showBanterAlert.type === 'banter' ? '💬' : '🎉'}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-0.5 font-space-mono">{showBanterAlert.title}</p>
-              <p className="text-xs text-white font-bold leading-snug line-clamp-2 font-rajdhani">{showBanterAlert.message}</p>
+              <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-0.5" style={{ fontFamily: "'Oxanium', sans-serif" }}>{showBanterAlert.title}</p>
+              <p className="text-xs text-white font-bold leading-snug line-clamp-2" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{showBanterAlert.message}</p>
             </div>
             <div className="flex flex-col gap-1.5 shrink-0">
               <button
@@ -1111,11 +1141,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   if (showBanterAlert.type === 'banter') setInBanterHall(true);
                   if (showBanterAlert.type === 'referral') setActiveTab('profile');
                 }}
-                className="bg-green-600 text-black text-[8px] font-black uppercase px-2.5 py-1.5 rounded-lg tracking-widest font-space-mono"
+                className="bg-green-600 text-black text-[8px] font-black uppercase px-2.5 py-1.5 rounded-lg tracking-widest"
+                style={{ fontFamily: "'Oxanium', sans-serif" }}
               >
                 View
               </button>
-              <button onClick={() => setShowBanterAlert(null)} className="text-gray-500 text-[8px] font-black uppercase px-2.5 py-1.5 rounded-lg tracking-widest font-space-mono">Dismiss</button>
+              <button onClick={() => setShowBanterAlert(null)} className="text-gray-500 text-[8px] font-black uppercase px-2.5 py-1.5 rounded-lg tracking-widest" style={{ fontFamily: "'Oxanium', sans-serif" }}>Dismiss</button>
             </div>
           </div>
         </div>
@@ -1131,16 +1162,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-black text-white mb-2 font-oxanium">Welcome to the Pitch! 🎉</h2>
-              <p className="text-gray-400 text-sm mb-4 font-rajdhani">You've joined the Founding Council</p>
+              <h2 className="text-2xl font-black text-white mb-2" style={{ fontFamily: "'Oxanium', sans-serif" }}>Welcome to the Pitch! 🎉</h2>
+              <p className="text-gray-400 text-sm mb-4">You've joined the Founding Council</p>
               <div className="bg-darkDeep rounded-xl p-4 mb-6 border border-green-500/30">
-                <div className="flex items-center justify-center gap-3"><span className="text-2xl">🎁</span><span className="text-xl font-black text-green-500 font-oxanium">+50 FTC</span></div>
-                <p className="text-xs text-gray-500 mt-1 font-space-mono">Onboarding Bonus</p>
+                <div className="flex items-center justify-center gap-3"><span className="text-2xl">🎁</span><span className="text-xl font-black text-green-500" style={{ fontFamily: "'Oxanium', sans-serif" }}>+50 FTC</span></div>
+                <p className="text-xs text-gray-500 mt-1">Onboarding Bonus</p>
               </div>
               <button 
                 onClick={handleClaimWelcomeBonus} 
                 disabled={isClaimingBonus}
-                className="w-full bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-oxanium"
+                className="w-full bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ fontFamily: "'Oxanium', sans-serif" }}
               >
                 {isClaimingBonus ? 'Claiming...' : 'Claim Bonus'}
               </button>
@@ -1159,16 +1191,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-black text-white font-oxanium">Edit Profile</h2>
-              <p className="text-xs text-gray-400 font-rajdhani">Update your display name</p>
+              <h2 className="text-xl font-black text-white" style={{ fontFamily: "'Oxanium', sans-serif" }}>Edit Profile</h2>
+              <p className="text-xs text-gray-400">Update your display name</p>
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-300 mb-2 font-oxanium">Display Name</label>
-              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white focus:ring-2 focus:ring-green-500 outline-none font-rajdhani" placeholder="Enter your name" autoFocus />
+              <label className="block text-sm font-semibold text-gray-300 mb-2">Display Name</label>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white focus:ring-2 focus:ring-green-500 outline-none" placeholder="Enter your name" autoFocus />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setShowEditProfile(false)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black hover:bg-gray-700 transition-all font-oxanium">Cancel</button>
-              <button onClick={handleSaveProfile} className="flex-1 bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all font-oxanium">Save Changes</button>
+              <button onClick={() => setShowEditProfile(false)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black hover:bg-gray-700 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}>Cancel</button>
+              <button onClick={handleSaveProfile} className="flex-1 bg-green-600 text-black py-3 rounded-xl font-black hover:bg-green-500 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}>Save Changes</button>
             </div>
           </div>
         </div>
@@ -1178,8 +1210,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {showAvatarUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
-            <h2 className="text-xl font-black text-white mb-4 font-oxanium">Upload Profile Picture</h2>
-            <p className="text-xs text-gray-400 mb-4 font-rajdhani">Select a photo to use as your profile picture</p>
+            <h2 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'Oxanium', sans-serif" }}>Upload Profile Picture</h2>
+            <p className="text-xs text-gray-400 mb-4">Select a photo to use as your profile picture</p>
             
             <input
               type="file"
@@ -1192,7 +1224,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             
             <button
               onClick={() => document.getElementById('avatarInput')?.click()}
-              className="w-full bg-darkDeep border border-gray-700 rounded-xl py-3 mb-4 text-white font-medium hover:bg-gray-800 transition-colors font-rajdhani"
+              className="w-full bg-darkDeep border border-gray-700 rounded-xl py-3 mb-4 text-white font-medium hover:bg-gray-800 transition-colors"
               disabled={uploadingAvatar}
             >
               {uploadingAvatar ? 'Uploading...' : 'Select Image'}
@@ -1201,14 +1233,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {uploadingAvatar && (
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm text-gray-400 font-rajdhani">Uploading...</span>
+                <span className="text-sm text-gray-400">Uploading...</span>
               </div>
             )}
             
             <div className="flex gap-3">
               <button 
                 onClick={() => setShowAvatarUpload(false)} 
-                className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black hover:bg-gray-700 transition-all font-oxanium"
+                className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black hover:bg-gray-700 transition-all"
+                style={{ fontFamily: "'Oxanium', sans-serif" }}
               >
                 Cancel
               </button>
@@ -1231,20 +1264,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             </div>
             <div className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <span className="text-[8px] text-white font-space-mono">Change</span>
+              <span className="text-[8px] text-white">Change</span>
             </div>
           </div>
           {(!showNotifications && !showMarketplace) && (
             <div className="animate-in fade-in duration-300 flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap"><p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-widest leading-none font-oxanium">Fan Status</p><FanRankBadge rank={profile?.fanRank} /></div>
-              <p className="font-bold text-white leading-tight truncate max-w-[150px] font-oxanium">{profile?.displayName}</p>
+              <div className="flex items-center gap-1.5 flex-wrap"><p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-widest leading-none" style={{ fontFamily: "'Space Mono', monospace" }}>Fan Status</p><FanRankBadge rank={profile?.fanRank} /></div>
+              <p className="font-bold text-white leading-tight truncate max-w-[150px]" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{profile?.displayName}</p>
             </div>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowNotifications(!showNotifications); setShowMarketplace(false); if (!showNotifications) markAllNotificationsRead(); }} className={`w-9 h-9 flex items-center justify-center rounded-xl relative active:scale-95 transition-all ${showNotifications ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-            {unreadCount > 0 && !showNotifications && (<span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-green-500 rounded-full flex items-center justify-center text-[8px] font-black text-black px-1 animate-bounce font-space-mono">{unreadCount > 9 ? '9+' : unreadCount}</span>)}
+            {unreadCount > 0 && !showNotifications && (<span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-green-500 rounded-full flex items-center justify-center text-[8px] font-black text-black px-1 animate-bounce" style={{ fontFamily: "'Oxanium', sans-serif" }}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
           </button>
           <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowMarketplace(!showMarketplace); setShowNotifications(false); }} className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all ${showMarketplace ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M4 7h16M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 11v4m6-4v4" /></svg>
@@ -1264,14 +1297,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <div className="relative group cursor-pointer" onClick={() => setShowAvatarUpload(true)}>
                     <img src={profile?.avatar || 'https://picsum.photos/200'} className="w-24 h-24 rounded-[2rem] border-4 border-gray-800 shadow-xl mb-4 object-cover" alt="Profile" />
                     <div className="absolute inset-0 bg-black/50 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-xs text-white font-space-mono">Change Photo</span>
+                      <span className="text-xs text-white">Change Photo</span>
                     </div>
                   </div>
-                  <h2 className="text-2xl font-black text-white leading-tight break-words max-w-full px-2 font-oxanium">{profile?.displayName}</h2>
-                  <div className="mt-1 flex items-center justify-center gap-2"><FanRankBadge rank={profile?.fanRank} size="sm" /><p className="text-green-500 font-bold uppercase text-[10px] tracking-widest font-space-mono">{badgeTitle}</p></div>
+                  <h2 className="text-2xl font-black text-white leading-tight break-words max-w-full px-2" style={{ fontFamily: "'Oxanium', sans-serif" }}>{profile?.displayName}</h2>
+                  <div className="mt-1 flex items-center justify-center gap-2"><FanRankBadge rank={profile?.fanRank} size="sm" /><p className="text-green-500 font-bold uppercase text-[10px] tracking-widest" style={{ fontFamily: "'Space Mono', monospace" }}>{badgeTitle}</p></div>
                   <div className="flex gap-2 mt-8 w-full">
-                    <Button variant="outline" className="flex-1 py-3 text-xs font-oxanium" onClick={() => setShowEditProfile(true)}>Edit Profile</Button>
-                    <Button variant="outline" className="flex-1 py-3 text-xs font-oxanium" onClick={handleShareCard}>Share Card</Button>
+                    <Button variant="outline" className="flex-1 py-3 text-xs" onClick={() => setShowEditProfile(true)}>Edit Profile</Button>
+                    <Button variant="outline" className="flex-1 py-3 text-xs" onClick={handleShareCard}>Share Card</Button>
                   </div>
                 </Card>
                 
@@ -1279,24 +1312,24 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <div className="bg-darkDeep rounded-2xl p-4 border border-gray-800">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-space-mono">People Referred</p>
-                      <p className="text-2xl font-black text-green-500 font-oxanium">{referralStats.count}</p>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider" style={{ fontFamily: "'Space Mono', monospace" }}>People Referred</p>
+                      <p className="text-2xl font-black text-green-500" style={{ fontFamily: "'Oxanium', sans-serif" }}>{referralStats.count}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-space-mono">Total Earned</p>
-                      <p className="text-2xl font-black text-green-500 font-oxanium">{referralStats.totalEarned} FTC</p>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider" style={{ fontFamily: "'Space Mono', monospace" }}>Total Earned</p>
+                      <p className="text-2xl font-black text-green-500" style={{ fontFamily: "'Oxanium', sans-serif" }}>{referralStats.totalEarned} FTC</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex flex-col gap-3"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1 font-oxanium">Referral Program</p><Card className="bg-darkCard border border-gray-800 p-5"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><div className="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg></div><div><p className="text-sm font-black text-white font-oxanium">Invite Friends</p><p className="text-[9px] text-gray-500 font-rajdhani">Earn 15 FTC per referral</p></div></div><div className="text-right"><p className="text-2xl font-black text-green-500 font-oxanium">{referralStats.count}</p><p className="text-[8px] text-gray-500 uppercase tracking-wider font-space-mono">Referrals</p></div></div><div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-xs font-space-mono text-green-500 truncate">{onboarding.referralCode}</code><button onClick={() => { navigator.clipboard.writeText(onboarding.referralCode); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral code copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors font-space-mono">Copy</button></div></div>
-                <div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-[10px] font-space-mono text-gray-400 truncate">t.me/FootNftsapp_bot?startapp=ref_{onboarding.referralCode}</code><button onClick={() => { const link = `https://t.me/FootNftsapp_bot?startapp=ref_${onboarding.referralCode}`; navigator.clipboard.writeText(link); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral link copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors font-space-mono">Copy Link</button></div></div>
-                <div className="grid grid-cols-2 gap-3"><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all font-space-mono"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.6-1.38-.97-2.23-1.56-.99-.69-.35-1.07.22-1.69.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.06-.2-.07-.06-.18-.04-.26-.02-.11.02-1.87 1.19-5.28 3.49-.5.34-.95.51-1.36.5-.45-.01-1.31-.25-1.95-.46-.78-.25-1.4-.38-1.35-.81.03-.22.33-.45.9-.68 3.56-1.55 5.93-2.57 7.12-3.06 3.39-1.39 4.09-1.63 4.55-1.64.1 0 .33.02.48.15.12.1.16.25.17.37-.01.09-.02.24-.05.39z"/></svg>X (Twitter)</button><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://wa.me/?text=${encodeURIComponent(text + ' https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider hover:bg-green-500/20 transition-all font-space-mono"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>WhatsApp</button></div>
-                <div className="mt-4 pt-3 border-t border-gray-800"><div className="flex justify-between text-[9px] text-gray-500 mb-1 font-space-mono"><span>Next reward at 5 referrals</span><span>{referralStats.count}/5</span></div><div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-green-600 rounded-full transition-all duration-500" style={{ width: `${Math.min((referralStats.count / 5) * 100, 100)}%` }}></div></div>{referralStats.count >= 5 && <p className="text-[8px] text-green-500 mt-2 text-center font-bold font-space-mono">🎉 Bonus unlocked! +25 FTC</p>}</div></Card></div>
+                <div className="flex flex-col gap-3"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1" style={{ fontFamily: "'Space Mono', monospace" }}>Referral Program</p><Card className="bg-darkCard border border-gray-800 p-5"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><div className="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg></div><div><p className="text-sm font-black text-white" style={{ fontFamily: "'Oxanium', sans-serif" }}>Invite Friends</p><p className="text-[9px] text-gray-500">Earn 15 FTC per referral</p></div></div><div className="text-right"><p className="text-2xl font-black text-green-500" style={{ fontFamily: "'Oxanium', sans-serif" }}>{referralStats.count}</p><p className="text-[8px] text-gray-500 uppercase tracking-wider" style={{ fontFamily: "'Space Mono', monospace" }}>Referrals</p></div></div><div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-xs font-mono text-green-500 truncate" style={{ fontFamily: "'Space Mono', monospace" }}>{onboarding.referralCode}</code><button onClick={() => { navigator.clipboard.writeText(onboarding.referralCode); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral code copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors" style={{ fontFamily: "'Oxanium', sans-serif" }}>Copy</button></div></div>
+                <div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-[10px] font-mono text-gray-400 truncate" style={{ fontFamily: "'Space Mono', monospace" }}>t.me/FootNftsapp_bot?startapp=ref_{onboarding.referralCode}</code><button onClick={() => { const link = `https://t.me/FootNftsapp_bot?startapp=ref_${onboarding.referralCode}`; navigator.clipboard.writeText(link); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral link copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors" style={{ fontFamily: "'Oxanium', sans-serif" }}>Copy Link</button></div></div>
+                <div className="grid grid-cols-2 gap-3"><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.6-1.38-.97-2.23-1.56-.99-.69-.35-1.07.22-1.69.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.06-.2-.07-.06-.18-.04-.26-.02-.11.02-1.87 1.19-5.28 3.49-.5.34-.95.51-1.36.5-.45-.01-1.31-.25-1.95-.46-.78-.25-1.4-.38-1.35-.81.03-.22.33-.45.9-.68 3.56-1.55 5.93-2.57 7.12-3.06 3.39-1.39 4.09-1.63 4.55-1.64.1 0 .33.02.48.15.12.1.16.25.17.37-.01.09-.02.24-.05.39z"/></svg>X (Twitter)</button><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://wa.me/?text=${encodeURIComponent(text + ' https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider hover:bg-green-500/20 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>WhatsApp</button></div>
+                <div className="mt-4 pt-3 border-t border-gray-800"><div className="flex justify-between text-[9px] text-gray-500 mb-1"><span style={{ fontFamily: "'Rajdhani', sans-serif" }}>Next reward at 5 referrals</span><span style={{ fontFamily: "'Space Mono', monospace" }}>{referralStats.count}/5</span></div><div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-green-600 rounded-full transition-all duration-500" style={{ width: `${Math.min((referralStats.count / 5) * 100, 100)}%` }}></div></div>{referralStats.count >= 5 && <p className="text-[8px] text-green-500 mt-2 text-center font-bold" style={{ fontFamily: "'Oxanium', sans-serif" }}>🎉 Bonus unlocked! +25 FTC</p>}</div></Card></div>
                 
                 {/* Terms and Conditions */}
                 <div className="mt-2 pt-2 border-t border-gray-800">
-                  <p className="text-[8px] text-gray-600 text-center font-space-mono">
+                  <p className="text-[8px] text-gray-600 text-center" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
                     By using FOOT NFTs, you agree to our Terms of Service and Privacy Policy.
                     <br />
                     © 2026 FOOT NFTs. All rights reserved.
@@ -1304,7 +1337,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </div>
               </div>
             )}
-            {activeTab === 'club' && (club ? <ClubProfileScreen club={club} profile={profile} onSwitch={onChangeClub} onEnterChat={() => { setSelectedChatClub(club); setInChat(true); }} /> : <div className="p-10 text-center"><Button onClick={onChangeClub} className="font-oxanium">Join a Club</Button></div>)}
+            {activeTab === 'club' && (club ? <ClubProfileScreen club={club} profile={profile} onSwitch={onChangeClub} onEnterChat={() => { setSelectedChatClub(club); setInChat(true); }} /> : <div className="p-10 text-center"><Button onClick={onChangeClub}>Join a Club</Button></div>)}
             {activeTab === 'chat' && <ChatLobbyScreen onJoinChat={(selected) => { setSelectedChatClub(selected); setInChat(true); }} onEnterGlobalHall={() => { setInBanterHall(true); }} />}
             {activeTab === 'voting' && <VotingScreen club={club!} onEarn={handleEarnFTC} />}
             {activeTab === 'wallet' && renderWallet()}
@@ -1320,7 +1353,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           { id: 'voting', label: 'Voting', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
           { id: 'chat', label: 'Chat', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
           { id: 'wallet', label: 'Wallet', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' }
-        ].map(tab => (<button key={tab.id} onClick={() => navigateTo(tab.id)} className={`flex flex-col items-center gap-1 transition-all relative px-2 ${activeTab === tab.id ? 'text-green-500' : 'text-gray-600'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={tab.icon} /></svg><span className={`text-[7px] font-black uppercase tracking-widest transition-opacity font-space-mono ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span></button>))}
+        ].map(tab => (<button key={tab.id} onClick={() => navigateTo(tab.id)} className={`flex flex-col items-center gap-1 transition-all relative px-2 ${activeTab === tab.id ? 'text-green-500' : 'text-gray-600'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={tab.icon} /></svg><span className={`text-[7px] font-black uppercase tracking-widest transition-opacity ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`} style={{ fontFamily: "'Oxanium', sans-serif" }}>{tab.label}</span></button>))}
       </div>
 
       {/* Leaderboard Modal */}
