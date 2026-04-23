@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserProfile } from '../types';
 
+// Web3 fonts — add to your index.html or global CSS:
+// <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&family=Oxanium:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 interface BanterMessage {
   id: string;
   userId: string;
@@ -25,12 +28,12 @@ const API_BASE = 'https://footnfts.up.railway.app/api';
 const POLL_INTERVAL = 3000;
 const MIN_MESSAGE_LENGTH = 15;
 
-const BanterHallScreen: React.FC<BanterHallScreenProps> = ({ 
-  profile, 
-  onBack, 
-  onEarn, 
+const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
+  profile,
+  onBack,
+  onEarn,
   onBanterNotify,
-  backendUserId 
+  backendUserId,
 }) => {
   const [messages, setMessages] = useState<BanterMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -52,12 +55,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const addBanterTag = () => {
     const currentText = inputText;
     const banterTag = '#banter';
-    
     if (currentText.toLowerCase().includes('#banter')) {
       tg?.HapticFeedback.notificationOccurred('warning');
       return;
     }
-    
     const newText = currentText ? `${currentText} ${banterTag}` : banterTag;
     setInputText(newText);
     inputRef.current?.focus();
@@ -68,7 +69,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     try {
       const response = await fetch(`${API_BASE}/banter/feed`);
       const data = await response.json();
-      
       if (data.success && data.posts) {
         const formattedMessages: BanterMessage[] = data.posts.map((post: any) => ({
           id: post.id,
@@ -79,23 +79,20 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           clubTag: post.club_tag,
           votes: post.votes_received || 0,
           createdAt: post.created_at,
-          isMe: post.user_id === backendUserId
+          isMe: post.user_id === backendUserId,
         }));
-        
-        const sortedMessages = formattedMessages.sort((a, b) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        const sortedMessages = formattedMessages.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
-        
         if (lastMessageCount.current > 0 && sortedMessages.length > lastMessageCount.current) {
           const newMessages = sortedMessages.slice(lastMessageCount.current);
-          newMessages.forEach(msg => {
+          newMessages.forEach((msg) => {
             if (!msg.isMe && onBanterNotify) {
               onBanterNotify(msg.content, msg.senderName);
               tg?.HapticFeedback.impactOccurred('light');
             }
           });
         }
-        
         lastMessageCount.current = sortedMessages.length;
         setMessages(sortedMessages);
       }
@@ -131,7 +128,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMins / 60);
       const diffDays = Math.floor(diffHours / 24);
-
       if (diffMins < 1) return 'Just now';
       if (diffMins === 1) return '1 min ago';
       if (diffMins < 60) return `${diffMins} mins ago`;
@@ -146,41 +142,29 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   const sendMessage = async () => {
     const text = inputText.trim();
-    
     if (!text) return;
     if (text.length < MIN_MESSAGE_LENGTH) {
       tg?.showAlert?.(`Message must be at least ${MIN_MESSAGE_LENGTH} characters. Current: ${text.length}`);
       tg?.HapticFeedback.notificationOccurred('error');
       return;
     }
-    
     if (sending) return;
-    
     setSending(true);
-    
     try {
       const token = localStorage.getItem('token');
       const isBanter = text.toLowerCase().includes('#banter');
-      
       const response = await fetch(`${API_BASE}/banter/post`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          userId: backendUserId,
-          content: text,
-          clubTag: null
-        })
+        body: JSON.stringify({ userId: backendUserId, content: text, clubTag: null }),
       });
-      
       const data = await response.json();
-      
       if (data.success) {
         setInputText('');
         setCharCount(0);
-        
         if (isBanter) {
           setRewardAmount(2);
           setShowRewardToast(true);
@@ -188,7 +172,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           tg?.HapticFeedback.notificationOccurred('success');
           setTimeout(() => setShowRewardToast(false), 2000);
         }
-        
         await loadMessages();
         inputRef.current?.focus();
       } else {
@@ -207,23 +190,17 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       tg?.showAlert?.("You can't vote on your own banter!");
       return;
     }
-    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE}/banter/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          postId: postId,
-          voterId: backendUserId
-        })
+        body: JSON.stringify({ postId, voterId: backendUserId }),
       });
-      
       const data = await response.json();
-      
       if (data.success) {
         setRewardAmount(3);
         setShowRewardToast(true);
@@ -246,122 +223,96 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return '#ef4444';
   };
 
+  // ─── LOADING STATE ───────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-darkBg">
-        <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
-          <button onClick={onBack} className="text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div style={styles.root}>
+        <div style={styles.header}>
+          <button onClick={onBack} style={styles.backBtn}>
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div>
-            <h2 className="text-lg font-bold text-white">Banter Hall</h2>
-            <p className="text-xs text-green-500">Global Fan Chat</p>
+          <div style={styles.headerAvatar}>💬</div>
+          <div style={styles.headerInfo}>
+            <span style={styles.headerTitle}>Banter Hall</span>
+            <span style={styles.headerSub}>Global Fan Chat</span>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-gray-400">Loading messages...</p>
-          </div>
+        <div style={styles.loadingCenter}>
+          <div style={styles.spinner} />
+          <p style={styles.loadingText}>Loading messages...</p>
         </div>
       </div>
     );
   }
 
+  // ─── MAIN RENDER ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full bg-darkBg">
+    <div style={styles.root}>
+      {/* ── REWARD TOAST ── */}
       {showRewardToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in zoom-in duration-300">
-          <div className="bg-green-600 px-4 py-2 rounded-full shadow-2xl flex items-center gap-2">
-            <span className="text-lg">💰</span>
-            <span className="text-sm font-black text-black">+{rewardAmount} FTC Earned!</span>
-          </div>
+        <div style={styles.toast}>
+          <span style={{ fontSize: 16 }}>💰</span>
+          <span style={styles.toastText}>+{rewardAmount} FTC Earned!</span>
         </div>
       )}
 
-      {/* STICKY HEADER - Fixed on scroll with proper CSS classes */}
-      <div className="sticky top-0 z-20 bg-darkCard shadow-md">
-        {/* Main Header */}
-        <div className="px-4 py-4 flex items-center gap-3 border-b border-gray-800 bg-darkCard">
-          <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <h2 className="text-lg font-bold text-white">Banter Hall</h2>
-            <p className="text-xs text-green-500">🔥 Live • {messages.length} messages</p>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-            <span className="text-sm">💬</span>
-          </div>
+      {/* ── FIXED HEADER ── */}
+      <div style={styles.header}>
+        <button onClick={onBack} style={styles.backBtn}>
+          <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div style={styles.headerAvatar}>💬</div>
+        <div style={styles.headerInfo}>
+          <span style={styles.headerTitle}>Banter Hall</span>
+          <span style={styles.headerSub}>🔥 Live · {messages.length} messages</span>
         </div>
-
-        {/* Info Banner */}
-        <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
-          <p className="text-[10px] text-green-400">
-            💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
-          </p>
-          <div className="flex -space-x-2">
-            {messages.slice(-3).map((msg, i) => (
-              <div key={i} className="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center text-[8px]">
-                👤
-              </div>
-            ))}
-          </div>
+        <div style={styles.headerAvatarStack}>
+          {messages.slice(-3).map((_, i) => (
+            <div key={i} style={{ ...styles.miniAvatar, marginLeft: i > 0 ? -6 : 0 }}>👤</div>
+          ))}
         </div>
       </div>
 
-      {/* Messages Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" ref={scrollRef}>
+      {/* ── INFO BANNER ── */}
+      <div style={styles.infoBanner}>
+        <span style={styles.infoBannerText}>
+          💡 Use <strong style={{ color: '#fff' }}>#banter</strong> + min {MIN_MESSAGE_LENGTH} chars ={' '}
+          <strong style={{ color: '#4ade80' }}>+2 FTC</strong>
+        </span>
+      </div>
+
+      {/* ── SCROLLABLE MESSAGES ── */}
+      <div style={styles.messagesArea} ref={scrollRef}>
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-              <span className="text-4xl">🔥</span>
-            </div>
-            <p className="text-gray-400 font-medium">No banter yet!</p>
-            <p className="text-xs text-gray-600 mt-2">Be the first to start the conversation</p>
-            <p className="text-xs text-gray-600 mt-1">Use #banter to earn 2 FTC</p>
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>🔥</div>
+            <p style={styles.emptyTitle}>No banter yet!</p>
+            <p style={styles.emptySubtitle}>Be the first to start the conversation</p>
+            <p style={styles.emptySubtitle}>Use #banter to earn 2 FTC</p>
           </div>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[70%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'} gap-1.5`}>
-                {!msg.isMe && (
-                  <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0 mt-1">
-                    <span className="text-[10px]">⚽</span>
-                  </div>
-                )}
-                
-                <div>
-                  {!msg.isMe && (
-                    <p className="text-[10px] font-semibold text-gray-400 mb-0.5 ml-1">{msg.senderName}</p>
-                  )}
-                  <div
-                    className={`relative px-3 py-1.5 rounded-xl text-[13px] ${
-                      msg.isMe
-                        ? 'bg-green-600 text-white rounded-br-none'
-                        : 'bg-darkCard text-gray-200 rounded-bl-none border border-gray-700'
-                    }`}
-                  >
-                    <p className="break-words leading-relaxed">{msg.content}</p>
+            <div key={msg.id} style={{ ...styles.msgRow, justifyContent: msg.isMe ? 'flex-end' : 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: msg.isMe ? 'row-reverse' : 'row', gap: 6, maxWidth: '72%' }}>
+                {!msg.isMe && <div style={styles.senderAvatar}>⚽</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: msg.isMe ? 'flex-end' : 'flex-start' }}>
+                  {!msg.isMe && <span style={styles.senderName}>{msg.senderName}</span>}
+                  <div style={msg.isMe ? styles.bubbleMe : styles.bubbleThem}>
+                    <p style={styles.bubbleText}>{msg.content}</p>
                     {msg.content.toLowerCase().includes('#banter') && (
-                      <span className="inline-block text-[8px] font-bold text-yellow-400 mt-0.5">
-                        🔥 #banter
-                      </span>
+                      <span style={styles.banterBadge}>🔥 #banter</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 ml-1">
-                    <span className="text-[8px] text-gray-600">{formatTime(msg.createdAt)}</span>
+                  <div style={styles.msgMeta}>
+                    <span style={styles.msgTime}>{formatTime(msg.createdAt)}</span>
                     {!msg.isMe && (
-                      <button 
-                        onClick={() => handleVote(msg.id, msg.userId)}
-                        className="text-[8px] text-gray-500 hover:text-yellow-500 transition-colors flex items-center gap-0.5"
-                      >
-                        🔥 Vote {msg.votes > 0 && <span className="text-yellow-500">({msg.votes})</span>}
-                        <span className="text-green-500">+3</span>
+                      <button onClick={() => handleVote(msg.id, msg.userId)} style={styles.voteBtn}>
+                        🔥 Vote {msg.votes > 0 && <span style={{ color: '#facc15' }}>({msg.votes})</span>}
+                        <span style={{ color: '#4ade80', marginLeft: 2 }}>+3</span>
                       </button>
                     )}
                   </div>
@@ -370,42 +321,38 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             </div>
           ))
         )}
-        
         {sending && (
-          <div className="flex justify-end">
-            <div className="bg-green-600/50 px-3 py-1.5 rounded-xl rounded-br-none">
-              <div className="flex gap-1">
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
+          <div style={{ ...styles.msgRow, justifyContent: 'flex-end' }}>
+            <div style={styles.typingBubble}>
+              {[0, 0.1, 0.2].map((delay, i) => (
+                <div key={i} style={{ ...styles.typingDot, animationDelay: `${delay}s` }} />
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
-        <div className="mb-2 px-1 flex items-center justify-between gap-3">
-          <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full rounded-full transition-all duration-300" 
-              style={{ 
-                width: `${Math.min((charCount / MIN_MESSAGE_LENGTH) * 100, 100)}%`, 
-                backgroundColor: getProgressColor() 
+      {/* ── FIXED INPUT AREA ── */}
+      <div style={styles.inputArea}>
+        {/* Progress bar */}
+        <div style={styles.progressRow}>
+          <div style={styles.progressTrack}>
+            <div
+              style={{
+                ...styles.progressFill,
+                width: `${Math.min((charCount / MIN_MESSAGE_LENGTH) * 100, 100)}%`,
+                backgroundColor: getProgressColor(),
               }}
             />
           </div>
-          <span 
-            className="text-[9px] font-black tabular-nums transition-colors duration-300"
-            style={{ color: charCount >= MIN_MESSAGE_LENGTH ? '#22c55e' : '#6b7280' }}
-          >
+          <span style={{ ...styles.progressLabel, color: charCount >= MIN_MESSAGE_LENGTH ? '#4ade80' : '#6b7280' }}>
             {charCount}/{MIN_MESSAGE_LENGTH}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex-1 bg-darkDeep rounded-full px-4 py-2 flex items-center border border-gray-700 focus-within:border-green-500 transition-colors">
+        {/* Input row */}
+        <div style={styles.inputRow}>
+          <div style={styles.inputWrapper}>
             <input
               ref={inputRef}
               type="text"
@@ -413,55 +360,436 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !sending && charCount >= MIN_MESSAGE_LENGTH && sendMessage()}
-              className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-gray-500"
+              style={styles.input}
               autoFocus
             />
-            
-            {/* #banter button INSIDE input */}
-            <button
-              onClick={addBanterTag}
-              className="ml-2 px-2 py-0.5 rounded-full bg-green-600/20 border border-green-500/50 text-green-500 text-[10px] font-bold uppercase tracking-wider hover:bg-green-600/30 transition-all active:scale-95 whitespace-nowrap"
-              title="Add #banter tag"
-            >
-              #banter
-            </button>
-            
+            <button onClick={addBanterTag} style={styles.banterTagBtn}>#banter</button>
             {inputText && (
-              <button 
-                onClick={() => setInputText('')}
-                className="text-gray-500 hover:text-gray-400 ml-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button onClick={() => setInputText('')} style={styles.clearBtn}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
-          
-          {/* Send Button */}
           <button
             onClick={sendMessage}
             disabled={!inputText.trim() || sending || charCount < MIN_MESSAGE_LENGTH}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !sending && charCount >= MIN_MESSAGE_LENGTH
-                ? 'bg-green-600 text-black active:scale-95'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
+            style={{
+              ...styles.sendBtn,
+              backgroundColor:
+                inputText.trim() && !sending && charCount >= MIN_MESSAGE_LENGTH ? '#16a34a' : '#374151',
+              cursor: inputText.trim() && !sending && charCount >= MIN_MESSAGE_LENGTH ? 'pointer' : 'not-allowed',
+            }}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg width="18" height="18" fill="none" stroke={inputText.trim() && !sending && charCount >= MIN_MESSAGE_LENGTH ? '#fff' : '#6b7280'} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </button>
         </div>
-        
-        <div className="mt-2 text-center">
-          <span className="text-[8px] text-gray-600">
-            💡 Tap <span className="text-green-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
-          </span>
-        </div>
+
+        <p style={styles.inputHint}>
+          💡 Tap <span style={{ color: '#4ade80', fontWeight: 700 }}>#banter</span> to earn 2 FTC · Vote on others to earn 3 FTC
+        </p>
       </div>
+
+      {/* ── WEB3 FONT INJECTION ── */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-6px); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translate(-50%, -10px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </div>
   );
+};
+
+// ─── STYLES ────────────────────────────────────────────────────────────────────
+// Layout uses a flex column with overflow hidden on root so only the messages
+// div scrolls — exactly like WhatsApp.
+const styles: Record<string, React.CSSProperties> = {
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',          // fills parent (e.g. 100dvh on the page)
+    overflow: 'hidden',       // ← key: prevents the whole page from scrolling
+    backgroundColor: '#0d0d0d',
+    fontFamily: "'Rajdhani', sans-serif",
+    position: 'relative',
+  },
+
+  // ── Header (never scrolls) ──
+  header: {
+    flexShrink: 0,            // ← never shrinks
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '12px 16px',
+    backgroundColor: '#111827',
+    borderBottom: '1px solid #1f2937',
+    zIndex: 20,
+  },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#9ca3af',
+    cursor: 'pointer',
+    padding: 4,
+    display: 'flex',
+    alignItems: 'center',
+  },
+  headerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: '50%',
+    backgroundColor: '#14532d',
+    border: '2px solid #22c55e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 18,
+    flexShrink: 0,
+  },
+  headerInfo: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  headerTitle: {
+    fontFamily: "'Oxanium', sans-serif",
+    fontWeight: 700,
+    fontSize: 16,
+    color: '#fff',
+    letterSpacing: '0.05em',
+  },
+  headerSub: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 10,
+    color: '#22c55e',
+    marginTop: 1,
+  },
+  headerAvatarStack: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  miniAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    backgroundColor: '#374151',
+    border: '1px solid #4b5563',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 9,
+  },
+
+  // ── Info banner (never scrolls) ──
+  infoBanner: {
+    flexShrink: 0,
+    backgroundColor: 'rgba(20, 83, 45, 0.25)',
+    borderBottom: '1px solid rgba(34,197,94,0.2)',
+    padding: '5px 16px',
+  },
+  infoBannerText: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 9,
+    color: '#86efac',
+  },
+
+  // ── Messages (scrolls) ──
+  messagesArea: {
+    flex: 1,                  // ← takes all remaining space
+    overflowY: 'auto',        // ← only this div scrolls
+    padding: '10px 12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+
+  // ── Empty state ──
+  emptyState: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: '50%',
+    backgroundColor: '#1f2937',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 36,
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontFamily: "'Oxanium', sans-serif",
+    color: '#9ca3af',
+    fontWeight: 600,
+    fontSize: 15,
+    margin: 0,
+  },
+  emptySubtitle: {
+    fontFamily: "'Rajdhani', sans-serif",
+    color: '#4b5563',
+    fontSize: 12,
+    margin: '3px 0 0',
+  },
+
+  // ── Message bubbles ──
+  msgRow: {
+    display: 'flex',
+    width: '100%',
+  },
+  senderAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: '50%',
+    backgroundColor: '#1f2937',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    flexShrink: 0,
+    marginTop: 4,
+  },
+  senderName: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 9,
+    color: '#6b7280',
+    marginBottom: 2,
+    marginLeft: 4,
+  },
+  bubbleMe: {
+    backgroundColor: '#15803d',
+    borderRadius: '14px 14px 4px 14px',
+    padding: '8px 12px',
+    maxWidth: '100%',
+  },
+  bubbleThem: {
+    backgroundColor: '#1f2937',
+    border: '1px solid #374151',
+    borderRadius: '14px 14px 14px 4px',
+    padding: '8px 12px',
+    maxWidth: '100%',
+  },
+  bubbleText: {
+    fontFamily: "'Rajdhani', sans-serif",
+    fontSize: 13,
+    color: '#f3f4f6',
+    margin: 0,
+    lineHeight: 1.5,
+    wordBreak: 'break-word',
+  },
+  banterBadge: {
+    display: 'inline-block',
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 8,
+    fontWeight: 700,
+    color: '#facc15',
+    marginTop: 4,
+  },
+  msgMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+    marginLeft: 4,
+  },
+  msgTime: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 8,
+    color: '#4b5563',
+  },
+  voteBtn: {
+    background: 'none',
+    border: 'none',
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 8,
+    color: '#6b7280',
+    cursor: 'pointer',
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+  },
+
+  // ── Typing indicator ──
+  typingBubble: {
+    backgroundColor: 'rgba(21,128,61,0.45)',
+    borderRadius: '14px 14px 4px 14px',
+    padding: '8px 12px',
+    display: 'flex',
+    gap: 4,
+    alignItems: 'center',
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    backgroundColor: '#fff',
+    borderRadius: '50%',
+    animation: 'bounce 1.2s infinite ease-in-out',
+  },
+
+  // ── Input area (never scrolls) ──
+  inputArea: {
+    flexShrink: 0,            // ← never scrolls away
+    backgroundColor: '#111827',
+    borderTop: '1px solid #1f2937',
+    padding: '10px 14px 12px',
+  },
+  progressRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#1f2937',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    transition: 'width 0.3s, background-color 0.3s',
+  },
+  progressLabel: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 9,
+    fontWeight: 700,
+    minWidth: 32,
+    textAlign: 'right',
+  },
+  inputRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inputWrapper: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: '#0d0d0d',
+    borderRadius: 999,
+    border: '1px solid #374151',
+    padding: '6px 10px 6px 14px',
+    gap: 6,
+  },
+  input: {
+    flex: 1,
+    background: 'none',
+    border: 'none',
+    outline: 'none',
+    color: '#f3f4f6',
+    fontFamily: "'Rajdhani', sans-serif",
+    fontSize: 13,
+  },
+  banterTagBtn: {
+    flexShrink: 0,
+    background: 'rgba(34,197,94,0.1)',
+    border: '1px solid rgba(34,197,94,0.4)',
+    borderRadius: 999,
+    color: '#4ade80',
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 9,
+    fontWeight: 700,
+    padding: '3px 8px',
+    cursor: 'pointer',
+    letterSpacing: '0.05em',
+  },
+  clearBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#6b7280',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 0,
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: '50%',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'background-color 0.2s',
+  },
+  inputHint: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 8,
+    color: '#4b5563',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 0,
+  },
+
+  // ── Toast ──
+  toast: {
+    position: 'fixed',
+    top: 80,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 50,
+    backgroundColor: '#16a34a',
+    borderRadius: 999,
+    padding: '7px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    animation: 'fadeInDown 0.3s ease',
+  },
+  toastText: {
+    fontFamily: "'Oxanium', sans-serif",
+    fontSize: 13,
+    fontWeight: 800,
+    color: '#000',
+    letterSpacing: '0.04em',
+  },
+
+  // ── Loading ──
+  loadingCenter: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+    border: '4px solid #22c55e',
+    borderTopColor: 'transparent',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+  },
+  loadingText: {
+    fontFamily: "'Rajdhani', sans-serif",
+    color: '#6b7280',
+    fontSize: 14,
+    margin: 0,
+  },
 };
 
 export default BanterHallScreen;
