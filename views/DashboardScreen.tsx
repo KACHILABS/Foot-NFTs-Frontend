@@ -148,6 +148,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -230,6 +231,29 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return null;
   };
 
+  // ===== REFRESH PROFILE FROM BACKEND =====
+  const refreshProfile = async () => {
+    try {
+      const telegramId = localStorage.getItem('telegramId');
+      const token = localStorage.getItem('token');
+      if (!telegramId || !token) return;
+      
+      const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.profile && onUpdateProfile) {
+        // Update profile with latest avatar from backend
+        const updatedProfile = { ...profile, avatar: data.profile.avatar };
+        localStorage.setItem('user_profile', JSON.stringify(updatedProfile));
+        onUpdateProfile();
+      }
+    } catch (error) {
+      console.error('Failed to refresh profile:', error);
+    }
+  };
+
   // ===== REFRESH REFERRAL CODE FROM BACKEND =====
   const refreshReferralCode = async () => {
     try {
@@ -286,35 +310,83 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // ===== HANDLE AVATAR UPLOAD =====
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ===== HANDLE AVATAR UPLOAD - FIXED =====
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
     if (file.size > 2 * 1024 * 1024) {
-      alert('Image too large. Please select an image under 2MB.');
+      tg?.showAlert?.('Image too large. Please select an image under 2MB.');
       return;
     }
     
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      tg?.showAlert?.('Please select an image file.');
       return;
     }
     
     setUploadingAvatar(true);
+    
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
+      setAvatarPreview(base64String);
+      
       if (backendUserId) {
-        const result = await api.user.updateAvatar(backendUserId, base64String);
-        if (result.success && onUpdateProfile) {
-          onUpdateProfile();
-          setShowAvatarUpload(false);
-          addNotification('✅ Avatar Updated', 'Your profile picture has been updated!', 'earnings');
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${API_BASE}/user/update-avatar`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              userId: backendUserId,
+              avatarUrl: base64String
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            // Update local profile state
+            if (profile) {
+              profile.avatar = base64String;
+            }
+            
+            // Update localStorage
+            const savedProfile = localStorage.getItem('user_profile');
+            if (savedProfile) {
+              const profileData = JSON.parse(savedProfile);
+              profileData.avatar = base64String;
+              localStorage.setItem('user_profile', JSON.stringify(profileData));
+            }
+            
+            setShowAvatarUpload(false);
+            setAvatarPreview(null);
+            addNotification('✅ Avatar Updated', 'Your profile picture has been updated!', 'earnings');
+            tg?.HapticFeedback.notificationOccurred('success');
+            
+            // Refresh profile to ensure avatar is saved
+            await refreshProfile();
+          } else {
+            tg?.showAlert?.(data.error || 'Failed to update avatar');
+          }
+        } catch (error) {
+          console.error('Failed to update avatar:', error);
+          tg?.showAlert?.('Network error. Please try again.');
         }
       }
+      
       setUploadingAvatar(false);
     };
+    
+    reader.onerror = () => {
+      setUploadingAvatar(false);
+      tg?.showAlert?.('Failed to read image file.');
+    };
+    
     reader.readAsDataURL(file);
   };
 
@@ -330,7 +402,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // Load leaderboard data
+  // Load leaderboard data with avatars
   useEffect(() => {
     const loadLeaderboard = async () => {
       if (!backendUserId) return;
@@ -369,6 +441,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Refresh balance when component mounts
   useEffect(() => {
     refreshBalance();
+    refreshProfile();
   }, []);
 
   // Refresh referral code when component mounts
@@ -388,6 +461,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     if (activeTab === 'profile') {
       refreshReferralCode();
       loadReferralStats();
+      refreshProfile();
     }
   }, [activeTab]);
 
@@ -444,7 +518,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       return updated;
     });
     
-    // Show in-app popup for important notifications
     if (type === 'banter' || type === 'referral' || type === 'earnings') {
       tg?.showPopup?.({
         title: title,
@@ -545,7 +618,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           setTimeout(() => refreshBalance(), 500);
         }
         
-        // Refresh referral stats in case new referral was added
         loadReferralStats();
       } else {
         console.error('Failed to save FTC to database:', data.error);
@@ -849,10 +921,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       )}
       
+      {/* Deposit and Swap Buttons - VISIBLE NOW */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="relative group"><Button disabled variant="secondary" className="py-4 text-[10px] font-black uppercase tracking-widest border border-gray-800 opacity-60 grayscale bg-darkCard">Deposit TON</Button><div className="absolute -top-2 left-1/2 -translate-x-1/2"><span className="bg-gray-800 text-gray-500 text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-gray-700 shadow-sm">Soon</span></div></div>
-        <div className="relative group"><Button disabled variant="secondary" className="py-4 text-[10px] font-black uppercase tracking-widest border border-gray-800 opacity-60 grayscale bg-darkCard">Swap FTC</Button><div className="absolute -top-2 left-1/2 -translate-x-1/2"><span className="bg-gray-800 text-gray-500 text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-gray-700 shadow-sm">Soon</span></div></div>
+        <button 
+          onClick={() => tg?.showAlert?.('TON Deposit coming soon!')}
+          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
+        >
+          Deposit TON
+        </button>
+        <button 
+          onClick={() => tg?.showAlert?.('FTC Swap coming soon!')}
+          className="bg-green-600 text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
+        >
+          Swap FTC
+        </button>
       </div>
+      
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between px-1"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Leaderboard Top 5</p>
           <button 
@@ -1037,15 +1121,40 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
             <h2 className="text-xl font-black text-white mb-4">Upload Profile Picture</h2>
+            <p className="text-xs text-gray-400 mb-4">Select a photo to use as your profile picture</p>
+            
             <input
               type="file"
-              accept="image/*"
+              id="avatarInput"
+              accept="image/jpeg,image/png,image/jpg,image/gif"
               onChange={handleAvatarUpload}
-              className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white mb-4"
+              className="hidden"
               disabled={uploadingAvatar}
             />
-            {uploadingAvatar && <p className="text-center text-gray-400 text-sm">Uploading...</p>}
-            <button onClick={() => setShowAvatarUpload(false)} className="w-full bg-gray-800 text-white py-3 rounded-xl font-black">Cancel</button>
+            
+            <button
+              onClick={() => document.getElementById('avatarInput')?.click()}
+              className="w-full bg-darkDeep border border-gray-700 rounded-xl py-3 mb-4 text-white font-medium hover:bg-gray-800 transition-colors"
+              disabled={uploadingAvatar}
+            >
+              {uploadingAvatar ? 'Uploading...' : 'Select Image'}
+            </button>
+            
+            {uploadingAvatar && (
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-400">Uploading...</span>
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowAvatarUpload(false)} 
+                className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black hover:bg-gray-700 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1057,7 +1166,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             className="relative cursor-pointer active:scale-95 transition-transform shrink-0 group"
             onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('profile'); }}
           >
-            <img src={profile?.avatar} className="w-10 h-10 rounded-2xl shadow-md border-2 border-gray-700 object-cover" alt="Profile" />
+            <img src={profile?.avatar || 'https://picsum.photos/200'} className="w-10 h-10 rounded-2xl shadow-md border-2 border-gray-700 object-cover" alt="Profile" />
             <div className="absolute -bottom-1 -right-1">
               <div className="w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center shadow-sm border border-gray-700">
                 <span className="text-[6px]">{features[Math.floor(onboarding.activityCount % features.length)].icon}</span>
@@ -1095,7 +1204,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Card className="flex flex-col items-center text-center pt-8 pb-8 relative overflow-hidden bg-darkCard border-gray-800">
                   <div className="absolute top-0 inset-x-0 h-1 bg-green-600 opacity-50"></div>
                   <div className="relative group cursor-pointer" onClick={() => setShowAvatarUpload(true)}>
-                    <img src={profile?.avatar} className="w-24 h-24 rounded-[2rem] border-4 border-gray-800 shadow-xl mb-4 object-cover" />
+                    <img src={profile?.avatar || 'https://picsum.photos/200'} className="w-24 h-24 rounded-[2rem] border-4 border-gray-800 shadow-xl mb-4 object-cover" alt="Profile" />
                     <div className="absolute inset-0 bg-black/50 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="text-xs text-white">Change Photo</span>
                     </div>
