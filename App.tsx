@@ -149,16 +149,19 @@ const App: React.FC = () => {
           };
           
           setProfile(userProfile);
+          
+          // ✅ FIX: Load wallet address from backend, not null
           setWallet({
-            address: null,
+            address: profileRes.profile.walletAddress || null,
             balanceFTC: profileRes.profile.ftcBalance || 0,
             isConnected: true
           });
+          
           setBackendUserId(profileRes.profile.id);
           
           localStorage.setItem('user_profile', JSON.stringify(userProfile));
           localStorage.setItem('user_wallet', JSON.stringify({
-            address: null,
+            address: profileRes.profile.walletAddress || null,
             balanceFTC: profileRes.profile.ftcBalance || 0,
             isConnected: true
           }));
@@ -280,13 +283,11 @@ const App: React.FC = () => {
               localStorage.setItem('profile_completed', 'true');
               localStorage.setItem('telegramId', telegramId.toString());
               
-              // ✅ IMPORTANT: Update localStorage with the correct referral code from backend
               if (result.user.referralCode) {
                 localStorage.setItem('referralCode', result.user.referralCode);
                 console.log('📎 Referral code saved to localStorage:', result.user.referralCode);
               }
               
-              // ✅ IMPORTANT: Update onboarding state with the correct referral code
               setOnboarding(prev => ({
                 ...prev,
                 profileCompleted: true,
