@@ -1298,7 +1298,7 @@ const refreshProfile = async () => {
                   <p className="text-[8px] text-gray-600 text-center">
                     By using FOOT NFTs, you agree to our Terms of Service and Privacy Policy.
                     <br />
-                    © 2024 FOOT NFTs. All rights reserved.
+                    © 2026 FOOT NFTs. All rights reserved.
                   </p>
                 </div>
               </div>
