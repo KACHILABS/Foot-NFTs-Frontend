@@ -276,3 +276,30 @@ select option:checked {
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
 }
+
+/* ===== BANTER HALL STICKY HEADER FIX ===== */
+/* Ensures the Banter Hall header stays fixed when scrolling */
+.sticky-header-fix {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* For any sticky element in Banter Hall */
+.banter-header-sticky {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  background: rgba(17, 24, 39, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Ensure messages scroll under the sticky header */
+.messages-container {
+  scroll-margin-top: 120px;
+}
