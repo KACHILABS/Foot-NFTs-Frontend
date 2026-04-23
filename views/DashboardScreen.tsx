@@ -148,7 +148,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -244,10 +243,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const data = await response.json();
       
       if (data.success && data.profile && onUpdateProfile) {
-        // Update profile with latest avatar from backend
-        const updatedProfile = { ...profile, avatar: data.profile.avatar };
-        localStorage.setItem('user_profile', JSON.stringify(updatedProfile));
-        onUpdateProfile();
+        if (data.profile.walletAddress && onUpdateWallet) {
+          onUpdateWallet({ address: data.profile.walletAddress });
+          setTempWalletAddress(data.profile.walletAddress);
+        }
       }
     } catch (error) {
       console.error('Failed to refresh profile:', error);
@@ -310,7 +309,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // ===== HANDLE AVATAR UPLOAD - FIXED =====
+  // ===== HANDLE AVATAR UPLOAD =====
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -327,59 +326,68 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     
     setUploadingAvatar(true);
     
+    // Compress image
+    const compressImage = (base64: string, maxWidth: number = 500): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = base64;
+      });
+    };
+    
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const base64String = reader.result as string;
-      setAvatarPreview(base64String);
-      
-      if (backendUserId) {
-        try {
+      try {
+        const compressedBase64 = await compressImage(reader.result as string);
+        
+        if (backendUserId) {
           const token = localStorage.getItem('token');
-          const response = await fetch(`${API_BASE}/user/update-avatar`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              userId: backendUserId,
-              avatarUrl: base64String
-            })
-          });
+          const result = await api.user.updateAvatar(backendUserId, compressedBase64);
           
-          const data = await response.json();
-          
-          if (data.success) {
-            // Update local profile state
+          if (result.success) {
+            // Update local profile
             if (profile) {
-              profile.avatar = base64String;
+              profile.avatar = compressedBase64;
             }
             
             // Update localStorage
             const savedProfile = localStorage.getItem('user_profile');
             if (savedProfile) {
               const profileData = JSON.parse(savedProfile);
-              profileData.avatar = base64String;
+              profileData.avatar = compressedBase64;
               localStorage.setItem('user_profile', JSON.stringify(profileData));
             }
             
             setShowAvatarUpload(false);
-            setAvatarPreview(null);
             addNotification('✅ Avatar Updated', 'Your profile picture has been updated!', 'earnings');
             tg?.HapticFeedback.notificationOccurred('success');
             
-            // Refresh profile to ensure avatar is saved
-            await refreshProfile();
+            setTimeout(() => window.location.reload(), 500);
           } else {
-            tg?.showAlert?.(data.error || 'Failed to update avatar');
+            tg?.showAlert?.(result.error || 'Failed to update avatar');
           }
-        } catch (error) {
-          console.error('Failed to update avatar:', error);
-          tg?.showAlert?.('Network error. Please try again.');
         }
+      } catch (error) {
+        console.error('Failed to update avatar:', error);
+        tg?.showAlert?.('Network error. Please try again.');
+      } finally {
+        setUploadingAvatar(false);
       }
-      
-      setUploadingAvatar(false);
     };
     
     reader.onerror = () => {
@@ -394,15 +402,36 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const handleUpdateWalletAddress = async () => {
     if (!backendUserId || !tempWalletAddress) return;
     
-    const result = await api.user.updateWalletAddress(backendUserId, tempWalletAddress);
-    if (result.success && onUpdateWallet) {
-      onUpdateWallet({ address: tempWalletAddress });
-      setShowWalletSettings(false);
-      addNotification('✅ Wallet Updated', 'Your TON wallet address has been saved!', 'earnings');
+    try {
+      const token = localStorage.getItem('token');
+      const result = await api.user.updateWalletAddress(backendUserId, tempWalletAddress);
+      
+      if (result.success) {
+        if (onUpdateWallet) {
+          onUpdateWallet({ address: tempWalletAddress });
+        }
+        
+        // Update localStorage
+        const savedWallet = localStorage.getItem('user_wallet');
+        if (savedWallet) {
+          const walletData = JSON.parse(savedWallet);
+          walletData.address = tempWalletAddress;
+          localStorage.setItem('user_wallet', JSON.stringify(walletData));
+        }
+        
+        setShowWalletSettings(false);
+        addNotification('✅ Wallet Updated', 'Your TON wallet address has been saved!', 'earnings');
+        tg?.HapticFeedback.notificationOccurred('success');
+      } else {
+        tg?.showAlert?.(result.error || 'Failed to update wallet address');
+      }
+    } catch (error) {
+      console.error('Failed to update wallet:', error);
+      tg?.showAlert?.('Network error. Please try again.');
     }
   };
 
-  // Load leaderboard data with avatars
+  // Load leaderboard data
   useEffect(() => {
     const loadLeaderboard = async () => {
       if (!backendUserId) return;
@@ -432,6 +461,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       setTempWalletAddress(wallet.address);
     }
   }, [wallet?.balanceFTC, wallet?.address]);
+
+  // Load wallet from localStorage on mount
+  useEffect(() => {
+    const savedWallet = localStorage.getItem('user_wallet');
+    if (savedWallet) {
+      try {
+        const walletData = JSON.parse(savedWallet);
+        if (walletData.address && onUpdateWallet && !wallet?.address) {
+          onUpdateWallet({ address: walletData.address });
+          setTempWalletAddress(walletData.address);
+        }
+      } catch (e) {
+        console.error('Failed to load wallet from storage:', e);
+      }
+    }
+  }, []);
 
   // Load persistent notifications on mount
   useEffect(() => {
@@ -573,7 +618,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // ===== EARNING FUNCTION - PERSISTENT TO DATABASE =====
+  // ===== EARNING FUNCTION =====
   const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
     tg?.HapticFeedback.notificationOccurred('success');
     
@@ -602,7 +647,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           notifyEarnings(amount, reason);
         }
         
-        const freshBalance = await refreshBalance();
+        await refreshBalance();
         
         const res = await api.leaderboard.getTop();
         if (res.success) {
@@ -613,14 +658,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           }
         }
         
-        if (freshBalance !== null && freshBalance !== (wallet?.balanceFTC || 0) + amount) {
-          console.log('⚠️ Balance mismatch detected, refreshing again...');
-          setTimeout(() => refreshBalance(), 500);
-        }
-        
         loadReferralStats();
-      } else {
-        console.error('Failed to save FTC to database:', data.error);
       }
     } catch (error) {
       console.error('Error saving FTC:', error);
@@ -885,10 +923,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </button>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <div className="font-mono text-xs truncate opacity-90">{wallet?.address || 'Not set - tap Edit to add'}</div>
-            {wallet?.address && (
+            <div className="font-mono text-xs truncate opacity-90">
+              {wallet?.address || tempWalletAddress || 'Not set - tap Edit to add'}
+            </div>
+            {(wallet?.address || tempWalletAddress) && (
               <button 
-                onClick={() => { navigator.clipboard.writeText(wallet.address || ''); addNotification('✅ Copied!', 'Wallet address copied to clipboard', 'earnings'); }}
+                onClick={() => { 
+                  const addressToCopy = wallet?.address || tempWalletAddress;
+                  if (addressToCopy) {
+                    navigator.clipboard.writeText(addressToCopy); 
+                    addNotification('✅ Copied!', 'Wallet address copied to clipboard', 'earnings');
+                  }
+                }}
                 className="text-gray-400 hover:text-white transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
