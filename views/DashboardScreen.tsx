@@ -46,6 +46,26 @@ const api = {
         body: JSON.stringify({ userId })
       });
       return res.json();
+    },
+    updateAvatar: async (userId: string, avatarUrl: string) => {
+      const res = await fetch(`${API_BASE}/user/update-avatar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, avatarUrl })
+      });
+      return res.json();
+    },
+    updateWalletAddress: async (userId: string, walletAddress: string) => {
+      const res = await fetch(`${API_BASE}/user/update-wallet`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, walletAddress })
+      });
+      return res.json();
+    },
+    getReferralStats: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/user/referral-stats?userId=${userId}`);
+      return res.json();
     }
   },
   highlights: {
@@ -116,6 +136,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState(profile?.displayName || '');
+  const [showWalletSettings, setShowWalletSettings] = useState(false);
+  const [tempWalletAddress, setTempWalletAddress] = useState(wallet?.address || '');
+  const [referralStats, setReferralStats] = useState({ count: 0, totalEarned: 0 });
   
   // Data states
   const [userFTCBalance, setUserFTCBalance] = useState<number>(wallet?.balanceFTC || 0);
@@ -123,6 +146,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -141,6 +166,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   ];
 
   const NOTIFICATIONS_STORAGE_KEY = 'footnfts_notifications';
+
+  // Load referral stats
+  const loadReferralStats = async () => {
+    if (!backendUserId) return;
+    try {
+      const res = await api.user.getReferralStats(backendUserId);
+      if (res.success) {
+        setReferralStats({ count: res.count, totalEarned: res.totalEarned });
+      }
+    } catch (error) {
+      console.error('Failed to load referral stats:', error);
+    }
+  };
 
   // Load notifications from localStorage
   const loadNotificationsFromStorage = () => {
@@ -193,37 +231,105 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   // ===== REFRESH REFERRAL CODE FROM BACKEND =====
-const refreshReferralCode = async () => {
-  try {
-    const telegramId = localStorage.getItem('telegramId');
-    const token = localStorage.getItem('token');
-    if (!telegramId || !token) return;
-    
-    const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await response.json();
-    
-    if (data.success && data.profile && data.profile.referralCode) {
-      const oldCode = localStorage.getItem('referralCode');
-      const newCode = data.profile.referralCode;
+  const refreshReferralCode = async () => {
+    try {
+      const telegramId = localStorage.getItem('telegramId');
+      const token = localStorage.getItem('token');
+      if (!telegramId || !token) return;
       
-      localStorage.setItem('referralCode', newCode);
+      const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
       
-      // Also update the onboarding state through props if possible
-      // Since we can't directly modify onboarding, we update localStorage
-      
-      console.log('📎 Referral code refreshed:', oldCode, '→', newCode);
-      
-      // If code changed, reload to update UI
-      if (oldCode !== newCode) {
-        window.location.reload();
+      if (data.success && data.profile && data.profile.referralCode) {
+        const oldCode = localStorage.getItem('referralCode');
+        const newCode = data.profile.referralCode;
+        
+        localStorage.setItem('referralCode', newCode);
+        console.log('📎 Referral code refreshed:', oldCode, '→', newCode);
+        
+        if (oldCode !== newCode) {
+          window.location.reload();
+        }
       }
+    } catch (error) {
+      console.error('Failed to refresh referral code:', error);
     }
-  } catch (error) {
-    console.error('Failed to refresh referral code:', error);
-  }
-};
+  };
+
+  // ===== HANDLE SHARE CARD =====
+  const handleShareCard = async () => {
+    const shareText = `🏆 Join me on FOOT NFTs!\n\nUsername: ${profile?.displayName}\nFTC Balance: ${userFTCBalance}\nRank: #${userRank}\n\nJoin using my referral code: ${onboarding.referralCode}\n\nhttps://t.me/FootNftsapp_bot`;
+    
+    if (tg) {
+      tg.showPopup({
+        title: 'Share Your Card',
+        message: 'Share your FOOT NFTs profile with friends!',
+        buttons: [
+          { id: 'share', type: 'default', text: 'Share' },
+          { id: 'cancel', type: 'cancel', text: 'Cancel' }
+        ]
+      }, async (buttonId: string) => {
+        if (buttonId === 'share') {
+          try {
+            await navigator.clipboard.writeText(shareText);
+            addNotification('✅ Copied!', 'Your profile card has been copied to clipboard', 'earnings');
+          } catch (err) {
+            console.error('Failed to copy:', err);
+          }
+        }
+      });
+    } else {
+      navigator.clipboard.writeText(shareText);
+      alert('Profile card copied to clipboard!');
+    }
+  };
+
+  // ===== HANDLE AVATAR UPLOAD =====
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large. Please select an image under 2MB.');
+      return;
+    }
+    
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+    
+    setUploadingAvatar(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      if (backendUserId) {
+        const result = await api.user.updateAvatar(backendUserId, base64String);
+        if (result.success && onUpdateProfile) {
+          onUpdateProfile();
+          setShowAvatarUpload(false);
+          addNotification('✅ Avatar Updated', 'Your profile picture has been updated!', 'earnings');
+        }
+      }
+      setUploadingAvatar(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ===== HANDLE WALLET UPDATE =====
+  const handleUpdateWalletAddress = async () => {
+    if (!backendUserId || !tempWalletAddress) return;
+    
+    const result = await api.user.updateWalletAddress(backendUserId, tempWalletAddress);
+    if (result.success && onUpdateWallet) {
+      onUpdateWallet({ address: tempWalletAddress });
+      setShowWalletSettings(false);
+      addNotification('✅ Wallet Updated', 'Your TON wallet address has been saved!', 'earnings');
+    }
+  };
+
   // Load leaderboard data
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -242,6 +348,7 @@ const refreshReferralCode = async () => {
       }
     };
     loadLeaderboard();
+    loadReferralStats();
   }, [backendUserId]);
 
   // Update balance when wallet changes
@@ -249,7 +356,10 @@ const refreshReferralCode = async () => {
     if (wallet?.balanceFTC !== undefined) {
       setUserFTCBalance(wallet.balanceFTC);
     }
-  }, [wallet?.balanceFTC]);
+    if (wallet?.address) {
+      setTempWalletAddress(wallet.address);
+    }
+  }, [wallet?.balanceFTC, wallet?.address]);
 
   // Load persistent notifications on mount
   useEffect(() => {
@@ -277,6 +387,7 @@ const refreshReferralCode = async () => {
   useEffect(() => {
     if (activeTab === 'profile') {
       refreshReferralCode();
+      loadReferralStats();
     }
   }, [activeTab]);
 
@@ -333,15 +444,13 @@ const refreshReferralCode = async () => {
       return updated;
     });
     
-    if (type === 'banter' || type === 'referral') {
+    // Show in-app popup for important notifications
+    if (type === 'banter' || type === 'referral' || type === 'earnings') {
       tg?.showPopup?.({
         title: title,
         message: message,
-        buttons: [{ id: 'ok', type: 'default', text: 'View' }]
-      }, () => {
-        if (type === 'banter') setInBanterHall(true);
-        if (type === 'referral') setActiveTab('profile');
-      });
+        buttons: [{ id: 'ok', type: 'default', text: 'OK' }]
+      }, () => {});
       
       setShowBanterAlert(newNotification);
       if (alertTimer.current) clearTimeout(alertTimer.current);
@@ -435,6 +544,9 @@ const refreshReferralCode = async () => {
           console.log('⚠️ Balance mismatch detected, refreshing again...');
           setTimeout(() => refreshBalance(), 500);
         }
+        
+        // Refresh referral stats in case new referral was added
+        loadReferralStats();
       } else {
         console.error('Failed to save FTC to database:', data.error);
       }
@@ -688,11 +800,55 @@ const refreshReferralCode = async () => {
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
         <p className="text-[10px] uppercase font-black tracking-[0.2em] opacity-80 mb-2">Total Balance</p>
         <h2 className="text-5xl font-black mb-6 tracking-tighter">{userFTCBalance} <span className="text-xl opacity-60">FTC</span></h2>
-        <div className="w-full bg-black/20 backdrop-blur-md p-4 rounded-2xl border border-white/10 group active:scale-95 transition-transform cursor-pointer" onClick={() => { tg?.HapticFeedback.selectionChanged(); navigator.clipboard.writeText(wallet?.address || ''); }}>
-          <div className="flex justify-between items-center mb-1"><span className="text-[8px] font-black uppercase text-white/60">TON Wallet Address</span><span className="text-[8px] font-black uppercase text-black/80 flex items-center gap-1"><span className="w-1 h-1 bg-black rounded-full animate-pulse"></span>Verified</span></div>
-          <div className="flex items-center justify-between gap-2"><div className="font-mono text-xs truncate opacity-90">{wallet?.address || 'EQA_...8x92'}</div><svg className="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg></div>
+        
+        {/* Editable Wallet Address */}
+        <div className="w-full bg-black/20 backdrop-blur-md p-4 rounded-2xl border border-white/10 group">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[8px] font-black uppercase text-white/60">TON Wallet Address</span>
+            <button 
+              onClick={() => setShowWalletSettings(true)}
+              className="text-[8px] text-green-400 hover:text-green-300 transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-mono text-xs truncate opacity-90">{wallet?.address || 'Not set - tap Edit to add'}</div>
+            {wallet?.address && (
+              <button 
+                onClick={() => { navigator.clipboard.writeText(wallet.address || ''); addNotification('✅ Copied!', 'Wallet address copied to clipboard', 'earnings'); }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </Card>
+      
+      {/* Wallet Settings Modal */}
+      {showWalletSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
+            <h2 className="text-xl font-black text-white mb-4">TON Wallet Address</h2>
+            <p className="text-xs text-gray-400 mb-4">Enter your TON wallet address to receive NFT rewards</p>
+            <input
+              type="text"
+              placeholder="EQA... or UQA..."
+              value={tempWalletAddress}
+              onChange={(e) => setTempWalletAddress(e.target.value)}
+              className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white focus:ring-2 focus:ring-green-500 outline-none font-mono text-sm mb-4"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowWalletSettings(false)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-black">Cancel</button>
+              <button onClick={handleUpdateWalletAddress} className="flex-1 bg-green-600 text-black py-3 rounded-xl font-black">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="grid grid-cols-2 gap-4">
         <div className="relative group"><Button disabled variant="secondary" className="py-4 text-[10px] font-black uppercase tracking-widest border border-gray-800 opacity-60 grayscale bg-darkCard">Deposit TON</Button><div className="absolute -top-2 left-1/2 -translate-x-1/2"><span className="bg-gray-800 text-gray-500 text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-gray-700 shadow-sm">Soon</span></div></div>
         <div className="relative group"><Button disabled variant="secondary" className="py-4 text-[10px] font-black uppercase tracking-widest border border-gray-800 opacity-60 grayscale bg-darkCard">Swap FTC</Button><div className="absolute -top-2 left-1/2 -translate-x-1/2"><span className="bg-gray-800 text-gray-500 text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-gray-700 shadow-sm">Soon</span></div></div>
@@ -713,8 +869,16 @@ const refreshReferralCode = async () => {
           {leaderboardData.slice(0, 5).map((user, idx) => (
             <div key={user.id} className="bg-darkCard rounded-2xl p-4 flex items-center justify-between border border-gray-800 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-lg font-black text-white">#{idx + 1}</div>
-                <div><p className="text-sm font-black text-white leading-tight">{user.username || `Fan_${user.telegram_id}`}</p><p className="text-[9px] text-gray-400 font-bold uppercase">{user.ftc_balance} FTC</p></div>
+                <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center overflow-hidden">
+                  {idx === 0 && <span className="text-xl">🥇</span>}
+                  {idx === 1 && <span className="text-xl">🥈</span>}
+                  {idx === 2 && <span className="text-xl">🥉</span>}
+                  {idx > 2 && <span className="text-lg font-black text-white">#{idx + 1}</span>}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white leading-tight">{user.username || `Fan_${user.telegram_id}`}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase">{user.ftc_balance} FTC</p>
+                </div>
               </div>
               {user.id === backendUserId && <span className="text-[8px] bg-green-600 text-black px-2 py-1 rounded-full font-black">YOU</span>}
             </div>
@@ -868,12 +1032,40 @@ const refreshReferralCode = async () => {
         </div>
       )}
 
+      {/* Avatar Upload Modal */}
+      {showAvatarUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
+            <h2 className="text-xl font-black text-white mb-4">Upload Profile Picture</h2>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="w-full p-3 rounded-xl bg-darkDeep border border-gray-800 text-white mb-4"
+              disabled={uploadingAvatar}
+            />
+            {uploadingAvatar && <p className="text-center text-gray-400 text-sm">Uploading...</p>}
+            <button onClick={() => setShowAvatarUpload(false)} className="w-full bg-gray-800 text-white py-3 rounded-xl font-black">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-4 pt-4 pb-3 bg-darkCard/80 backdrop-blur-md shadow-sm flex items-center justify-between border-b border-gray-800 sticky top-0 z-30 shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="relative cursor-pointer active:scale-95 transition-transform shrink-0" onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('profile'); }}>
+          <div 
+            className="relative cursor-pointer active:scale-95 transition-transform shrink-0 group"
+            onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('profile'); }}
+          >
             <img src={profile?.avatar} className="w-10 h-10 rounded-2xl shadow-md border-2 border-gray-700 object-cover" alt="Profile" />
-            <div className="absolute -bottom-1 -right-1"><div className="w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center shadow-sm border border-gray-700"><span className="text-[6px]">{features[Math.floor(onboarding.activityCount % features.length)].icon}</span></div></div>
+            <div className="absolute -bottom-1 -right-1">
+              <div className="w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center shadow-sm border border-gray-700">
+                <span className="text-[6px]">{features[Math.floor(onboarding.activityCount % features.length)].icon}</span>
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-[8px] text-white">Change</span>
+            </div>
           </div>
           {(!showNotifications && !showMarketplace) && (
             <div className="animate-in fade-in duration-300 flex-1 min-w-0">
@@ -902,15 +1094,47 @@ const refreshReferralCode = async () => {
               <div className="animate-in slide-in-from-bottom-4 duration-500 flex flex-col gap-6">
                 <Card className="flex flex-col items-center text-center pt-8 pb-8 relative overflow-hidden bg-darkCard border-gray-800">
                   <div className="absolute top-0 inset-x-0 h-1 bg-green-600 opacity-50"></div>
-                  <img src={profile?.avatar} className="w-24 h-24 rounded-[2rem] border-4 border-gray-800 shadow-xl mb-4 object-cover" />
+                  <div className="relative group cursor-pointer" onClick={() => setShowAvatarUpload(true)}>
+                    <img src={profile?.avatar} className="w-24 h-24 rounded-[2rem] border-4 border-gray-800 shadow-xl mb-4 object-cover" />
+                    <div className="absolute inset-0 bg-black/50 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-xs text-white">Change Photo</span>
+                    </div>
+                  </div>
                   <h2 className="text-2xl font-black text-white leading-tight break-words max-w-full px-2">{profile?.displayName}</h2>
                   <div className="mt-1 flex items-center justify-center gap-2"><FanRankBadge rank={profile?.fanRank} size="sm" /><p className="text-green-500 font-bold uppercase text-[10px] tracking-widest">{badgeTitle}</p></div>
-                  <div className="flex gap-2 mt-8 w-full"><Button variant="outline" className="flex-1 py-3 text-xs" onClick={() => setShowEditProfile(true)}>Edit Profile</Button><Button variant="outline" className="flex-1 py-3 text-xs" onClick={() => tg?.HapticFeedback.selectionChanged()}>Share Card</Button></div>
+                  <div className="flex gap-2 mt-8 w-full">
+                    <Button variant="outline" className="flex-1 py-3 text-xs" onClick={() => setShowEditProfile(true)}>Edit Profile</Button>
+                    <Button variant="outline" className="flex-1 py-3 text-xs" onClick={handleShareCard}>Share Card</Button>
+                  </div>
                 </Card>
-                <div className="flex flex-col gap-3"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Referral Program</p><Card className="bg-darkCard border border-gray-800 p-5"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><div className="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg></div><div><p className="text-sm font-black text-white">Invite Friends</p><p className="text-[9px] text-gray-500">Earn 5 FTC per referral</p></div></div><div className="text-right"><p className="text-2xl font-black text-green-500">{onboarding.referralCount}</p><p className="text-[8px] text-gray-500 uppercase tracking-wider">Referrals</p></div></div><div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-xs font-mono text-green-500 truncate">{onboarding.referralCode}</code><button onClick={() => { navigator.clipboard.writeText(onboarding.referralCode); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral code copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors">Copy</button></div></div>
+                
+                {/* Referral Stats Section */}
+                <div className="bg-darkDeep rounded-2xl p-4 border border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">People Referred</p>
+                      <p className="text-2xl font-black text-green-500">{referralStats.count}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total Earned</p>
+                      <p className="text-2xl font-black text-green-500">{referralStats.totalEarned} FTC</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-3"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Referral Program</p><Card className="bg-darkCard border border-gray-800 p-5"><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><div className="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg></div><div><p className="text-sm font-black text-white">Invite Friends</p><p className="text-[9px] text-gray-500">Earn 15 FTC per referral</p></div></div><div className="text-right"><p className="text-2xl font-black text-green-500">{referralStats.count}</p><p className="text-[8px] text-gray-500 uppercase tracking-wider">Referrals</p></div></div><div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-xs font-mono text-green-500 truncate">{onboarding.referralCode}</code><button onClick={() => { navigator.clipboard.writeText(onboarding.referralCode); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral code copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors">Copy</button></div></div>
                 <div className="bg-darkDeep rounded-xl p-3 mb-4 border border-gray-800"><div className="flex items-center justify-between gap-2"><code className="text-[10px] font-mono text-gray-400 truncate">t.me/FootNftsapp_bot?startapp=ref_{onboarding.referralCode}</code><button onClick={() => { const link = `https://t.me/FootNftsapp_bot?startapp=ref_${onboarding.referralCode}`; navigator.clipboard.writeText(link); tg?.HapticFeedback.selectionChanged(); tg?.showAlert('Referral link copied!'); }} className="text-[10px] font-black text-green-500 hover:text-green-400 transition-colors">Copy Link</button></div></div>
                 <div className="grid grid-cols-2 gap-3"><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.6-1.38-.97-2.23-1.56-.99-.69-.35-1.07.22-1.69.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.06-.2-.07-.06-.18-.04-.26-.02-.11.02-1.87 1.19-5.28 3.49-.5.34-.95.51-1.36.5-.45-.01-1.31-.25-1.95-.46-.78-.25-1.4-.38-1.35-.81.03-.22.33-.45.9-.68 3.56-1.55 5.93-2.57 7.12-3.06 3.39-1.39 4.09-1.63 4.55-1.64.1 0 .33.02.48.15.12.1.16.25.17.37-.01.09-.02.24-.05.39z"/></svg>X (Twitter)</button><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://wa.me/?text=${encodeURIComponent(text + ' https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider hover:bg-green-500/20 transition-all"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>WhatsApp</button></div>
-                <div className="mt-4 pt-3 border-t border-gray-800"><div className="flex justify-between text-[9px] text-gray-500 mb-1"><span>Next reward at 5 referrals</span><span>{onboarding.referralCount}/5</span></div><div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-green-600 rounded-full transition-all duration-500" style={{ width: `${Math.min((onboarding.referralCount / 5) * 100, 100)}%` }}></div></div>{onboarding.referralCount >= 5 && <p className="text-[8px] text-green-500 mt-2 text-center font-bold">🎉 Bonus unlocked! +25 FTC</p>}</div></Card></div>
+                <div className="mt-4 pt-3 border-t border-gray-800"><div className="flex justify-between text-[9px] text-gray-500 mb-1"><span>Next reward at 5 referrals</span><span>{referralStats.count}/5</span></div><div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-green-600 rounded-full transition-all duration-500" style={{ width: `${Math.min((referralStats.count / 5) * 100, 100)}%` }}></div></div>{referralStats.count >= 5 && <p className="text-[8px] text-green-500 mt-2 text-center font-bold">🎉 Bonus unlocked! +25 FTC</p>}</div></Card></div>
+                
+                {/* Terms and Conditions */}
+                <div className="mt-2 pt-2 border-t border-gray-800">
+                  <p className="text-[8px] text-gray-600 text-center">
+                    By using FOOT NFTs, you agree to our Terms of Service and Privacy Policy.
+                    <br />
+                    © 2024 FOOT NFTs. All rights reserved.
+                  </p>
+                </div>
               </div>
             )}
             {activeTab === 'club' && (club ? <ClubProfileScreen club={club} profile={profile} onSwitch={onChangeClub} onEnterChat={() => { setSelectedChatClub(club); setInChat(true); }} /> : <div className="p-10 text-center"><Button onClick={onChangeClub}>Join a Club</Button></div>)}
