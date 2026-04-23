@@ -67,7 +67,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     tg?.HapticFeedback.impactOccurred('light');
   };
 
-  // Load messages from backend - OLDEST FIRST so newest at BOTTOM
+  // Load messages from backend
   const loadMessages = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/banter/feed`);
@@ -86,12 +86,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           isMe: post.user_id === backendUserId
         }));
         
-        // Sort OLDEST FIRST (ascending) - newest messages at the BOTTOM
         const sortedMessages = formattedMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         
-        // Check for new messages
         if (lastMessageCount.current > 0 && sortedMessages.length > lastMessageCount.current) {
           const newMessages = sortedMessages.slice(lastMessageCount.current);
           newMessages.forEach(msg => {
@@ -119,7 +117,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
-  // Auto-scroll to BOTTOM when new messages arrive
+  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       requestAnimationFrame(() => {
@@ -292,9 +290,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       )}
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20">
-        <div className="bg-darkCard px-4 py-4 flex items-center gap-3 border-b border-gray-800">
+      {/* STICKY HEADER - Fixed on scroll */}
+      <div className="sticky top-0 z-20 bg-darkCard border-b border-gray-800">
+        {/* Main Header */}
+        <div className="px-4 py-4 flex items-center gap-3">
           <button onClick={onBack} className="text-gray-400 active:scale-95 transition-transform">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -309,6 +308,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           </div>
         </div>
 
+        {/* Info Banner */}
         <div className="bg-green-950/30 border-b border-green-500/30 px-4 py-2 flex items-center justify-between">
           <p className="text-[10px] text-green-400">
             💡 Use <span className="font-bold text-white">#banter</span> + min {MIN_MESSAGE_LENGTH} chars = +2 FTC
@@ -323,7 +323,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
       </div>
 
-      {/* Messages Area - Smaller messages like WhatsApp */}
+      {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -393,7 +393,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         )}
       </div>
 
-      {/* Input Area with #banter button */}
+      {/* Input Area with #banter button INSIDE the input field */}
       <div className="bg-darkCard px-4 py-3 border-t border-gray-800">
         <div className="mb-2 px-1 flex items-center justify-between gap-3">
           <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -425,10 +425,20 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
               className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-gray-500"
               autoFocus
             />
+            
+            {/* #banter button INSIDE the input field - small green chip */}
+            <button
+              onClick={addBanterTag}
+              className="ml-2 px-2 py-0.5 rounded-full bg-green-600/20 border border-green-500/50 text-green-500 text-[10px] font-bold uppercase tracking-wider hover:bg-green-600/30 transition-all active:scale-95"
+              title="Add #banter tag"
+            >
+              #banter
+            </button>
+            
             {inputText && (
               <button 
                 onClick={() => setInputText('')}
-                className="text-gray-500 hover:text-gray-400 ml-2"
+                className="text-gray-500 hover:text-gray-400 ml-1"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -436,15 +446,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
               </button>
             )}
           </div>
-          
-          {/* #banter Button */}
-          <button
-            onClick={addBanterTag}
-            className="w-10 h-10 rounded-full bg-yellow-600/20 border border-yellow-500/50 text-yellow-500 flex items-center justify-center hover:bg-yellow-600/30 transition-all active:scale-95"
-            title="Add #banter tag"
-          >
-            <span className="text-sm font-black">#</span>
-          </button>
           
           <button
             onClick={sendMessage}
@@ -463,7 +464,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         
         <div className="mt-2 text-center">
           <span className="text-[8px] text-gray-600">
-            💡 Use <span className="text-yellow-500 font-bold">#banter</span> button to earn 2 FTC • Vote on others' posts to earn 3 FTC
+            💡 Tap <span className="text-green-500 font-bold">#banter</span> to earn 2 FTC • Vote on others' posts to earn 3 FTC
           </span>
         </div>
       </div>
