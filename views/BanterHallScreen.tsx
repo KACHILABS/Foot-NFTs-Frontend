@@ -49,6 +49,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const [rewardAmount, setRewardAmount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,14 +123,21 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => clearInterval(interval);
   }, [loadMessages]);
 
+  // Only auto-scroll to bottom if the user is already near the bottom (within 120px).
+  // If they've scrolled up to read history, leave them alone.
+  const isNearBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
   useEffect(() => {
-    if (scrollRef.current) {
-      requestAnimationFrame(() => {
-        if (scrollRef.current)
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      });
-    }
-  }, [messages]);
+    if (!isNearBottom()) return;
+    requestAnimationFrame(() => {
+      if (scrollRef.current)
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+  }, [messages, isNearBottom]);
 
   const formatTime = (dateString: string) => {
     try {
@@ -316,7 +324,11 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         </div>
 
         {/* ── SCROLLABLE MESSAGES ── */}
-        <div className="bh-messages" ref={scrollRef}>
+        <div
+          className="bh-messages"
+          ref={scrollRef}
+          onScroll={() => setShowScrollBtn(!isNearBottom())}
+        >
           {messages.length === 0 ? (
             <div className="bh-empty">
               <div className="bh-empty-icon">🔥</div>
@@ -378,6 +390,20 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             </div>
           )}
         </div>
+
+        {/* ── SCROLL TO BOTTOM BUTTON ── */}
+        {showScrollBtn && (
+          <button
+            className="bh-scroll-btn"
+            onClick={() => {
+              if (scrollRef.current)
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+              setShowScrollBtn(false);
+            }}
+          >
+            ↓ Latest
+          </button>
+        )}
 
         {/* ── FIXED INPUT AREA ── */}
         <div className="bh-input-area">
@@ -652,6 +678,28 @@ const GLOBAL_STYLES = `
     width: 6px; height: 6px; border-radius: 50%; background: #fff;
     animation: bh-bounce 1.2s infinite ease-in-out;
   }
+
+  /* ── Scroll-to-bottom button ── */
+  .bh-scroll-btn {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #15803d;
+    border: none;
+    border-radius: 999px;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    z-index: 10;
+    animation: bh-fadein .2s ease;
+    white-space: nowrap;
+  }
+  .bh-scroll-btn:active { transform: translateX(-50%) scale(.95); }
 
   /* ── Input area (never moves) ── */
   .bh-input-area {
