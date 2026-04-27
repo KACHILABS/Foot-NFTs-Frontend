@@ -45,6 +45,12 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
     { id: 'third' as const, name: 'Third Kit', icon: '🎽', matchRequired: 'Available Every Day' },
   ];
 
+  // Helper function to get proxied image URL
+  const getProxiedImageUrl = (originalUrl: string) => {
+    if (!originalUrl) return '';
+    return `${API_BASE}/jersey/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+  };
+
   useEffect(() => {
     if (club?.id && userId) {
       loadData();
@@ -241,6 +247,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
               const reward = getRewardForKit(kit.id);
               const isSelected = selectedKit === kit.id;
               const kitImage = jerseyImages[kit.id];
+              const proxiedImageUrl = kitImage ? getProxiedImageUrl(kitImage) : '';
               
               return (
                 <button 
@@ -254,8 +261,8 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
                   } ${!available ? 'opacity-50' : ''}`}
                 >
                   <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center shadow-inner border border-gray-700 overflow-hidden p-2">
-                    {kitImage ? (
-                      <img src={kitImage} alt={kit.name} className="w-full h-full object-contain" />
+                    {proxiedImageUrl ? (
+                      <img src={proxiedImageUrl} alt={kit.name} className="w-full h-full object-contain" />
                     ) : (
                       <div className="text-3xl">{kit.icon}</div>
                     )}
@@ -293,7 +300,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
               <div className="w-32 h-32 mb-4 flex items-center justify-center">
                 {jerseyImages[selectedKit] ? (
                   <img 
-                    src={jerseyImages[selectedKit]} 
+                    src={getProxiedImageUrl(jerseyImages[selectedKit])} 
                     alt={selectedKitData?.name} 
                     className="w-full h-full object-contain drop-shadow-2xl"
                   />
