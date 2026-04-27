@@ -77,7 +77,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
     try {
       const res = await fetch(`${API_BASE}/jersey/upcoming-matches/${club.id}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.matches) {
         setUpcomingMatches(data.matches);
       }
     } catch (error) {
@@ -222,8 +222,8 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
             </svg>
           </button>
           <div>
-            <h2 className="text-xl font-black text-white leading-tight">Jersey Day</h2>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Rep your Colors • Match Day</p>
+            <h2 className="text-xl font-black text-white leading-tight font-oxanium">Jersey Day</h2>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest font-space-mono">Rep your Colors • Match Day</p>
           </div>
         </div>
         <div className="w-12 h-12 bg-green-950/30 rounded-2xl flex items-center justify-center text-2xl">
@@ -237,10 +237,10 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
           <Card className="border border-green-500/30 shadow-xl bg-green-950/20 text-white p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-green-600 opacity-10 blur-3xl rounded-full"></div>
             <div className="relative z-10">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-500 mb-2">⚽ MATCH DAY</p>
-              <h3 className="text-xl font-black mb-1">{club.name} vs {matchInfo.opponent}</h3>
-              <p className="text-xs text-gray-400">{matchInfo.competition} • {matchInfo.matchType === 'home' ? '🏠 Home' : '✈️ Away'}</p>
-              <p className="text-xs text-green-500 mt-3 font-bold">Rep your {matchInfo.matchType} kit for +15 FTC!</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-500 mb-2 font-space-mono">⚽ MATCH DAY</p>
+              <h3 className="text-xl font-black mb-1 font-oxanium">{club.name} vs {matchInfo.opponent}</h3>
+              <p className="text-xs text-gray-400 font-rajdhani">{matchInfo.competition} • {matchInfo.matchType === 'home' ? '🏠 Home' : '✈️ Away'}</p>
+              <p className="text-xs text-green-500 mt-3 font-bold font-space-mono">Rep your {matchInfo.matchType} kit for +15 FTC!</p>
             </div>
           </Card>
         )}
@@ -249,9 +249,9 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
         <Card className="border border-gray-800 shadow-xl bg-darkDeep text-white p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-600 opacity-10 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-500 mb-2">Today's Objective</p>
-            <h3 className="text-2xl font-black mb-2">Wear the {club.name} Colors</h3>
-            <p className="text-sm text-gray-400 leading-relaxed pr-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-500 mb-2 font-space-mono">Today's Objective</p>
+            <h3 className="text-2xl font-black mb-2 font-oxanium">Wear the {club.name} Colors</h3>
+            <p className="text-sm text-gray-400 leading-relaxed pr-8 font-rajdhani">
               {matchInfo.hasMatch 
                 ? `Match day vs ${matchInfo.opponent}! Rep your ${matchInfo.matchType} kit for 15 FTC.`
                 : `No match today. Rep your third kit for 5 FTC.`
@@ -284,7 +284,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`text-[8px] font-black px-2 py-1 rounded-full ${
+                      <span className={`text-[8px] font-black px-2 py-1 rounded-full font-space-mono ${
                         match.match_type === 'home' 
                           ? 'bg-green-600/20 text-green-500' 
                           : 'bg-yellow-600/20 text-yellow-500'
@@ -304,7 +304,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
 
         {/* Kit Selection */}
         <div className="flex flex-col gap-4">
-          <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Select Your Kit</p>
+          <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1 font-oxanium">Select Your Kit</p>
           <div className="grid grid-cols-3 gap-4">
             {kits.map((kit) => {
               const available = isKitAvailable(kit.id);
@@ -331,14 +331,14 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
                       <div className="text-3xl">{kit.icon}</div>
                     )}
                   </div>
-                  <p className={`text-[10px] font-black uppercase tracking-tight ${isSelected && !hasCheckedIn ? 'text-white' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] font-black uppercase tracking-tight ${isSelected && !hasCheckedIn ? 'text-white' : 'text-gray-500'} font-oxanium`}>
                     {kit.name}
                   </p>
                   {reward > 0 && (
-                    <p className="text-[8px] text-green-500 font-bold">+{reward} FTC</p>
+                    <p className="text-[8px] text-green-500 font-bold font-space-mono">+{reward} FTC</p>
                   )}
                   {!available && (
-                    <p className="text-[6px] text-gray-500 text-center">{kit.matchRequired}</p>
+                    <p className="text-[6px] text-gray-500 text-center font-space-mono">{kit.matchRequired}</p>
                   )}
                   {isSelected && !hasCheckedIn && (
                     <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-white border-2 border-gray-800">
@@ -372,10 +372,10 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
                   <div className="text-7xl">{selectedKitData?.icon}</div>
                 )}
               </div>
-              <p className="text-sm font-black text-white">{club.name}</p>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">2024/25 Season</p>
+              <p className="text-sm font-black text-white font-oxanium">{club.name}</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1 font-space-mono">2024/25 Season</p>
               {rewardAmount > 0 && !hasCheckedIn && (
-                <p className="text-[10px] text-green-500 font-bold mt-2">+{rewardAmount} FTC</p>
+                <p className="text-[10px] text-green-500 font-bold mt-2 font-space-mono">+{rewardAmount} FTC</p>
               )}
             </Card>
           </div>
@@ -387,7 +387,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
         {!hasCheckedIn ? (
           <Button 
             onClick={handleCheckInSubmit} 
-            className="py-5 w-full"
+            className="py-5 w-full font-oxanium"
             disabled={!kitAvailable || checkingIn}
           >
             {checkingIn 
@@ -405,13 +405,13 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
                 </svg>
               </div>
               <div className="text-left">
-                <p className="text-sm font-black text-green-500 leading-none">Checked In Successfully!</p>
-                <p className="text-[10px] font-bold text-green-400 uppercase mt-1 tracking-widest">
+                <p className="text-sm font-black text-green-500 leading-none font-oxanium">Checked In Successfully!</p>
+                <p className="text-[10px] font-bold text-green-400 uppercase mt-1 tracking-widest font-space-mono">
                   +{rewardAmount} FTC Reward Claimed
                 </p>
               </div>
             </Card>
-            <Button variant="secondary" onClick={onBack} className="py-4 w-full">
+            <Button variant="secondary" onClick={onBack} className="py-4 w-full font-oxanium">
               Return to Arena
             </Button>
           </div>
