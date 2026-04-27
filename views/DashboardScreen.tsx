@@ -1109,7 +1109,15 @@ const refreshProfile = async () => {
 
   // Screen routing
   if (inTrivia && club) return <TriviaScreen club={club} onboarding={onboarding} onBack={() => setInTrivia(false)} onEarn={handleEarnFTC} onComplete={onTriviaComplete} backendUserId={backendUserId} />;
-  if (inJerseyDay && club) return <JerseyDayScreen club={club} profile={profile} onBack={() => setInJerseyDay(false)} onCheckIn={handleEarnFTC} />;
+  if (inJerseyDay && club) return (
+  <JerseyDayScreen 
+    club={club} 
+    profile={profile} 
+    onBack={() => setInJerseyDay(false)} 
+    onCheckIn={handleEarnFTC}
+    userId={backendUserId || undefined}
+  />
+);
   if (inBanterHall) return <BanterHallScreen 
     profile={profile} 
     onBack={() => setInBanterHall(false)} 
