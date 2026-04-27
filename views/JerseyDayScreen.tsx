@@ -18,6 +18,11 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [jerseyImages, setJerseyImages] = useState({
+    home: '',
+    away: '',
+    third: ''
+  });
   const [matchInfo, setMatchInfo] = useState<{
     hasMatch: boolean;
     matchType: string | null;
@@ -43,14 +48,26 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
   useEffect(() => {
     if (club?.id && userId) {
       loadData();
+      loadJerseyImages();
     } else if (club?.id) {
       setLoading(false);
     }
   }, [club?.id, userId]);
 
+  const loadJerseyImages = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/jersey/images/${club.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setJerseyImages(data.images);
+      }
+    } catch (error) {
+      console.error('Error loading jersey images:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
-      // Check match status
       const matchRes = await fetch(`${API_BASE}/jersey/match/today/${club.id}`);
       const matchData = await matchRes.json();
       
@@ -58,14 +75,12 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
         setMatchInfo(matchData);
       }
       
-      // Check available kits
       const availRes = await fetch(`${API_BASE}/jersey/available/${club.id}`);
       const availData = await availRes.json();
       
       if (availData.success) {
         setAvailability(availData);
         
-        // Auto-select appropriate kit if match day
         if (availData.homeAvailable) {
           setSelectedKit('home');
         } else if (availData.awayAvailable) {
@@ -75,7 +90,6 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
         }
       }
       
-      // Check if already checked in today
       if (userId) {
         const statusRes = await fetch(`${API_BASE}/jersey/check-status?userId=${userId}`);
         const statusData = await statusRes.json();
@@ -95,7 +109,6 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
   const handleCheckInSubmit = async () => {
     if (hasCheckedIn || checkingIn || !userId) return;
     
-    // Check if selected kit is available
     if (selectedKit === 'home' && !availability.homeAvailable) {
       alert('Home kit is only available on home match days!');
       return;
@@ -227,20 +240,25 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
               const available = isKitAvailable(kit.id);
               const reward = getRewardForKit(kit.id);
               const isSelected = selectedKit === kit.id;
+              const kitImage = jerseyImages[kit.id];
               
               return (
                 <button 
                   key={kit.id}
                   onClick={() => available && !hasCheckedIn && setSelectedKit(kit.id)}
                   disabled={!available || hasCheckedIn}
-                  className={`relative flex flex-col items-center gap-3 p-4 rounded-[2rem] border-2 transition-all duration-300 ${
+                  className={`relative flex flex-col items-center gap-2 p-3 rounded-[2rem] border-2 transition-all duration-300 ${
                     isSelected && !hasCheckedIn
                       ? 'border-green-500 bg-darkCard shadow-lg shadow-green-500/20 scale-105' 
                       : 'border-gray-800 bg-darkCard/50'
                   } ${!available ? 'opacity-50' : ''}`}
                 >
-                  <div className="w-14 h-14 rounded-2xl bg-gray-800 flex items-center justify-center text-3xl shadow-inner border border-gray-700">
-                    {kit.icon}
+                  <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center shadow-inner border border-gray-700 overflow-hidden p-2">
+                    {kitImage ? (
+                      <img src={kitImage} alt={kit.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="text-3xl">{kit.icon}</div>
+                    )}
                   </div>
                   <p className={`text-[10px] font-black uppercase tracking-tight ${isSelected && !hasCheckedIn ? 'text-white' : 'text-gray-500'}`}>
                     {kit.name}
@@ -272,8 +290,16 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
               <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-10">
                 <img src={club.badge} className="w-24 h-24 grayscale" alt="club-watermark" />
               </div>
-              <div className="text-7xl mb-4 drop-shadow-2xl">
-                {selectedKitData?.icon}
+              <div className="w-32 h-32 mb-4 flex items-center justify-center">
+                {jerseyImages[selectedKit] ? (
+                  <img 
+                    src={jerseyImages[selectedKit]} 
+                    alt={selectedKitData?.name} 
+                    className="w-full h-full object-contain drop-shadow-2xl"
+                  />
+                ) : (
+                  <div className="text-7xl">{selectedKitData?.icon}</div>
+                )}
               </div>
               <p className="text-sm font-black text-white">{club.name}</p>
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">2024/25 Season</p>
