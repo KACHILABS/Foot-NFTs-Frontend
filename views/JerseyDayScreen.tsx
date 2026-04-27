@@ -23,6 +23,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
     away: '',
     third: ''
   });
+  const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [matchInfo, setMatchInfo] = useState<{
     hasMatch: boolean;
     matchType: string | null;
@@ -45,7 +46,6 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
     { id: 'third' as const, name: 'Third Kit', icon: '🎽', matchRequired: 'Available Every Day' },
   ];
 
-  // Helper function to get proxied image URL
   const getProxiedImageUrl = (originalUrl: string) => {
     if (!originalUrl) return '';
     return `${API_BASE}/jersey/image-proxy?url=${encodeURIComponent(originalUrl)}`;
@@ -55,6 +55,7 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
     if (club?.id && userId) {
       loadData();
       loadJerseyImages();
+      loadUpcomingMatches();
     } else if (club?.id) {
       setLoading(false);
     }
@@ -69,6 +70,18 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
       }
     } catch (error) {
       console.error('Error loading jersey images:', error);
+    }
+  };
+
+  const loadUpcomingMatches = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/jersey/upcoming-matches/${club.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setUpcomingMatches(data.matches);
+      }
+    } catch (error) {
+      console.error('Error loading upcoming matches:', error);
     }
   };
 
@@ -169,6 +182,15 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
   const rewardAmount = getRewardForKit(selectedKit);
   const kitAvailable = isKitAvailable(selectedKit);
 
+  const formatMatchDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-darkBg">
@@ -237,6 +259,48 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
             </p>
           </div>
         </Card>
+
+        {/* Upcoming Matches Section */}
+        {upcomingMatches.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1 font-oxanium">
+              📅 Upcoming Matches
+            </p>
+            <div className="flex flex-col gap-2">
+              {upcomingMatches.map((match, idx) => (
+                <Card key={idx} className="bg-gray-900/50 border border-gray-800 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">
+                        {match.match_type === 'home' ? '🏠' : '✈️'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white font-oxanium">
+                          vs {match.opponent}
+                        </p>
+                        <p className="text-[9px] text-gray-500 font-space-mono">
+                          {formatMatchDate(match.match_date)} • {match.competition}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-[8px] font-black px-2 py-1 rounded-full ${
+                        match.match_type === 'home' 
+                          ? 'bg-green-600/20 text-green-500' 
+                          : 'bg-yellow-600/20 text-yellow-500'
+                      }`}>
+                        {match.match_type === 'home' ? '🏠 HOME' : '✈️ AWAY'}
+                      </span>
+                      <p className="text-[8px] text-gray-600 mt-1 font-space-mono">
+                        +15 FTC available
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Kit Selection */}
         <div className="flex flex-col gap-4">
