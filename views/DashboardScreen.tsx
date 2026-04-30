@@ -239,7 +239,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     try {
       const telegramId = localStorage.getItem('telegramId');
       const token = localStorage.getItem('token');
-      if (!telegramId || !token) return;
+      if (!telegramId || !token) {
+        // Token not yet in localStorage (e.g. right after first login) —
+        // fall back to fetching rank via the leaderboard user endpoint
+        if (backendUserId) {
+          try {
+            const rankRes = await fetch(`${API_BASE}/leaderboard/user/${backendUserId}`);
+            const rankData = await rankRes.json();
+            if (rankData.success && rankData.rank != null) {
+              setUserRank(rankData.rank);
+            }
+          } catch (_) {}
+        }
+        return;
+      }
       
       const response = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -252,11 +265,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (onUpdateWallet) {
           onUpdateWallet({ balanceFTC: newBalance });
         }
-        // Update rank from backend profile if available
+        // globalRank is null only when balance is 0 — show dash in that case
         if (data.profile.globalRank != null) {
           setUserRank(data.profile.globalRank);
         }
-        console.log('💰 Balance refreshed:', newBalance);
+        console.log('💰 Balance refreshed:', newBalance, '| Rank:', data.profile.globalRank);
         return newBalance;
       }
     } catch (error) {
@@ -485,8 +498,14 @@ const refreshProfile = async () => {
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
-          // Don't set rank from leaderboard position — it's only top 100
-          // Rank is set accurately by refreshBalance() via globalRank from profile
+        }
+
+        // Fetch this user's accurate rank from the dedicated endpoint
+        // This runs in parallel with refreshBalance and acts as a safety net
+        const rankRes = await fetch(`${API_BASE}/leaderboard/user/${backendUserId}`);
+        const rankData = await rankRes.json();
+        if (rankData.success && rankData.rank != null) {
+          setUserRank(rankData.rank);
         }
       } catch (error) {
         console.error('Failed to load leaderboard:', error);
