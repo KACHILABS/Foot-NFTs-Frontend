@@ -1,10 +1,11 @@
 export type FanRank = 'Amateur' | 'Supporter' | 'Regular' | 'Ultra' | 'Legend' | 'Founding Legend';
 
 export interface UserProfile {
+  id?: string;
   displayName: string;
   avatar: string;
   favoriteClubId: string | null;
-  favoriteClubName?: string;  // Added for custom clubs
+  favoriteClubName?: string;
   fanRank?: FanRank;
 }
 

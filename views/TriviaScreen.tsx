@@ -90,25 +90,6 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     setError(false);
     
     try {
-      console.log('🔒 Locking trivia for today...');
-      const completeResponse = await fetch(`${API_BASE}/trivia/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ userId: backendUserId })
-      });
-      
-      if (!completeResponse.ok) {
-        console.error('Failed to lock trivia');
-      } else {
-        console.log('✅ Trivia locked for today');
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('trivia_last_completed_date', today);
-      
       const generatedQuestions = [];
       
       for (let i = 0; i < 5; i++) {
@@ -133,6 +114,26 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
         
         if (i < 4) await new Promise(r => setTimeout(r, 500));
       }
+      
+      // Only lock trivia AFTER questions are successfully fetched
+      console.log('🔒 Locking trivia for today...');
+      const completeResponse = await fetch(`${API_BASE}/trivia/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ userId: backendUserId })
+      });
+      
+      if (!completeResponse.ok) {
+        console.error('Failed to lock trivia');
+      } else {
+        console.log('✅ Trivia locked for today');
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem('trivia_last_completed_date', today);
       
       setQuestions(generatedQuestions);
       

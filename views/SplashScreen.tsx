@@ -68,53 +68,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
     setError('');
 
     try {
-      const tg = (window as any).Telegram?.WebApp;
-      const telegramUser = tg?.initDataUnsafe?.user;
-      const telegramId = telegramUser?.id || 123456789;
-      const telegramUsername = telegramUser?.username || 'User';
-
-      // Sanitise the code one more time before sending
-      const codeToSend = referralCode.trim().toUpperCase() || undefined;
-
-      console.log('📝 [SIGNUP] Creating/loading user...', { telegramId, codeToSend });
-
-      // ── KEY: pass referralCode as the third argument ──────────────────
-      const loginResult = await api.auth.login(telegramId, telegramUsername, codeToSend);
-
-      if (!loginResult.success) {
-        throw new Error('Failed to create/load user');
-      }
-
-      console.log('✅ [SIGNUP] User loaded:', loginResult.user.id);
-      console.log('📎 User referral code:', loginResult.user.referralCode);
-      console.log('💰 User balance:', loginResult.user.ftcBalance);
-
-      // Check if user already has welcome bonus
-      if (loginResult.user.hasClaimedWelcomeBonus) {
-        console.log('[SIGNUP] Welcome bonus already claimed');
-        if (onClaimBonus) onClaimBonus(0);
-      } else {
-        // Claim the 50 FTC welcome bonus
-        console.log('🎁 [SIGNUP] Claiming welcome bonus...');
-        const bonusResult = await api.user.claimWelcomeBonus(loginResult.user.id);
-        
-        if (bonusResult.success) {
-          console.log(`✅ [SIGNUP] Welcome bonus claimed: ${bonusResult.bonusAmount} FTC`);
-          if (onClaimBonus) onClaimBonus(bonusResult.bonusAmount);
-        } else if (bonusResult.alreadyClaimed) {
-          console.log('[SIGNUP] Welcome bonus already claimed');
-          if (onClaimBonus) onClaimBonus(0);
-        } else {
-          console.warn('[SIGNUP] Failed to claim welcome bonus:', bonusResult.error);
-          if (onClaimBonus) onClaimBonus(0);
-        }
-      }
-      
+      // Proceed to onComplete — App.tsx handles login and welcome bonus claim
+      // Pass the referral code via onComplete so App.tsx can send it with the login request
       setTimeout(() => {
         setClaiming(false);
         onComplete(name, selectedClub === 'other' ? 'other' : selectedClub, selectedClub === 'other' ? customClub : undefined);
-      }, 500);
-      
+      }, 300);
     } catch (err: any) {
       console.error('❌ [SIGNUP] Error:', err);
       setError(err.message || 'Something went wrong. Please try again.');

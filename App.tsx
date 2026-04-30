@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { OnboardingState, UserProfile, WalletState, FanRank } from './types';
 import { CLUBS } from './constants';
 import { api } from './src/services/api';
-import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthToken } from './src/utils/versionControl';
+import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthToken, setAuthSession } from './src/utils/versionControl';
 import SplashScreen from './views/SplashScreen';
 import DashboardScreen from './views/DashboardScreen';
 
@@ -211,9 +211,12 @@ const App: React.FC = () => {
 
   const handleTriviaComplete = () => {};
 
-  const withHaptic = (fn: () => void) => {
+  const withHaptic = (fn: () => void | Promise<void>) => {
     tg?.HapticFeedback.impactOccurred('medium');
-    fn();
+    const result = fn();
+    if (result instanceof Promise) {
+      result.catch((err) => console.error('withHaptic async error:', err));
+    }
   };
 
   const getClubNameById = (clubId: string): string => {
@@ -257,6 +260,12 @@ const App: React.FC = () => {
             const result = await api.auth.login(telegramId, telegramUsername, referralCode || undefined);
             if (result.success) {
               setBackendUserId(result.user.id);
+
+              // Save JWT token so authenticated endpoints work
+              if (result.token) {
+                localStorage.setItem('token', result.token);
+                setAuthSession(result.token, result.user.id);
+              }
               
               const newProfile = {
                 id: result.user.id,
@@ -295,6 +304,27 @@ const App: React.FC = () => {
                 walletConnected: true,
                 referralCode: result.user.referralCode || prev.referralCode
               }));
+
+              // Claim welcome bonus if not already claimed
+              if (!result.user.hasClaimedWelcomeBonus) {
+                try {
+                  const bonusResult = await api.user.claimWelcomeBonus(result.user.id);
+                  if (bonusResult.success) {
+                    const bonusBalance = (result.user.ftcBalance || 0) + bonusResult.bonusAmount;
+                    setWallet(prev => prev ? { ...prev, balanceFTC: bonusBalance } : null);
+                    localStorage.setItem('user_wallet', JSON.stringify({
+                      address: null,
+                      balanceFTC: bonusBalance,
+                      isConnected: true
+                    }));
+                    localStorage.setItem('welcome_bonus_claimed', 'true');
+                    localStorage.setItem('has_seen_welcome_bonus', 'true');
+                    console.log('🎁 Welcome bonus claimed:', bonusResult.bonusAmount, 'FTC');
+                  }
+                } catch (bonusErr) {
+                  console.error('Failed to claim welcome bonus:', bonusErr);
+                }
+              }
               
               await markProfileCompleted(result.user.id);
             }

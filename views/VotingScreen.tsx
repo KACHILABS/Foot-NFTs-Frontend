@@ -65,10 +65,12 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
   const [votedPollIds, setVotedPollIds] = useState<Set<string>>(new Set());
   const [selectedXI, setSelectedXI] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
 
   const handlePollSelect = (poll: TacticalPoll) => {
     setSelectedPoll(poll);
     setSelectedXI([]);
+    setPendingOptionId(null);
   };
 
   const handlePlayerToggle = (playerId: string) => {
@@ -234,7 +236,7 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
   const renderOptionVoting = (poll: TacticalPoll) => (
     <div className="flex flex-col gap-6 animate-in slide-in-from-right-10 duration-500 pb-24">
       <div className="flex items-center gap-4">
-        <button onClick={() => setSelectedPoll(null)} className="p-2 -ml-2 text-gray-400">
+        <button onClick={() => { setSelectedPoll(null); setPendingOptionId(null); }} className="p-2 -ml-2 text-gray-400">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
           </svg>
@@ -248,13 +250,18 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
       <div className="space-y-4">
         {poll.options?.map((option) => {
           const isVoted = votedPollIds.has(poll.id);
+          const isSelected = pendingOptionId === option.id;
           const percentage = Math.round((option.votes / poll.totalVotes) * 100);
           
           return (
             <Card 
               key={option.id}
-              className={`p-6 border border-gray-800 shadow-sm relative overflow-hidden transition-all bg-darkCard ${isVoted ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'}`}
-              onClick={() => !isVoted && submitVote()}
+              className={`p-6 border shadow-sm relative overflow-hidden transition-all bg-darkCard ${
+                isVoted ? 'cursor-default border-gray-800' :
+                isSelected ? 'cursor-pointer border-green-500 shadow-green-500/10' :
+                'cursor-pointer border-gray-800 active:scale-[0.98]'
+              }`}
+              onClick={() => !isVoted && setPendingOptionId(option.id)}
             >
               {isVoted && (
                 <div 
@@ -270,6 +277,7 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
                   <div className="flex justify-between items-center mb-1">
                     <h4 className="text-base font-black text-white">{option.label}</h4>
                     {isVoted && <span className="text-sm font-black text-green-500">{percentage}%</span>}
+                    {!isVoted && isSelected && <span className="text-[9px] font-black text-green-500 uppercase tracking-widest">Selected</span>}
                   </div>
                   <p className="text-xs text-gray-400 font-medium">{option.description}</p>
                 </div>
@@ -278,6 +286,17 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
           );
         })}
       </div>
+
+      {/* Confirm button — only shown when an option is selected and not yet voted */}
+      {!votedPollIds.has(poll.id) && pendingOptionId && (
+        <button
+          onClick={submitVote}
+          disabled={confirming}
+          className="w-full bg-green-600 text-black py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+        >
+          {confirming ? 'Recording Choice...' : 'Confirm Vote · +15 FTC'}
+        </button>
+      )}
 
       {votedPollIds.has(poll.id) && (
         <Card className="bg-green-950/20 border border-green-500/30 p-6 text-center">

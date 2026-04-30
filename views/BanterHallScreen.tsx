@@ -681,8 +681,8 @@ const GLOBAL_STYLES = `
 
   /* ── Scroll-to-bottom button ── */
   .bh-scroll-btn {
-    position: absolute;
-    bottom: 0;
+    position: fixed;
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     background: #15803d;

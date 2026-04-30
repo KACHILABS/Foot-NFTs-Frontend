@@ -42,11 +42,26 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       if (data.success && data.leaderboard) {
         setLeaderboard(data.leaderboard);
         
-        // Find current user's rank
+        // Find current user's rank from leaderboard first
         if (currentUserId) {
           const user = data.leaderboard.find((u: LeaderboardUser) => u.id === currentUserId);
           if (user) {
             setUserRank(user.rank);
+          } else {
+            // User not in top N — fetch their rank from profile
+            const telegramId = localStorage.getItem('telegramId');
+            const token = localStorage.getItem('token');
+            if (telegramId && token) {
+              try {
+                const profileRes = await fetch(`${apiBase}/user/profile?telegramId=${telegramId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const profileData = await profileRes.json();
+                if (profileData.success && profileData.profile?.globalRank != null) {
+                  setUserRank(profileData.profile.globalRank);
+                }
+              } catch (_) {}
+            }
           }
         }
       }

@@ -142,7 +142,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   
   // Data states
   const [userFTCBalance, setUserFTCBalance] = useState<number>(wallet?.balanceFTC || 0);
-  const [userRank, setUserRank] = useState<number>(12500);
+  const [userRank, setUserRank] = useState<number | null>(null);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
@@ -252,6 +252,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (onUpdateWallet) {
           onUpdateWallet({ balanceFTC: newBalance });
         }
+        // Update rank from backend profile if available
+        if (data.profile.globalRank != null) {
+          setUserRank(data.profile.globalRank);
+        }
         console.log('💰 Balance refreshed:', newBalance);
         return newBalance;
       }
@@ -278,16 +282,22 @@ const refreshProfile = async () => {
         onUpdateWallet({ address: data.profile.walletAddress });
         setTempWalletAddress(data.profile.walletAddress);
       }
-      // Update avatar in localStorage only (profile is a prop, can't set directly)
-      if (data.profile.avatar && profile) {
+      // Update rank from backend profile if available
+      if (data.profile.globalRank != null) {
+        setUserRank(data.profile.globalRank);
+      }
+      // Update avatar in localStorage only — do NOT reload the page here
+      if (data.profile.avatar) {
         const savedProfile = localStorage.getItem('user_profile');
         if (savedProfile) {
-          const profileData = JSON.parse(savedProfile);
-          profileData.avatar = data.profile.avatar;
-          localStorage.setItem('user_profile', JSON.stringify(profileData));
+          try {
+            const profileData = JSON.parse(savedProfile);
+            if (profileData.avatar !== data.profile.avatar) {
+              profileData.avatar = data.profile.avatar;
+              localStorage.setItem('user_profile', JSON.stringify(profileData));
+            }
+          } catch (_) {}
         }
-        // Force reload to show new avatar
-        window.location.reload();
       }
     }
   } catch (error) {
@@ -308,15 +318,9 @@ const refreshProfile = async () => {
       const data = await response.json();
       
       if (data.success && data.profile && data.profile.referralCode) {
-        const oldCode = localStorage.getItem('referralCode');
         const newCode = data.profile.referralCode;
-        
         localStorage.setItem('referralCode', newCode);
-        console.log('📎 Referral code refreshed:', oldCode, '→', newCode);
-        
-        if (oldCode !== newCode) {
-          window.location.reload();
-        }
+        console.log('📎 Referral code refreshed:', newCode);
       }
     } catch (error) {
       console.error('Failed to refresh referral code:', error);
@@ -325,7 +329,7 @@ const refreshProfile = async () => {
 
   // ===== HANDLE SHARE CARD =====
   const handleShareCard = async () => {
-    const shareText = `🏆 Join me on FOOT NFTs!\n\nUsername: ${profile?.displayName}\nFTC Balance: ${userFTCBalance}\nRank: #${userRank}\n\nJoin using my referral code: ${onboarding.referralCode}\n\nhttps://t.me/FootNftsapp_bot`;
+    const shareText = `🏆 Join me on FOOT NFTs!\n\nUsername: ${profile?.displayName}\nFTC Balance: ${userFTCBalance}\nRank: ${userRank != null ? `#${userRank}` : 'Unranked'}\n\nJoin using my referral code: ${onboarding.referralCode}\n\nhttps://t.me/FootNftsapp_bot`;
     
     if (tg) {
       tg.showPopup({
@@ -402,24 +406,24 @@ const refreshProfile = async () => {
           const result = await api.user.updateAvatar(backendUserId, compressedBase64);
           
           if (result.success) {
-            // Update local profile
-            if (profile) {
-              profile.avatar = compressedBase64;
-            }
-            
             // Update localStorage
             const savedProfile = localStorage.getItem('user_profile');
             if (savedProfile) {
-              const profileData = JSON.parse(savedProfile);
-              profileData.avatar = compressedBase64;
-              localStorage.setItem('user_profile', JSON.stringify(profileData));
+              try {
+                const profileData = JSON.parse(savedProfile);
+                profileData.avatar = compressedBase64;
+                localStorage.setItem('user_profile', JSON.stringify(profileData));
+              } catch (_) {}
+            }
+            
+            // Update the profile prop directly so the UI reflects the change without a reload
+            if (profile) {
+              profile.avatar = compressedBase64;
             }
             
             setShowAvatarUpload(false);
             addNotification('✅ Avatar Updated', 'Your profile picture has been updated!', 'earnings');
             tg?.HapticFeedback.notificationOccurred('success');
-            
-            setTimeout(() => window.location.reload(), 500);
           } else {
             tg?.showAlert?.(result.error || 'Failed to update avatar');
           }
@@ -481,9 +485,25 @@ const refreshProfile = async () => {
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
+          // Try to find user in the returned leaderboard slice
           const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
           if (userIndex !== undefined && userIndex !== -1) {
             setUserRank(userIndex + 1);
+          } else {
+            // User not in top N — fetch their actual rank from profile
+            const telegramId = localStorage.getItem('telegramId');
+            const token = localStorage.getItem('token');
+            if (telegramId && token) {
+              try {
+                const profileRes = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const profileData = await profileRes.json();
+                if (profileData.success && profileData.profile?.globalRank != null) {
+                  setUserRank(profileData.profile.globalRank);
+                }
+              } catch (_) {}
+            }
           }
         }
       } catch (error) {
@@ -1071,7 +1091,9 @@ const refreshProfile = async () => {
         </Card>
         <Card className="p-5 border-gray-800 shadow-sm bg-darkCard">
           <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Global Rank</p>
-          <p className="text-3xl font-black text-white">#{userRank.toLocaleString()}</p>
+          <p className="text-3xl font-black text-white">
+            {userRank != null ? `#${userRank.toLocaleString()}` : '—'}
+          </p>
         </Card>
       </div>
       <Card className="bg-darkDeep text-white border border-gray-800 p-6 flex items-center justify-between relative overflow-hidden shadow-2xl transition-all">
