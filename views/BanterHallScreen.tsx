@@ -8,7 +8,7 @@ interface BanterMessage {
   id: string;
   userId: string;
   senderName: string;
-  senderAvatar: string;
+  senderAvatar: string | null;
   content: string;
   clubTag: string | null;
   votes: number;
@@ -88,8 +88,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         const formattedMessages: BanterMessage[] = data.posts.map((post: any) => ({
           id: post.id,
           userId: post.user_id,
-          senderName: post.user?.username || `Fan_${post.user?.telegram_id}`,
-          senderAvatar: 'https://picsum.photos/100',
+          senderName: (post.user?.username && post.user.username !== 'User')
+            ? post.user.username
+            : `Fan_${post.user?.telegram_id}`,
+          senderAvatar: post.user?.avatar || null,
           content: post.content,
           clubTag: post.club_tag,
           votes: post.votes_received || 0,
@@ -342,7 +344,15 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
               return (
                 <div key={msg.id} className={`bh-msg-row ${msg.isMe ? 'me' : 'them'}`}>
                   <div className={`bh-msg-group ${msg.isMe ? 'me' : 'them'}`}>
-                    {!msg.isMe && <div className="bh-sender-avatar">⚽</div>}
+                    {!msg.isMe && (
+                      <div className="bh-sender-avatar-wrap">
+                        {msg.senderAvatar ? (
+                          <img src={msg.senderAvatar} alt={msg.senderName} className="bh-sender-avatar-img" />
+                        ) : (
+                          <div className="bh-sender-avatar">⚽</div>
+                        )}
+                      </div>
+                    )}
                     <div className="bh-msg-col">
                       {!msg.isMe && <span className="bh-sender-name">{msg.senderName}</span>}
 
@@ -609,6 +619,14 @@ const GLOBAL_STYLES = `
     width: 26px; height: 26px; border-radius: 50%;
     background: #1f2937; display: flex; align-items: center;
     justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 4px;
+  }
+  .bh-sender-avatar-wrap {
+    width: 26px; height: 26px; border-radius: 50%;
+    overflow: hidden; flex-shrink: 0; margin-top: 4px;
+    border: 1px solid #374151;
+  }
+  .bh-sender-avatar-img {
+    width: 100%; height: 100%; object-fit: cover;
   }
   .bh-msg-col { display: flex; flex-direction: column; }
   .bh-sender-name {

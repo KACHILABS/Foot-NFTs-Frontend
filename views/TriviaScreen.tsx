@@ -158,57 +158,38 @@ const TriviaScreen: React.FC<TriviaScreenProps> = ({ club, onboarding, onBack, o
     setIsAnswered(true);
     
     const isCorrect = index === currentQuestion.correct;
-    
+    const ftcAmount = isCorrect ? 10 : 2;
+    const reason = isCorrect ? 'trivia_correct' : 'trivia_participation';
+
     if (isCorrect) {
       setScore(prev => prev + 1);
-      
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE}/user/add-ftc`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId: backendUserId,
-            amount: 10,
-            reason: 'trivia_correct'
-          })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          onEarn(10, 'trivia_correct');
-        }
-      } catch (error) {
-        console.error('Failed to award FTC:', error);
-        onEarn(10, 'trivia_correct');
+    }
+
+    // Award FTC via backend — only call add-ftc ONCE here.
+    // Do NOT call onEarn() with a backend call — onEarn is only for local UI update.
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/user/add-ftc`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: backendUserId,
+          amount: ftcAmount,
+          reason
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Update local UI balance only — no second backend call
+        onEarn(ftcAmount, reason);
       }
-    } else {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE}/user/add-ftc`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId: backendUserId,
-            amount: 2,
-            reason: 'trivia_participation'
-          })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          onEarn(2, 'trivia_participation');
-        }
-      } catch (error) {
-        console.error('Failed to award FTC:', error);
-        onEarn(2, 'trivia_participation');
-      }
+    } catch (error) {
+      console.error('Failed to award FTC:', error);
+      // Still update UI optimistically
+      onEarn(ftcAmount, reason);
     }
   };
 

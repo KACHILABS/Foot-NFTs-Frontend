@@ -684,50 +684,60 @@ const refreshProfile = async () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ===== EARNING FUNCTION =====
-  const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
+  // skipBackend=true: caller already called add-ftc (e.g. trivia), just update local UI
+  const handleEarnFTC = async (amount: number, reason: string = 'activity', skipBackend = false) => {
     tg?.HapticFeedback.notificationOccurred('success');
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/user/add-ftc`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: backendUserId,
-          amount: amount,
-          reason: reason
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        if (onUpdateWallet && wallet) {
-          const newBalance = (wallet.balanceFTC || 0) + amount;
-          onUpdateWallet({ balanceFTC: newBalance });
-          setUserFTCBalance(newBalance);
-          notifyEarnings(amount, reason);
+
+    // Trivia handles its own backend call to avoid double-crediting
+    const triviaReasons = ['trivia_correct', 'trivia_participation'];
+    const shouldSkipBackend = skipBackend || triviaReasons.includes(reason);
+
+    if (!shouldSkipBackend) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/user/add-ftc`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId: backendUserId,
+            amount: amount,
+            reason: reason
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          console.error('add-ftc failed:', data.error);
+          onRecordActivity();
+          return;
         }
-        
-        // refreshBalance fetches the updated balance AND globalRank from the profile endpoint
-        await refreshBalance();
-        
-        // Also refresh the leaderboard list (for the Top 5 display), but don't
-        // overwrite userRank — refreshBalance already set it accurately via globalRank
-        const res = await api.leaderboard.getTop();
-        if (res.success) {
-          setLeaderboardData(res.leaderboard || []);
-        }
-        
-        loadReferralStats();
+      } catch (error) {
+        console.error('Error saving FTC:', error);
+        onRecordActivity();
+        return;
       }
-    } catch (error) {
-      console.error('Error saving FTC:', error);
     }
-    
+
+    // Update local UI (always)
+    if (onUpdateWallet && wallet) {
+      const newBalance = (wallet.balanceFTC || 0) + amount;
+      onUpdateWallet({ balanceFTC: newBalance });
+      setUserFTCBalance(newBalance);
+      notifyEarnings(amount, reason);
+    }
+
+    await refreshBalance();
+
+    const res = await api.leaderboard.getTop();
+    if (res.success) {
+      setLeaderboardData(res.leaderboard || []);
+    }
+
+    loadReferralStats();
     onRecordActivity();
   };
 
@@ -1066,9 +1076,17 @@ const refreshProfile = async () => {
                   {idx === 2 && <span className="text-xl">🥉</span>}
                   {idx > 2 && <span className="text-lg font-black text-white">#{idx + 1}</span>}
                 </div>
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-700 shrink-0">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-800 flex items-center justify-center text-lg">⚽</div>
+                  )}
+                </div>
                 <div>
-                  <p className="text-sm font-black text-white leading-tight">{user.username || `Fan_${user.telegram_id}`}</p>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">{user.ftc_balance} FTC</p>
+                  <p className="text-sm font-black text-white leading-tight">{user.username || `Fan_${user.telegramId}`}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase">{user.ftcBalance} FTC</p>
                 </div>
               </div>
               {user.id === backendUserId && <span className="text-[8px] bg-green-600 text-black px-2 py-1 rounded-full font-black">YOU</span>}
