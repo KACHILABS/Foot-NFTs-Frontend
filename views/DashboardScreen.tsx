@@ -485,26 +485,8 @@ const refreshProfile = async () => {
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
-          // Try to find user in the returned leaderboard slice
-          const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
-          if (userIndex !== undefined && userIndex !== -1) {
-            setUserRank(userIndex + 1);
-          } else {
-            // User not in top N — fetch their actual rank from profile
-            const telegramId = localStorage.getItem('telegramId');
-            const token = localStorage.getItem('token');
-            if (telegramId && token) {
-              try {
-                const profileRes = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`, {
-                  headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const profileData = await profileRes.json();
-                if (profileData.success && profileData.profile?.globalRank != null) {
-                  setUserRank(profileData.profile.globalRank);
-                }
-              } catch (_) {}
-            }
-          }
+          // Don't set rank from leaderboard position — it's only top 100
+          // Rank is set accurately by refreshBalance() via globalRank from profile
         }
       } catch (error) {
         console.error('Failed to load leaderboard:', error);
@@ -709,15 +691,14 @@ const refreshProfile = async () => {
           notifyEarnings(amount, reason);
         }
         
+        // refreshBalance fetches the updated balance AND globalRank from the profile endpoint
         await refreshBalance();
         
+        // Also refresh the leaderboard list (for the Top 5 display), but don't
+        // overwrite userRank — refreshBalance already set it accurately via globalRank
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
-          const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
-          if (userIndex !== undefined && userIndex !== -1) {
-            setUserRank(userIndex + 1);
-          }
         }
         
         loadReferralStats();
@@ -761,13 +742,10 @@ const refreshProfile = async () => {
         
         tg?.HapticFeedback.notificationOccurred('success');
         
+        // Refresh leaderboard list display only — rank comes from refreshBalance via globalRank
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
-          const userIndex = res.leaderboard?.findIndex((u: any) => u.id === backendUserId);
-          if (userIndex !== undefined && userIndex !== -1) {
-            setUserRank(userIndex + 1);
-          }
         }
         
         await refreshBalance();
