@@ -48,7 +48,8 @@ const JerseyDayScreen: React.FC<JerseyDayScreenProps> = ({ club, profile, onBack
 
   const getProxiedImageUrl = (originalUrl: string) => {
     if (!originalUrl) return '';
-    return `${API_BASE}/jersey/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+    // Use the background-removal proxy so jerseys show without white backgrounds
+    return `${API_BASE}/jersey/image-proxy-nobg?url=${encodeURIComponent(originalUrl)}`;
   };
 
   useEffect(() => {

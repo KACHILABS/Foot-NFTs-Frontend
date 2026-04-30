@@ -1146,7 +1146,7 @@ const refreshProfile = async () => {
   />;
   if (inFanPod) return <FanPodScreen profile={profile} onBack={() => setInFanPod(false)} onEarn={handleEarnFTC} />;
   if (inHopeCampaign) return <HopeCampaignScreen onBack={() => setInHopeCampaign(false)} onEarn={handleEarnFTC} />;
-  if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} />;
+  if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} backendUserId={backendUserId} />;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden transition-colors duration-300 bg-transparent" style={{ fontFamily: "'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
