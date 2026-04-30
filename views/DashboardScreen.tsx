@@ -15,6 +15,7 @@ import ChatLobbyScreen from './ChatLobbyScreen';
 import FanPodScreen from './FanPodScreen';
 import HopeCampaignScreen from './HopeCampaignScreen';
 import LeaderboardModal from './LeaderboardModal';
+import TrophyRoomScreen from './TrophyRoomScreen';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -131,6 +132,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [inTrivia, setInTrivia] = useState(false);
   const [inFanPod, setInFanPod] = useState(false);
   const [inHopeCampaign, setInHopeCampaign] = useState(false);
+  const [inTrophyRoom, setInTrophyRoom] = useState(false);
 
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
   const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
@@ -1122,11 +1124,29 @@ const refreshProfile = async () => {
             </div>
           ))}
         </div>
+
+        {/* Trophy Room entry */}
+        <div
+          onClick={() => { tg?.HapticFeedback.selectionChanged(); setInTrophyRoom(true); }}
+          className="bg-darkCard rounded-[2.5rem] p-5 border border-yellow-500/30 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-yellow-950/40 border border-yellow-500/30 flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform">
+            🏆
+          </div>
+          <div className="flex-1">
+            <p className="font-black text-white text-sm tracking-tight">Trophy Room</p>
+            <p className="text-[9px] text-gray-400 font-medium mt-0.5">Earn badges for milestones</p>
+          </div>
+          <div className="bg-yellow-500/20 text-yellow-400 rounded-xl py-2 px-3 shrink-0">
+            <span className="text-[8px] font-black uppercase tracking-widest">View</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   // Screen routing
+  if (inTrophyRoom) return <TrophyRoomScreen onBack={() => setInTrophyRoom(false)} backendUserId={backendUserId} />;
   if (inTrivia && club) return <TriviaScreen club={club} onboarding={onboarding} onBack={() => setInTrivia(false)} onEarn={handleEarnFTC} onComplete={onTriviaComplete} backendUserId={backendUserId} />;
   if (inJerseyDay && club) return (
   <JerseyDayScreen 
@@ -1146,7 +1166,7 @@ const refreshProfile = async () => {
   />;
   if (inFanPod) return <FanPodScreen profile={profile} onBack={() => setInFanPod(false)} onEarn={handleEarnFTC} />;
   if (inHopeCampaign) return <HopeCampaignScreen onBack={() => setInHopeCampaign(false)} onEarn={handleEarnFTC} />;
-  if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} backendUserId={backendUserId} />;
+  if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} backendUserId={backendUserId} onEarn={handleEarnFTC} />;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden transition-colors duration-300 bg-transparent" style={{ fontFamily: "'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>

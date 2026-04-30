@@ -12,6 +12,7 @@ interface ChatRoomScreenProps {
   onBack: () => void;
   onRecordActivity: () => void;
   backendUserId?: string | null;
+  onEarn?: (amount: number, reason: string) => void;
 }
 
 type FanZoneTab = 'match' | 'terrace' | 'tactics' | 'hq';
@@ -53,8 +54,19 @@ interface TacticsPoll {
   options: { id: string; label: string; icon: string; description: string; votes: number }[];
 }
 
+interface UpcomingMatch {
+  id: number;
+  utcDate: string;
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  status: string;
+  isHome: boolean;
+  opponent: string;
+}
+
 const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
-  club, profile, onBack, onRecordActivity, backendUserId,
+  club, profile, onBack, onRecordActivity, backendUserId, onEarn,
 }) => {
   const [activeTab, setActiveTab] = useState<FanZoneTab>('terrace');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -63,6 +75,7 @@ const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
   const [loadingChat, setLoadingChat] = useState(true);
 
   const [liveMatch, setLiveMatch] = useState<LiveMatch | null>(null);
+  const [upcomingMatches, setUpcomingMatches] = useState<UpcomingMatch[]>([]);
   const [loadingMatch, setLoadingMatch] = useState(true);
 
   const [tactics, setTactics] = useState<TacticsPoll[]>([]);
@@ -111,8 +124,12 @@ const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
     try {
       const res = await fetch(`${API_BASE}/fanzone/matchday/${club.id}`);
       const data = await res.json();
-      if (data.success && data.match) setLiveMatch(data.match);
-      else setLiveMatch(null);
+      if (data.success && data.match) {
+        setLiveMatch(data.match);
+      } else {
+        setLiveMatch(null);
+      }
+      if (data.upcoming) setUpcomingMatches(data.upcoming);
     } catch (_) {}
     setLoadingMatch(false);
   }, [club.id]);
@@ -156,6 +173,8 @@ const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
         setInputText('');
         await fetchMessages();
         onRecordActivity();
+        // Award FTC for terrace message (same as banter)
+        if (onEarn) onEarn(2, 'terrace_message');
         tg?.HapticFeedback?.notificationOccurred('success');
       }
     } catch (_) {}
@@ -188,12 +207,17 @@ const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
   const formatTime = (iso: string) => {
     try {
-      const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+      // Supabase returns timestamps without Z — force UTC interpretation
+      const normalized = iso.replace(' ', 'T');
+      const d = new Date(normalized.endsWith('Z') ? normalized : normalized + 'Z');
+      if (isNaN(d.getTime())) return '';
       const diff = Math.floor((Date.now() - d.getTime()) / 60000);
       if (diff < 1) return 'Just now';
+      if (diff === 1) return '1m ago';
       if (diff < 60) return `${diff}m ago`;
+      if (diff < 120) return '1h ago';
       if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-      return d.toLocaleDateString();
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     } catch { return ''; }
   };
 
@@ -207,73 +231,112 @@ const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
       );
     }
 
-    if (!liveMatch) {
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <span className="text-6xl">📅</span>
-          <p className="text-white font-black text-lg">No match today</p>
-          <p className="text-gray-400 text-sm">Check back on matchday for live updates</p>
-        </div>
-      );
-    }
+    const formatMatchDate = (utcDate: string) => {
+      const d = new Date(utcDate);
+      const today = new Date();
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+      if (d.toDateString() === today.toDateString()) return 'Today';
+      if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+      return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
 
-    const statusLabel = liveMatch.isLive
-      ? liveMatch.minute ? `${liveMatch.minute}'` : 'LIVE'
-      : liveMatch.isFinished ? 'FT'
-      : liveMatch.status === 'HALF_TIME' ? 'HT'
-      : new Date(liveMatch.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const formatKickoff = (utcDate: string) => {
+      return new Date(utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
 
     return (
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-        {/* Scoreboard */}
-        <Card className="bg-darkDeep border border-gray-800 overflow-hidden p-0">
-          <div className={`px-4 py-1.5 flex justify-between items-center ${liveMatch.isLive ? 'bg-green-600' : 'bg-gray-800'}`}>
-            <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 text-black">
-              {liveMatch.isLive && <span className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />}
-              {liveMatch.isLive ? 'Live' : liveMatch.isFinished ? 'Full Time' : 'Upcoming'} · {liveMatch.competition}
-            </span>
-            <span className={`text-[10px] font-black uppercase tracking-widest ${liveMatch.isLive ? 'text-black' : 'text-gray-300'}`}>
-              {statusLabel}
-            </span>
-          </div>
-          <div className="p-6 flex items-center justify-around">
-            <div className="flex flex-col items-center gap-2">
-              <img src={club.badge} className="w-14 h-14 object-contain" alt={liveMatch.homeTeam} />
-              <p className="text-xs font-black text-white text-center max-w-[80px] leading-tight">{liveMatch.homeTeam}</p>
-            </div>
-            <div className="text-center">
-              {(liveMatch.homeScore != null && liveMatch.awayScore != null) ? (
-                <p className="text-5xl font-black text-white">{liveMatch.homeScore} – {liveMatch.awayScore}</p>
-              ) : (
-                <p className="text-2xl font-black text-gray-400">vs</p>
-              )}
-              <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest mt-1">
-                {liveMatch.isLive ? '● Live' : liveMatch.isFinished ? 'Final Score' : 'Kickoff'}
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-2 opacity-60">
-              <div className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center text-2xl">🛡️</div>
-              <p className="text-xs font-black text-white text-center max-w-[80px] leading-tight">{liveMatch.awayTeam}</p>
-            </div>
-          </div>
-        </Card>
+        {/* Live / today's match */}
+        {liveMatch ? (
+          <>
+            <Card className="bg-darkDeep border border-gray-800 overflow-hidden p-0">
+              <div className={`px-4 py-1.5 flex justify-between items-center ${liveMatch.isLive ? 'bg-green-600' : 'bg-gray-800'}`}>
+                <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${liveMatch.isLive ? 'text-black' : 'text-gray-300'}`}>
+                  {liveMatch.isLive && <span className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />}
+                  {liveMatch.isLive ? 'Live' : liveMatch.isFinished ? 'Full Time' : 'Today'} · {liveMatch.competition}
+                </span>
+                <span className={`text-[10px] font-black ${liveMatch.isLive ? 'text-black' : 'text-gray-300'}`}>
+                  {liveMatch.isLive
+                    ? (liveMatch.minute ? `${liveMatch.minute}'` : 'LIVE')
+                    : liveMatch.isFinished ? 'FT'
+                    : formatKickoff(liveMatch.utcDate)}
+                </span>
+              </div>
+              <div className="p-6 flex items-center justify-around">
+                <div className="flex flex-col items-center gap-2">
+                  <img src={club.badge} className="w-14 h-14 object-contain" alt={liveMatch.homeTeam} />
+                  <p className="text-xs font-black text-white text-center max-w-[80px] leading-tight">{liveMatch.homeTeam}</p>
+                </div>
+                <div className="text-center">
+                  {(liveMatch.homeScore != null && liveMatch.awayScore != null) ? (
+                    <p className="text-5xl font-black text-white">{liveMatch.homeScore} – {liveMatch.awayScore}</p>
+                  ) : (
+                    <p className="text-2xl font-black text-gray-400">vs</p>
+                  )}
+                  <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${liveMatch.isLive ? 'text-green-500' : 'text-gray-400'}`}>
+                    {liveMatch.isLive ? '● Live' : liveMatch.isFinished ? 'Final Score' : 'Kickoff ' + formatKickoff(liveMatch.utcDate)}
+                  </p>
+                </div>
+                <div className="flex flex-col items-center gap-2 opacity-60">
+                  <div className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center text-2xl">🛡️</div>
+                  <p className="text-xs font-black text-white text-center max-w-[80px] leading-tight">{liveMatch.awayTeam}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="bg-darkCard border border-gray-800 p-4 space-y-2">
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Match Info</p>
+              {[
+                { label: 'Competition', value: liveMatch.competition },
+                { label: 'Venue', value: liveMatch.isHome ? '🏠 Home' : '✈️ Away' },
+                { label: 'Status', value: liveMatch.status },
+              ].map(r => (
+                <div key={r.label} className="flex justify-between text-sm">
+                  <span className="text-gray-400">{r.label}</span>
+                  <span className="text-white font-bold">{r.value}</span>
+                </div>
+              ))}
+            </Card>
+          </>
+        ) : (
+          <Card className="bg-darkDeep border border-gray-800 p-6 text-center">
+            <span className="text-4xl">📅</span>
+            <p className="text-white font-black mt-3">No match today</p>
+            <p className="text-gray-400 text-sm mt-1">Check upcoming fixtures below</p>
+          </Card>
+        )}
 
-        {/* Match info */}
-        <Card className="bg-darkCard border border-gray-800 p-4 space-y-2">
-          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Match Info</p>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Competition</span>
-            <span className="text-white font-bold">{liveMatch.competition}</span>
+        {/* Upcoming fixtures */}
+        {upcomingMatches.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest px-1">Upcoming Fixtures</p>
+            {upcomingMatches.map(m => (
+              <Card key={m.id} className="bg-darkCard border border-gray-800 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${m.isHome ? 'bg-green-950/40' : 'bg-orange-950/40'}`}>
+                      {m.isHome ? '🏠' : '✈️'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-white">vs {m.opponent}</p>
+                      <p className="text-[9px] text-gray-500 font-mono">{m.competition}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-white">{formatMatchDate(m.utcDate)}</p>
+                    <p className="text-[9px] text-gray-500">{formatKickoff(m.utcDate)}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Venue</span>
-            <span className="text-white font-bold">{liveMatch.isHome ? 'Home' : 'Away'}</span>
+        )}
+
+        {!liveMatch && upcomingMatches.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+            <span className="text-4xl">🔍</span>
+            <p className="text-gray-400 text-sm">No upcoming fixtures found</p>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Status</span>
-            <span className={`font-bold ${liveMatch.isLive ? 'text-green-500' : 'text-gray-300'}`}>{liveMatch.status}</span>
-          </div>
-        </Card>
+        )}
       </div>
     );
   };
