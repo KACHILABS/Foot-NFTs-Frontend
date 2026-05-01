@@ -517,15 +517,12 @@ const refreshProfile = async () => {
     loadReferralStats();
   }, [backendUserId]);
 
-  // Update balance when wallet changes
+  // Update wallet address when wallet prop changes (address only — balance comes from refreshBalance)
   useEffect(() => {
-    if (wallet?.balanceFTC !== undefined) {
-      setUserFTCBalance(wallet.balanceFTC);
-    }
     if (wallet?.address) {
       setTempWalletAddress(wallet.address);
     }
-  }, [wallet?.balanceFTC, wallet?.address]);
+  }, [wallet?.address]);
 
   // Load wallet from localStorage on mount
   useEffect(() => {
@@ -737,6 +734,7 @@ const refreshProfile = async () => {
     }
 
     // Always refresh balance from server — this is the single source of truth
+    // refreshBalance also calls onUpdateWallet with the real DB value
     await refreshBalance();
 
     // Refresh leaderboard list display
