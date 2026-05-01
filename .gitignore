@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Junk/temp files
+fix.ps1
+ersAdminDocumentsfoot-nfts-mini-app
+eyDayScreen*
