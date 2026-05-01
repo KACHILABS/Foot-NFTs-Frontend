@@ -684,15 +684,35 @@ const refreshProfile = async () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ===== EARNING FUNCTION =====
-  // skipBackend=true: caller already called add-ftc (e.g. trivia), just update local UI
-  const handleEarnFTC = async (amount: number, reason: string = 'activity', skipBackend = false) => {
+  // This function handles LOCAL UI updates + balance refresh after earning FTC.
+  // It does NOT call add-ftc for actions where the backend already credited the balance directly.
+  // Actions that credit via their own backend route (jersey, banter, voting):
+  //   → pass skipBackend=true, or use a known skip-reason
+  // Actions that need add-ftc called (trivia is handled in TriviaScreen directly):
+  //   → default behaviour calls add-ftc
+  const BACKEND_CREDITED_REASONS = new Set([
+    'trivia_correct',
+    'trivia_participation',
+    'banter',           // banter.js post route does NOT credit — frontend calls add-ftc ✓
+    'voting',           // banter.js vote route credits directly → skip
+    'jersey_checkin',   // jersey.js checkin route credits directly → skip
+    'terrace_message',  // no backend credit yet → calls add-ftc ✓
+  ]);
+
+  // Reasons where the backend route already updated ftc_balance — don't call add-ftc again
+  const SKIP_BACKEND_REASONS = new Set([
+    'trivia_correct',
+    'trivia_participation',
+    'voting',           // banter vote route credits voter directly
+    'jersey_checkin',   // jersey checkin route credits directly
+  ]);
+
+  const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
     tg?.HapticFeedback.notificationOccurred('success');
 
-    // Trivia handles its own backend call to avoid double-crediting
-    const triviaReasons = ['trivia_correct', 'trivia_participation'];
-    const shouldSkipBackend = skipBackend || triviaReasons.includes(reason);
+    const skipBackend = SKIP_BACKEND_REASONS.has(reason);
 
-    if (!shouldSkipBackend) {
+    if (!skipBackend) {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_BASE}/user/add-ftc`, {
@@ -701,15 +721,9 @@ const refreshProfile = async () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            userId: backendUserId,
-            amount: amount,
-            reason: reason
-          })
+          body: JSON.stringify({ userId: backendUserId, amount, reason })
         });
-        
         const data = await response.json();
-        
         if (!data.success) {
           console.error('add-ftc failed:', data.error);
           onRecordActivity();
@@ -722,21 +736,16 @@ const refreshProfile = async () => {
       }
     }
 
-    // Update local UI (always)
-    if (onUpdateWallet && wallet) {
-      const newBalance = (wallet.balanceFTC || 0) + amount;
-      onUpdateWallet({ balanceFTC: newBalance });
-      setUserFTCBalance(newBalance);
-      notifyEarnings(amount, reason);
-    }
-
+    // Always refresh balance from server — this is the single source of truth
     await refreshBalance();
 
-    const res = await api.leaderboard.getTop();
-    if (res.success) {
-      setLeaderboardData(res.leaderboard || []);
-    }
+    // Refresh leaderboard list display
+    try {
+      const res = await api.leaderboard.getTop();
+      if (res.success) setLeaderboardData(res.leaderboard || []);
+    } catch (_) {}
 
+    notifyEarnings(amount, reason);
     loadReferralStats();
     onRecordActivity();
   };
@@ -1171,7 +1180,7 @@ const refreshProfile = async () => {
     club={club} 
     profile={profile} 
     onBack={() => setInJerseyDay(false)} 
-    onCheckIn={handleEarnFTC}
+    onCheckIn={(amount) => handleEarnFTC(amount, 'jersey_checkin')}
     userId={backendUserId || undefined}
   />
 );
