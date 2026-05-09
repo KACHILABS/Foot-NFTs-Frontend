@@ -50,6 +50,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   const [charCount, setCharCount] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [votingPostIds, setVotingPostIds] = useState<Set<string>>(new Set());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -218,6 +219,9 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       tg?.showAlert?.("You can't vote on your own banter!");
       return;
     }
+    // Prevent double-tap / rapid clicks from firing multiple earn calls
+    if (votingPostIds.has(postId)) return;
+    setVotingPostIds(prev => new Set(prev).add(postId));
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE}/banter/vote`, {
@@ -237,9 +241,12 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         setTimeout(() => setShowRewardToast(false), 2000);
         loadMessages();
       } else {
+        // Remove from in-progress set so user can retry if it was a real error
+        setVotingPostIds(prev => { const s = new Set(prev); s.delete(postId); return s; });
         tg?.showAlert?.(data.error || 'Failed to vote');
       }
     } catch (e) {
+      setVotingPostIds(prev => { const s = new Set(prev); s.delete(postId); return s; });
       console.error('Vote failed:', e);
     }
   };

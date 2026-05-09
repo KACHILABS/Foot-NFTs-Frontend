@@ -499,7 +499,15 @@ const refreshProfile = async () => {
       try {
         const res = await api.leaderboard.getTop();
         if (res.success) {
-          setLeaderboardData(res.leaderboard || []);
+          const lb = res.leaderboard || [];
+          setLeaderboardData(lb);
+
+          // Use leaderboard data to set balance immediately — same source as LeaderboardModal
+          const me = lb.find((u: any) => u.id === backendUserId);
+          if (me && me.ftcBalance != null) {
+            setUserFTCBalance(me.ftcBalance);
+            if (onUpdateWallet) onUpdateWallet({ balanceFTC: me.ftcBalance });
+          }
         }
 
         // Fetch this user's accurate rank from the dedicated endpoint
@@ -681,21 +689,6 @@ const refreshProfile = async () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ===== EARNING FUNCTION =====
-  // This function handles LOCAL UI updates + balance refresh after earning FTC.
-  // It does NOT call add-ftc for actions where the backend already credited the balance directly.
-  // Actions that credit via their own backend route (jersey, banter, voting):
-  //   → pass skipBackend=true, or use a known skip-reason
-  // Actions that need add-ftc called (trivia is handled in TriviaScreen directly):
-  //   → default behaviour calls add-ftc
-  const BACKEND_CREDITED_REASONS = new Set([
-    'trivia_correct',
-    'trivia_participation',
-    'banter',           // banter.js post route does NOT credit — frontend calls add-ftc ✓
-    'voting',           // banter.js vote route credits directly → skip
-    'jersey_checkin',   // jersey.js checkin route credits directly → skip
-    'terrace_message',  // no backend credit yet → calls add-ftc ✓
-  ]);
-
   // Reasons where the backend route already updated ftc_balance — don't call add-ftc again
   const SKIP_BACKEND_REASONS = new Set([
     'trivia_correct',
@@ -732,6 +725,9 @@ const refreshProfile = async () => {
         return;
       }
     }
+
+    // Optimistically update balance in UI immediately, then confirm from server
+    setUserFTCBalance(prev => (prev || 0) + amount);
 
     // Always refresh balance from server — this is the single source of truth
     // refreshBalance also calls onUpdateWallet with the real DB value
