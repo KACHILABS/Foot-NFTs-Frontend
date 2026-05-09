@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { Club, TacticalPoll, Player, PollCategory } from '../types';
+
+const API_BASE = 'https://footnfts.up.railway.app/api';
 
 interface VotingScreenProps {
   club: Club;
@@ -66,6 +68,26 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
   const [selectedXI, setSelectedXI] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
+  // Match day gate
+  const [matchDay, setMatchDay] = useState<{ hasMatch: boolean; opponent: string | null; matchType: string | null } | null>(null);
+  const [matchLoading, setMatchLoading] = useState(true);
+
+  // Fetch match day status using the same jersey API
+  useEffect(() => {
+    const checkMatchDay = async () => {
+      if (!club?.id) { setMatchLoading(false); return; }
+      try {
+        const res = await fetch(`${API_BASE}/jersey/match/today/${club.id}`);
+        const data = await res.json();
+        setMatchDay({ hasMatch: data.success && data.hasMatch, opponent: data.opponent || null, matchType: data.matchType || null });
+      } catch (_) {
+        setMatchDay({ hasMatch: false, opponent: null, matchType: null });
+      } finally {
+        setMatchLoading(false);
+      }
+    };
+    checkMatchDay();
+  }, [club?.id]);
 
   const handlePollSelect = (poll: TacticalPoll) => {
     setSelectedPoll(poll);
@@ -101,33 +123,64 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Active Ballots</p>
-        {ACTIVE_POLLS.map((poll) => (
-          <Card 
-            key={poll.id} 
-            className="p-5 border border-gray-800 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all bg-darkCard"
-            onClick={() => handlePollSelect(poll)}
-          >
-            <div className="flex justify-between items-start mb-3">
-              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${votedPollIds.has(poll.id) ? 'bg-green-950/30 text-green-500' : 'bg-orange-950/30 text-orange-500'}`}>
-                {votedPollIds.has(poll.id) ? 'Vote Recorded' : poll.category}
-              </span>
-              <span className="text-[9px] font-bold text-gray-500 uppercase">{poll.endTime}</span>
-            </div>
-            <h3 className="text-base font-black text-white leading-tight mb-1">{poll.title}</h3>
-            <p className="text-xs text-gray-400 line-clamp-1">{poll.description}</p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-500 uppercase">{poll.totalVotes.toLocaleString()} fans voted</span>
-              <div className="w-8 h-8 rounded-lg bg-darkDeep flex items-center justify-center group-hover:bg-green-950/30 transition-colors">
-                <svg className="w-4 h-4 text-gray-500 group-hover:text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+      {/* Match day gate */}
+      {matchLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : !matchDay?.hasMatch ? (
+        <Card className="p-6 border border-orange-500/30 bg-orange-950/10 text-center">
+          <div className="text-4xl mb-3">🔒</div>
+          <h3 className="text-base font-black text-white mb-1">Voting Locked</h3>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Fan Tactical Voting is only available on <span className="text-orange-400 font-bold">match days</span>.<br />
+            Come back when {club?.name} has a game scheduled.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+            <span className="text-[9px] text-orange-400 font-black uppercase tracking-widest">No match today</span>
+          </div>
+        </Card>
+      ) : (
+        <>
+          {/* Match day banner */}
+          <Card className="border border-green-500/30 bg-green-950/20 p-4 flex items-center gap-3">
+            <div className="text-2xl">⚽</div>
+            <div>
+              <p className="text-[9px] font-black text-green-500 uppercase tracking-widest">Match Day — Voting Open!</p>
+              <p className="text-sm font-black text-white">{club?.name} vs {matchDay.opponent}</p>
             </div>
           </Card>
-        ))}
-      </div>
+
+          <div className="flex flex-col gap-4">
+            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Active Ballots</p>
+            {ACTIVE_POLLS.map((poll) => (
+              <Card
+                key={poll.id}
+                className="p-5 border border-gray-800 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all bg-darkCard"
+                onClick={() => handlePollSelect(poll)}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${votedPollIds.has(poll.id) ? 'bg-green-950/30 text-green-500' : 'bg-orange-950/30 text-orange-500'}`}>
+                    {votedPollIds.has(poll.id) ? 'Vote Recorded' : poll.category}
+                  </span>
+                  <span className="text-[9px] font-bold text-gray-500 uppercase">{poll.endTime}</span>
+                </div>
+                <h3 className="text-base font-black text-white leading-tight mb-1">{poll.title}</h3>
+                <p className="text-xs text-gray-400 line-clamp-1">{poll.description}</p>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase">{poll.totalVotes.toLocaleString()} fans voted</span>
+                  <div className="w-8 h-8 rounded-lg bg-darkDeep flex items-center justify-center group-hover:bg-green-950/30 transition-colors">
+                    <svg className="w-4 h-4 text-gray-500 group-hover:text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* NEW: Coming Soon Tile - Vote Football Highlights to Become NFT */}
       <div className="flex flex-col gap-4 mt-4">

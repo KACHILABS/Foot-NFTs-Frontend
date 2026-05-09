@@ -695,6 +695,7 @@ const refreshProfile = async () => {
     'trivia_participation',
     'voting',           // banter vote route credits voter directly
     'jersey_checkin',   // jersey checkin route credits directly
+    'country_tag',      // banter/country-tag route credits directly
   ]);
 
   const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
