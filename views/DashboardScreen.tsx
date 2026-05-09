@@ -580,39 +580,40 @@ const refreshProfile = async () => {
     }
   }, [activeTab]);
 
-  // Check for welcome bonus
+  // Check for welcome bonus — run ONCE on mount only
   useEffect(() => {
     const checkWelcomeBonus = async () => {
+      // If either flag is set, never show again
       const hasSeenWelcome = localStorage.getItem('has_seen_welcome_bonus');
       const bonusClaimed = localStorage.getItem('welcome_bonus_claimed');
-      
-      if (hasSeenWelcome || bonusClaimed === 'true') {
-        return;
-      }
-      
-      if (backendUserId && profile?.favoriteClubId) {
+      if (hasSeenWelcome || bonusClaimed === 'true') return;
+
+      // Ask the backend — if already claimed, mark locally and bail
+      if (backendUserId) {
         const telegramId = (onboarding as any).telegramId || localStorage.getItem('telegramId');
         if (telegramId) {
           try {
             const res = await api.user.getProfile(Number(telegramId));
-            if (res.success && res.profile.hasClaimedWelcomeBonus) {
+            if (res.success && res.profile?.hasClaimedWelcomeBonus) {
               localStorage.setItem('welcome_bonus_claimed', 'true');
               localStorage.setItem('has_seen_welcome_bonus', 'true');
               return;
             }
+            // Only show popup if backend confirms bonus NOT yet claimed
+            setShowWelcomeBonus(true);
           } catch (error) {
             console.error('Failed to check bonus status:', error);
           }
+          return;
         }
       }
-      
-      if ((wallet?.balanceFTC === 0 || !wallet?.balanceFTC) && !hasSeenWelcome) {
-        setShowWelcomeBonus(true);
-      }
+
+      setShowWelcomeBonus(true);
     };
-    
+
     checkWelcomeBonus();
-  }, [wallet?.balanceFTC, backendUserId, profile?.favoriteClubId, onboarding]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ← empty deps: run once on mount only
 
   // ===== NOTIFICATION SYSTEM =====
   
