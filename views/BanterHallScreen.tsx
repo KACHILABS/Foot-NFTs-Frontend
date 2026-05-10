@@ -1,20 +1,19 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserProfile } from '../types';
 
-// â”€â”€â”€ COUNTRY HASHTAG LIST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// COUNTRY HASHTAG LIST
 const COUNTRY_NAMES = new Set([
-  'nigeria','ghana','england','france','brazil','argentina','spain','germany',
-  'portugal','italy','netherlands','belgium','croatia','senegal','cameroon',
-  'morocco','egypt','southafrica','usa','mexico','colombia','chile','uruguay',
-  'japan','southkorea','australia','iran','saudiarabia','qatar','turkey',
-  'poland','sweden','denmark','switzerland','austria','scotland','wales',
-  'ireland','algeria','tunisia','cotedivoire','mali','kenya','ethiopia',
-  'angola','zambia','zimbabwe','tanzania','uganda','rwanda','ethiopia',
+  'nigeria', 'ghana', 'england', 'france', 'brazil', 'argentina', 'spain', 'germany',
+  'portugal', 'italy', 'netherlands', 'belgium', 'croatia', 'senegal', 'cameroon',
+  'morocco', 'egypt', 'southafrica', 'usa', 'mexico', 'colombia', 'chile', 'uruguay',
+  'japan', 'southkorea', 'australia', 'iran', 'saudiarabia', 'qatar', 'turkey',
+  'poland', 'sweden', 'denmark', 'switzerland', 'austria', 'scotland', 'wales',
+  'ireland', 'algeria', 'tunisia', 'cotedivoire', 'mali', 'kenya', 'ethiopia',
+  'angola', 'zambia', 'zimbabwe', 'tanzania', 'uganda', 'rwanda',
 ]);
 
-const EMOJI_REACTIONS = ['ðŸ”¥','ðŸ˜‚','ðŸ˜®','â¤ï¸','ðŸ‘','ðŸ’€','ðŸ†','âš½'];
+const EMOJI_REACTIONS = ['👍', '🔥', '😂', '❤️', '👏', '💀', '🏆', '⚽'];
 
-// â”€â”€â”€ TYPES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface Reaction { emoji: string; user_id: string; }
 interface BanterMessage {
   id: string;
@@ -44,8 +43,6 @@ const POLL_INTERVAL = 4000;
 const MIN_MESSAGE_LENGTH = 15;
 const LONG_PRESS_MS = 500;
 
-
-
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   profile,
   onBack,
@@ -53,26 +50,26 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   onBanterNotify,
   backendUserId,
 }) => {
-  const [messages, setMessages]               = useState<BanterMessage[]>([]);
-  const [inputText, setInputText]             = useState('');
-  const [loading, setLoading]                 = useState(true);
-  const [sending, setSending]                 = useState(false);
+  const [messages, setMessages] = useState<BanterMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [showRewardToast, setShowRewardToast] = useState(false);
-  const [rewardAmount, setRewardAmount]       = useState(0);
-  const [rewardLabel, setRewardLabel]         = useState('');
-  const [charCount, setCharCount]             = useState(0);
-  const [replyTarget, setReplyTarget]         = useState<ReplyTarget | null>(null);
-  const [showScrollBtn, setShowScrollBtn]     = useState(false);
-  const [votingPostIds, setVotingPostIds]     = useState<Set<string>>(new Set());
-  const [onlineUsers, setOnlineUsers]         = useState<OnlineUser[]>([]);
-  const [emojiPickerFor, setEmojiPickerFor]   = useState<string | null>(null);
+  const [rewardAmount, setRewardAmount] = useState(0);
+  const [rewardLabel, setRewardLabel] = useState('');
+  const [charCount, setCharCount] = useState(0);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [votingPostIds, setVotingPostIds] = useState<Set<string>>(new Set());
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null);
   const [countryEarnedToday, setCountryEarnedToday] = useState(false);
 
-  const scrollRef           = useRef<HTMLDivElement>(null);
-  const inputRef            = useRef<HTMLInputElement>(null);
-  const lastMessageCount    = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lastMessageCount = useRef(0);
   const hasScrolledToBottom = useRef(false);
-  const longPressTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tg = (window as any).Telegram?.WebApp;
 
   useEffect(() => {
@@ -99,7 +96,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           votes: post.votes_received || 0,
           createdAt: post.created_at,
           isMe: post.user_id === backendUserId,
-          reactions: [],
+          reactions: post.reactions || [],
         }));
         if (lastMessageCount.current > 0 && formatted.length > lastMessageCount.current) {
           formatted.slice(lastMessageCount.current).forEach((msg) => {
@@ -132,7 +129,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
     return () => { clearInterval(mi); clearInterval(oi); };
   }, [loadMessages, loadOnlineUsers]);
 
-  // Scroll to bottom on first load
   useEffect(() => {
     if (!loading && messages.length > 0 && !hasScrolledToBottom.current) {
       hasScrolledToBottom.current = true;
@@ -313,7 +309,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       <div className="bh-root">
         <div className="bh-header">
           <button className="bh-back-btn" onClick={onBack}><ChevronLeft /></button>
-          <div className="bh-avatar">??</div>
+          <div className="bh-avatar">💬</div>
           <div className="bh-header-info">
             <span className="bh-title">Banter Hall</span>
             <span className="bh-subtitle">Global Fan Chat</span>
@@ -330,21 +326,21 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       <div className="bh-root" onClick={() => emojiPickerFor && setEmojiPickerFor(null)}>
 
         {showRewardToast && (
-          <div className="bh-toast"><span>??</span><span className="bh-toast-text">{rewardLabel}</span></div>
+          <div className="bh-toast"><span>🎉</span><span className="bh-toast-text">{rewardLabel}</span></div>
         )}
 
         {/* HEADER */}
         <div className="bh-header">
           <button className="bh-back-btn" onClick={onBack}><ChevronLeft /></button>
-          <div className="bh-avatar">??</div>
+          <div className="bh-avatar">💬</div>
           <div className="bh-header-info">
             <span className="bh-title">Banter Hall</span>
-            <span className="bh-subtitle">?? Live ï¿½ {messages.length} msgs</span>
+            <span className="bh-subtitle">🔥 Live • {messages.length} msgs</span>
           </div>
           <div className="bh-online-stack">
             {onlineUsers.slice(0, 3).map((u, i) => (
               <div key={u.id} className="bh-mini-avatar" style={{ zIndex: 3 - i }}>
-                {u.avatar ? <img src={u.avatar} alt={u.username} className="bh-mini-avatar-img" /> : <span>??</span>}
+                {u.avatar ? <img src={u.avatar} alt={u.username} className="bh-mini-avatar-img" /> : <span>👤</span>}
               </div>
             ))}
             {onlineUsers.length > 3 && (
@@ -359,7 +355,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         {/* BANNER */}
         <div className="bh-banner">
           <span className="bh-banner-text">
-            ?? <strong>#banter</strong> +2 FTC ï¿½ <strong>#nigeria</strong> +3 FTC ï¿½ Vote +3 FTC ï¿½ Long-press to react
+            💡 <strong>#banter</strong> +2 FTC • <strong>#nigeria</strong> +3 FTC • Vote +3 FTC • Long-press to react
           </span>
         </div>
 
@@ -367,7 +363,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
         <div className="bh-messages" ref={scrollRef} onScroll={() => setShowScrollBtn(!isNearBottom())}>
           {messages.length === 0 ? (
             <div className="bh-empty">
-              <div className="bh-empty-icon">??</div>
+              <div className="bh-empty-icon">💬</div>
               <p className="bh-empty-title">No banter yet!</p>
               <p className="bh-empty-sub">Be the first to start the conversation</p>
             </div>
@@ -383,7 +379,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
                     <div className="bh-sender-avatar-wrap">
                       {msg.senderAvatar
                         ? <img src={msg.senderAvatar} alt={msg.senderName} className="bh-sender-avatar-img" />
-                        : <div className="bh-sender-avatar">?</div>}
+                        : <div className="bh-sender-avatar">👤</div>}
                     </div>
                   )}
                   <div className="bh-msg-col">
@@ -401,12 +397,12 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
                     >
                       {replyPart && (
                         <div className="bh-reply-preview">
-                          <span className="bh-reply-preview-text">? {replyPart}</span>
+                          <span className="bh-reply-preview-text">↩ {replyPart}</span>
                         </div>
                       )}
                       <p className="bh-bubble-text">{mainPart}</p>
-                      {mainPart.toLowerCase().includes('#banter') && <span className="bh-banter-badge">?? #banter</span>}
-                      {ct && <span className="bh-country-badge">?? #{ct}</span>}
+                      {mainPart.toLowerCase().includes('#banter') && <span className="bh-banter-badge">🔥 #banter</span>}
+                      {ct && <span className="bh-country-badge">🌍 #{ct}</span>}
                     </div>
 
                     {isPickerOpen && (
@@ -429,10 +425,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
                     <div className={`bh-meta ${msg.isMe ? 'me' : ''}`}>
                       <span className="bh-time">{formatTime(msg.createdAt)}</span>
-                      <button className="bh-reply-btn" onClick={() => handleReply(msg)}>? Reply</button>
+                      <button className="bh-reply-btn" onClick={() => handleReply(msg)}>↩ Reply</button>
                       {!msg.isMe && (
                         <button className={`bh-vote-btn ${votingPostIds.has(msg.id) ? 'voted' : ''}`} onClick={() => handleVote(msg.id, msg.userId)} disabled={votingPostIds.has(msg.id)}>
-                          ?? {msg.votes > 0 && <span className="bh-votes">({msg.votes})</span>}
+                          🔥 {msg.votes > 0 && <span className="bh-votes">({msg.votes})</span>}
                           <span className="bh-vote-earn">+3</span>
                         </button>
                       )}
@@ -457,7 +453,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           <button className="bh-scroll-btn" onClick={() => {
             if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
             setShowScrollBtn(false);
-          }}>â†“ Latest</button>
+          }}>↓ Latest</button>
         )}
 
         {/* INPUT AREA */}
@@ -465,10 +461,10 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           {replyTarget && (
             <div className="bh-reply-strip">
               <div className="bh-reply-strip-info">
-                <span className="bh-reply-strip-name">â†© {replyTarget.senderName}</span>
-                <span className="bh-reply-strip-content">{replyTarget.content.slice(0, 60)}{replyTarget.content.length > 60 ? 'â€¦' : ''}</span>
+                <span className="bh-reply-strip-name">↩ Replying to {replyTarget.senderName}</span>
+                <span className="bh-reply-strip-content">{replyTarget.content.slice(0, 60)}{replyTarget.content.length > 60 ? '...' : ''}</span>
               </div>
-              <button className="bh-reply-close" onClick={() => setReplyTarget(null)}>âœ•</button>
+              <button className="bh-reply-close" onClick={() => setReplyTarget(null)}>✕</button>
             </div>
           )}
           <div className="bh-progress-row">
@@ -500,7 +496,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             </button>
           </div>
           <p className="bh-input-hint">
-            ðŸ’¡ <span style={{ color: '#4ade80' }}>#banter</span> +2 FTC Â· <span style={{ color: '#4ade80' }}>#nigeria</span> +3 FTC Â· Long-press to react
+            💡 <span style={{ color: '#4ade80' }}>#banter</span> +2 FTC • <span style={{ color: '#4ade80' }}>#nigeria</span> +3 FTC • Long-press to react
           </p>
         </div>
       </div>
@@ -508,7 +504,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   );
 };
 
-// â”€â”€ ICONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ICONS
 const ChevronLeft = () => (
   <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -525,13 +521,11 @@ const SendIcon = ({ active }: { active: boolean }) => (
   </svg>
 );
 
-// â”€â”€ STYLES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap');
 
   .bh-root { position:fixed; inset:0; display:flex; flex-direction:column; background:#0d0d0d; font-family:'Rajdhani',sans-serif; overflow:hidden; z-index:100; }
 
-  /* Header */
   .bh-header { flex-shrink:0; display:flex; align-items:center; gap:10px; padding:10px 14px; background:#111827; border-bottom:1px solid #1f2937; }
   .bh-back-btn { background:none; border:none; color:#9ca3af; cursor:pointer; padding:4px; display:flex; align-items:center; }
   .bh-avatar { width:38px; height:38px; border-radius:50%; background:#14532d; border:2px solid #22c55e; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
@@ -539,7 +533,6 @@ const GLOBAL_STYLES = `
   .bh-title { font-family:'Oxanium',sans-serif; font-weight:700; font-size:15px; color:#fff; letter-spacing:.05em; }
   .bh-subtitle { font-family:'Space Mono',monospace; font-size:9px; color:#22c55e; margin-top:1px; }
 
-  /* Online stack */
   .bh-online-stack { display:flex; align-items:center; gap:2px; }
   .bh-mini-avatar { width:22px; height:22px; border-radius:50%; background:#374151; border:1.5px solid #4b5563; display:flex; align-items:center; justify-content:center; font-size:9px; margin-left:-6px; overflow:hidden; flex-shrink:0; }
   .bh-mini-avatar:first-child { margin-left:0; }
@@ -547,20 +540,16 @@ const GLOBAL_STYLES = `
   .bh-mini-overflow { background:#1f2937; color:#9ca3af; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; }
   .bh-online-label { font-family:'Space Mono',monospace; font-size:8px; color:#22c55e; margin-left:6px; white-space:nowrap; }
 
-  /* Banner */
   .bh-banner { flex-shrink:0; background:rgba(20,83,45,.22); border-bottom:1px solid rgba(34,197,94,.18); padding:5px 14px; }
   .bh-banner-text { font-family:'Space Mono',monospace; font-size:9px; color:#86efac; }
 
-  /* Messages */
   .bh-messages { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 10px 6px; display:flex; flex-direction:column; gap:4px; }
 
-  /* Empty */
   .bh-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:60px; }
   .bh-empty-icon { width:68px; height:68px; border-radius:50%; background:#1f2937; display:flex; align-items:center; justify-content:center; font-size:34px; margin-bottom:12px; }
   .bh-empty-title { font-family:'Oxanium',sans-serif; color:#9ca3af; font-weight:600; font-size:14px; margin:0; }
   .bh-empty-sub { font-family:'Rajdhani',sans-serif; color:#4b5563; font-size:11px; margin:3px 0 0; }
 
-  /* Message rows */
   .bh-msg-row { display:flex; width:100%; }
   .bh-msg-row.me { justify-content:flex-end; }
   .bh-msg-row.them { justify-content:flex-start; }
@@ -573,7 +562,6 @@ const GLOBAL_STYLES = `
   .bh-msg-col { display:flex; flex-direction:column; position:relative; }
   .bh-sender-name { font-family:'Space Mono',monospace; font-size:9px; color:#6b7280; margin-bottom:2px; margin-left:4px; }
 
-  /* Bubbles */
   .bh-bubble { padding:7px 11px; border-radius:14px; cursor:pointer; transition:opacity .15s; word-break:break-word; user-select:none; -webkit-user-select:none; }
   .bh-bubble:active { opacity:.75; }
   .bh-bubble.me { background:#15803d; border-radius:14px 14px 4px 14px; }
@@ -582,18 +570,15 @@ const GLOBAL_STYLES = `
   .bh-banter-badge { display:inline-block; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; color:#facc15; margin-top:3px; }
   .bh-country-badge { display:inline-block; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; color:#60a5fa; margin-top:3px; margin-left:4px; }
 
-  /* Reply quote */
   .bh-reply-preview { background:rgba(0,0,0,.28); border-left:3px solid #22c55e; border-radius:6px; padding:4px 8px; margin-bottom:6px; }
   .bh-reply-preview-text { font-family:'Space Mono',monospace; font-size:9px; color:#86efac; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 
-  /* Emoji picker */
   .bh-emoji-picker { position:absolute; bottom:calc(100% + 6px); display:flex; gap:4px; background:#1f2937; border:1px solid #374151; border-radius:999px; padding:6px 10px; box-shadow:0 8px 24px rgba(0,0,0,.5); z-index:50; animation:bh-fadein .15s ease; }
   .bh-emoji-picker.me { right:0; }
   .bh-emoji-picker.them { left:0; }
   .bh-emoji-btn { background:none; border:none; font-size:18px; cursor:pointer; padding:2px 3px; border-radius:8px; transition:transform .1s; }
   .bh-emoji-btn:active { transform:scale(1.3); }
 
-  /* Reactions */
   .bh-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; margin-left:4px; }
   .bh-reactions.me { justify-content:flex-end; margin-right:4px; margin-left:0; }
   .bh-reaction-chip { background:#1f2937; border:1px solid #374151; border-radius:999px; padding:2px 7px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all .15s; }
@@ -601,7 +586,6 @@ const GLOBAL_STYLES = `
   .bh-reaction-chip.mine { background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.4); }
   .bh-reaction-chip:active { transform:scale(.92); }
 
-  /* Meta */
   .bh-meta { display:flex; align-items:center; gap:6px; margin-top:2px; margin-left:4px; }
   .bh-meta.me { justify-content:flex-end; margin-right:4px; margin-left:0; }
   .bh-time { font-family:'Space Mono',monospace; font-size:8px; color:#4b5563; }
@@ -613,15 +597,12 @@ const GLOBAL_STYLES = `
   .bh-votes { color:#facc15; }
   .bh-vote-earn { color:#4ade80; margin-left:2px; }
 
-  /* Typing */
   .bh-typing { background:rgba(21,128,61,.4); border-radius:14px 14px 4px 14px; padding:8px 12px; display:flex; gap:4px; align-items:center; }
   .bh-dot { width:6px; height:6px; border-radius:50%; background:#fff; animation:bh-bounce 1.2s infinite ease-in-out; }
 
-  /* Scroll btn */
   .bh-scroll-btn { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#15803d; border:none; border-radius:999px; color:#fff; font-family:'Space Mono',monospace; font-size:10px; font-weight:700; padding:6px 14px; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.4); z-index:10; animation:bh-fadein .2s ease; white-space:nowrap; }
   .bh-scroll-btn:active { transform:translateX(-50%) scale(.95); }
 
-  /* Input area */
   .bh-input-area { flex-shrink:0; background:#111827; border-top:1px solid #1f2937; padding:8px 12px 10px; }
   .bh-reply-strip { display:flex; align-items:center; gap:8px; background:rgba(34,197,94,.08); border-left:3px solid #22c55e; border-radius:8px; padding:6px 10px; margin-bottom:8px; }
   .bh-reply-strip-info { flex:1; display:flex; flex-direction:column; min-width:0; }
@@ -629,10 +610,12 @@ const GLOBAL_STYLES = `
   .bh-reply-strip-content { font-family:'Rajdhani',sans-serif; font-size:11px; color:#9ca3af; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .bh-reply-close { background:none; border:none; color:#6b7280; cursor:pointer; font-size:12px; padding:2px 4px; flex-shrink:0; }
   .bh-reply-close:hover { color:#ef4444; }
+
   .bh-progress-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
   .bh-progress-track { flex:1; height:3px; background:#1f2937; border-radius:999px; overflow:hidden; }
   .bh-progress-fill { height:100%; border-radius:999px; transition:width .3s,background-color .3s; }
   .bh-progress-label { font-family:'Space Mono',monospace; font-size:9px; font-weight:700; min-width:32px; text-align:right; }
+
   .bh-input-row { display:flex; align-items:center; gap:8px; }
   .bh-input-wrapper { flex:1; display:flex; align-items:center; background:#0d0d0d; border-radius:999px; border:1px solid #374151; padding:6px 10px 6px 14px; gap:6px; transition:border-color .2s; }
   .bh-input-wrapper:focus-within { border-color:#22c55e; }
@@ -645,11 +628,14 @@ const GLOBAL_STYLES = `
   .bh-send-btn.active { background:#16a34a; cursor:pointer; }
   .bh-send-btn.active:active { transform:scale(.92); }
   .bh-input-hint { font-family:'Space Mono',monospace; font-size:8px; color:#4b5563; text-align:center; margin:6px 0 0; }
+
   .bh-toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:200; background:#16a34a; border-radius:999px; padding:7px 16px; display:flex; align-items:center; gap:6px; box-shadow:0 8px 32px rgba(0,0,0,.5); animation:bh-fadein .3s ease; }
   .bh-toast-text { font-family:'Oxanium',sans-serif; font-size:13px; font-weight:800; color:#000; letter-spacing:.04em; }
+
   .bh-loading { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
   .bh-spinner { width:36px; height:36px; border:3px solid #22c55e; border-top-color:transparent; border-radius:50%; animation:bh-spin .8s linear infinite; }
   .bh-loading-text { font-family:'Rajdhani',sans-serif; font-size:13px; color:#6b7280; margin:0; }
+
   @keyframes bh-bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
   @keyframes bh-fadein { from{opacity:0;transform:translateX(-50%) translateY(-6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes bh-spin { to{transform:rotate(360deg)} }
