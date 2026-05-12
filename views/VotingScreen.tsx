@@ -64,13 +64,27 @@ const ACTIVE_POLLS: TacticalPoll[] = [
 
 const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => {
   const [selectedPoll, setSelectedPoll] = useState<TacticalPoll | null>(null);
-  const [votedPollIds, setVotedPollIds] = useState<Set<string>>(new Set());
-  const [selectedXI, setSelectedXI] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
-  // Match day gate
   const [matchDay, setMatchDay] = useState<{ hasMatch: boolean; opponent: string | null; matchType: string | null } | null>(null);
   const [matchLoading, setMatchLoading] = useState(true);
+
+  // Persist voted polls per match day — resets automatically each new match day
+  const getTodayKey = () => `voted_polls_${new Date().toISOString().split('T')[0]}`;
+  const [votedPollIds, setVotedPollIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(getTodayKey());
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markVoted = (pollId: string) => {
+    setVotedPollIds(prev => {
+      const next = new Set(prev).add(pollId);
+      try { localStorage.setItem(getTodayKey(), JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Fetch match day status using the same jersey API
   useEffect(() => {
@@ -91,22 +105,14 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
 
   const handlePollSelect = (poll: TacticalPoll) => {
     setSelectedPoll(poll);
-    setSelectedXI([]);
     setPendingOptionId(null);
-  };
-
-  const handlePlayerToggle = (playerId: string) => {
-    if (votedPollIds.has(selectedPoll?.id || '')) return;
-    setSelectedXI(prev => 
-      prev.includes(playerId) ? prev.filter(id => id !== playerId) : (prev.length < 11 ? [...prev, playerId] : prev)
-    );
   };
 
   const submitVote = () => {
     if (!selectedPoll) return;
     setConfirming(true);
     setTimeout(() => {
-      setVotedPollIds(prev => new Set(prev).add(selectedPoll.id));
+      markVoted(selectedPoll.id);
       onEarn(15);
       setConfirming(false);
     }, 1500);
@@ -238,7 +244,15 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
     </div>
   );
 
-  const renderLineupVoting = (poll: TacticalPoll) => (
+  const renderLineupVoting = (poll: TacticalPoll) => {
+    const [selectedXI, setSelectedXI] = React.useState<string[]>([]);
+    const handlePlayerToggle = (playerId: string) => {
+      if (votedPollIds.has(poll.id)) return;
+      setSelectedXI(prev =>
+        prev.includes(playerId) ? prev.filter(id => id !== playerId) : (prev.length < 11 ? [...prev, playerId] : prev)
+      );
+    };
+    return (
     <div className="flex flex-col gap-6 animate-in slide-in-from-right-10 duration-500 pb-24">
       <div className="flex items-center gap-4">
         <button onClick={() => setSelectedPoll(null)} className="p-2 -ml-2 text-gray-400">
@@ -284,7 +298,8 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
         </Button>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderOptionVoting = (poll: TacticalPoll) => (
     <div className="flex flex-col gap-6 animate-in slide-in-from-right-10 duration-500 pb-24">

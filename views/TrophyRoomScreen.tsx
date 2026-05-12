@@ -37,6 +37,14 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
   useEffect(() => {
+    if (backendUserId) {
+      // Auto-award any eligible badges the user hasn't received yet
+      fetch(`${API_BASE}/badges/check-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: backendUserId }),
+      }).catch(() => {});
+    }
     loadBadges();
   }, [backendUserId]);
 
