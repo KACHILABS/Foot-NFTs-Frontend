@@ -39,7 +39,7 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 4000;
+const POLL_INTERVAL = 30000; // Changed from 4000 to 30000 (30 seconds)
 const MIN_MESSAGE_LENGTH = 15;
 const LONG_PRESS_MS = 500;
 
@@ -82,7 +82,8 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   const loadMessages = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/banter/feed`);
+      // Added limit=20 to reduce data transfer
+      const res = await fetch(`${API_BASE}/banter/feed?limit=20`);
       const data = await res.json();
       if (data.success && data.posts) {
         const formatted: BanterMessage[] = data.posts.map((post: any) => ({
