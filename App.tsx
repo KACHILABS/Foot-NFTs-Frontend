@@ -6,13 +6,35 @@ import { checkAppVersion, getUserId, isAuthenticated, getAuthToken, setAuthSessi
 import SplashScreen from './views/SplashScreen';
 import DashboardScreen from './views/DashboardScreen';
 
-// ===== WORLD CUP SPLASH SCREEN - 10 SECONDS =====
+// ===== WORLD CUP SPLASH WITH BALL ROLL + LEG STEP + SHINE =====
 const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [fadeOut, setFadeOut] = useState(false);
+  const [showShine, setShowShine] = useState(false);
+  const [showStep, setShowStep] = useState(false);
+  const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
-    // Start fade out at 9.5 seconds, complete at 10 seconds
-    const timer = setTimeout(() => {
+    // === ANIMATION SEQUENCE ===
+    
+    // 0.0s - Start with ball rolling in (already visible with animation)
+    
+    // 0.5s - Shine sparkle appears
+    const shineTimer = setTimeout(() => {
+      setShowShine(true);
+    }, 500);
+    
+    // 2.5s - Leg steps on ball
+    const stepTimer = setTimeout(() => {
+      setShowStep(true);
+    }, 2500);
+    
+    // 3.5s - Content fades in
+    const contentTimer = setTimeout(() => {
+      setShowContent(true);
+    }, 3500);
+    
+    // 9.5s - Start fade out
+    const fadeTimer = setTimeout(() => {
       setFadeOut(true);
       setTimeout(() => {
         onComplete();
@@ -20,7 +42,10 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
     }, 9500);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(shineTimer);
+      clearTimeout(stepTimer);
+      clearTimeout(contentTimer);
+      clearTimeout(fadeTimer);
     };
   }, [onComplete]);
 
@@ -55,84 +80,142 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
       <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-[floatOrb_10s_ease-in-out_infinite_1s]" />
 
       {/* Main content */}
-      <div className="relative z-10 text-center px-6 max-w-2xl mx-auto animate-[fadeInUp_1s_ease-out]">
+      <div className="relative z-10 text-center px-6 max-w-2xl mx-auto">
 
-        {/* Giant Trophy Emoji */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-3xl animate-pulse" />
-          <div className="text-9xl animate-[trophyBounce_2.5s_ease-in-out_infinite] drop-shadow-[0_0_60px_rgba(234,179,8,0.3)]">
-            🏆
+        {/* === BALL ROLL + LEG STEP + SHINE === */}
+        <div className="relative mb-8 h-64 flex items-center justify-center">
+          
+          {/* Background glow */}
+          <div className="absolute inset-0 bg-green-500/5 rounded-full blur-3xl animate-pulse" />
+          
+          {/* ===== SHINE EFFECT ===== */}
+          {showShine && (
+            <div className="absolute inset-0 pointer-events-none animate-[shineBurst_0.8s_ease-out]">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-radial from-yellow-400/40 via-yellow-400/10 to-transparent rounded-full" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-6xl animate-[sparkle_0.6s_ease-out]">✨</div>
+              {[...Array(8)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-2 h-2 rounded-full bg-yellow-400 animate-[sparkleBurst_0.8s_ease-out]"
+                  style={{
+                    left: `calc(50% + ${Math.cos(i * 45 * Math.PI / 180) * 80}px)`,
+                    top: `calc(50% + ${Math.sin(i * 45 * Math.PI / 180) * 80}px)`,
+                    animationDelay: `${0.1 + i * 0.05}s`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ===== BALL ROLLING IN ===== */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl animate-[ballRoll_2s_ease-in-out]">
+            ⚽
           </div>
+
+          {/* ===== LEG STEPPING ON BALL ===== */}
+          <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl transition-all duration-300 ${showStep ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+            🦶
+          </div>
+
+          {/* Impact lines when foot steps on ball */}
+          {showStep && (
+            <div className="absolute inset-0 pointer-events-none animate-[impactFlash_1s_ease-out]">
+              {[...Array(12)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-1 h-6 bg-yellow-400/60 rounded-full"
+                  style={{
+                    left: `calc(50% + ${Math.cos(i * 30 * Math.PI / 180) * 60}px)`,
+                    top: `calc(50% + ${Math.sin(i * 30 * Math.PI / 180) * 60}px)`,
+                    transform: `rotate(${i * 30}deg)`,
+                    transformOrigin: 'center',
+                    animation: `impactLine_0.6s_ease-out ${i * 0.03}s`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Floating particles around baller */}
+          {[...Array(15)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-full animate-[particleFloat_4s_linear_infinite]"
+              style={{
+                left: `${15 + Math.random() * 70}%`,
+                top: `${15 + Math.random() * 70}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                width: `${3 + Math.random() * 5}px`,
+                height: `${3 + Math.random() * 5}px`,
+                background: i % 2 === 0 ? '#22c55e' : '#eab308',
+                opacity: 0.3 + Math.random() * 0.4,
+              }}
+            />
+          ))}
         </div>
 
-        {/* Main Title */}
-        <h1 className="text-5xl md:text-7xl font-black mb-3 bg-gradient-to-r from-green-400 via-yellow-400 to-green-400 bg-[length:200%_auto] text-transparent bg-clip-text animate-[shimmer_3s_linear_infinite] font-oxanium tracking-tight">
-          WORLD CUP 2026
-        </h1>
+        {/* ===== CONTENT (fades in after animation) ===== */}
+        <div className={`transition-all duration-700 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          {/* Giant Trophy Emoji */}
+          <div className="relative mb-4">
+            <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-3xl animate-pulse" />
+            <div className="text-8xl animate-[trophyBounce_2.5s_ease-in-out_infinite] drop-shadow-[0_0_60px_rgba(234,179,8,0.3)]">
+              🏆
+            </div>
+          </div>
 
-        {/* Host cities with flags */}
-        <div className="flex justify-center gap-6 mb-4">
-          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.3s_both]">🇺🇸 USA</span>
-          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.5s_both]">🇨🇦 CANADA</span>
-          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.7s_both]">🇲🇽 MEXICO</span>
-        </div>
+          {/* Main Title */}
+          <h1 className="text-5xl md:text-7xl font-black mb-3 bg-gradient-to-r from-green-400 via-yellow-400 to-green-400 bg-[length:200%_auto] text-transparent bg-clip-text animate-[shimmer_3s_linear_infinite] font-oxanium tracking-tight">
+            WORLD CUP 2026
+          </h1>
 
-        {/* Date */}
-        <p className="text-xs text-gray-500 font-space-mono mb-6 animate-[fadeInUp_0.6s_ease-out_0.9s_both] tracking-widest">
-          JUNE 11 - JULY 19, 2026
-        </p>
+          {/* Host cities with flags */}
+          <div className="flex justify-center gap-6 mb-4">
+            <span className="text-sm font-bold text-white/80">🇺🇸 USA</span>
+            <span className="text-sm font-bold text-white/80">🇨🇦 CANADA</span>
+            <span className="text-sm font-bold text-white/80">🇲🇽 MEXICO</span>
+          </div>
 
-        {/* ===== PROMO BOX ===== */}
-        <div className="relative inline-block mb-6">
-          <div className="absolute inset-0 bg-green-500/10 rounded-2xl blur-xl animate-pulse" />
-          <div className="relative bg-gradient-to-r from-green-600/20 to-yellow-600/10 border border-green-500/30 rounded-2xl px-6 py-4 backdrop-blur-sm animate-[fadeInUp_0.6s_ease-out_1.1s_both] max-w-sm mx-auto">
-            <p className="text-green-400 font-bold text-sm font-oxanium tracking-wider mb-1">
-              ⚽ WORLD CUP SEASON ⚽
-            </p>
-            <p className="text-white/80 text-xs font-medium font-rajdhani leading-relaxed">
-              Rep your country • Vote on match highlights • Banter with rivals • Earn FTC
-            </p>
-            <div className="flex justify-center gap-3 mt-2">
-              <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">👕 Jersey Day</span>
-              <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">💬 Banter Hall</span>
-              <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">🗳️ Fan Voting</span>
+          {/* Date */}
+          <p className="text-xs text-gray-500 font-space-mono mb-6 tracking-widest">
+            JUNE 11 - JULY 19, 2026
+          </p>
+
+          {/* ===== PROMO BOX ===== */}
+          <div className="relative inline-block mb-6">
+            <div className="absolute inset-0 bg-green-500/10 rounded-2xl blur-xl animate-pulse" />
+            <div className="relative bg-gradient-to-r from-green-600/20 to-yellow-600/10 border border-green-500/30 rounded-2xl px-6 py-4 backdrop-blur-sm max-w-sm mx-auto">
+              <p className="text-green-400 font-bold text-sm font-oxanium tracking-wider mb-1">
+                ⚽ WORLD CUP SEASON ⚽
+              </p>
+              <p className="text-white/80 text-xs font-medium font-rajdhani leading-relaxed">
+                Rep your country • Vote on match highlights • Banter with rivals • Earn FTC
+              </p>
+              <div className="flex justify-center gap-3 mt-2">
+                <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">👕 Jersey Day</span>
+                <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">💬 Banter Hall</span>
+                <span className="text-xs bg-green-600/20 text-green-400 px-3 py-0.5 rounded-full">🗳️ Fan Voting</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== FOOT NFTs PROMO ===== */}
+          <div className="relative inline-block">
+            <div className="relative bg-darkCard/50 border border-gray-800 rounded-2xl px-6 py-3 backdrop-blur-sm">
+              <p className="text-white/60 text-[10px] font-space-mono tracking-widest">
+                🚀 <span className="text-green-400">FOOT NFTs</span> • Powered by KACHI LABS
+              </p>
+              <p className="text-white/40 text-[8px] font-space-mono tracking-wider mt-1">
+                The World Cup starts here. Join the movement.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* ===== FOOT NFTs PROMO ===== */}
-        <div className="relative inline-block mb-6 animate-[fadeInUp_0.6s_ease-out_1.3s_both]">
-          <div className="relative bg-darkCard/50 border border-gray-800 rounded-2xl px-6 py-3 backdrop-blur-sm">
-            <p className="text-white/60 text-[10px] font-space-mono tracking-widest">
-              🚀 <span className="text-green-400">FOOT NFTs</span> • Powered by KACHI LABS
-            </p>
-            <p className="text-white/40 text-[8px] font-space-mono tracking-wider mt-1">
-              The World Cup starts here. Join the movement.
-            </p>
-          </div>
-        </div>
-
         {/* Powered by */}
-        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono animate-[fadeInUp_0.6s_ease-out_1.5s_both] tracking-widest">
+        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono tracking-widest">
           FOOT NFTs • Built for fans • Built by fans
         </p>
-
-        {/* Floating particles */}
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 rounded-full animate-[particleFloat_5s_linear_infinite]"
-            style={{
-              left: `${5 + Math.random() * 90}%`,
-              top: `${5 + Math.random() * 90}%`,
-              animationDelay: `${Math.random() * 4}s`,
-              width: `${3 + Math.random() * 6}px`,
-              height: `${3 + Math.random() * 6}px`,
-              background: i % 3 === 0 ? '#22c55e' : i % 3 === 1 ? '#eab308' : '#4ade80',
-              opacity: 0.3 + Math.random() * 0.4,
-            }}
-          />
-        ))}
       </div>
 
       <style>{`
@@ -144,34 +227,60 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
           0%, 100% { transform: translate(0, 0) scale(1); }
           50% { transform: translate(50px, -50px) scale(1.1); }
         }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(40px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes trophyBounce {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-20px) scale(1.05); }
-        }
         @keyframes shimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
+        }
+        @keyframes trophyBounce {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-15px) scale(1.05); }
         }
         @keyframes particleFloat {
           0% { transform: translateY(0) scale(0); opacity: 0; }
           20% { opacity: 1; }
           80% { opacity: 1; }
-          100% { transform: translateY(-120px) scale(1); opacity: 0; }
+          100% { transform: translateY(-100px) scale(1); opacity: 0; }
         }
         @keyframes lightBeam {
           0%, 100% { opacity: 0.3; transform: rotate(0deg) scaleY(1); }
           50% { opacity: 0.8; transform: rotate(2deg) scaleY(1.2); }
+        }
+        @keyframes ballRoll {
+          0% { transform: translateX(-200px) rotate(0deg) scale(0.5); opacity: 0; }
+          30% { transform: translateX(0px) rotate(720deg) scale(1.2); opacity: 1; }
+          60% { transform: translateX(0px) rotate(720deg) scale(0.9); }
+          100% { transform: translateX(0px) rotate(720deg) scale(1); opacity: 1; }
+        }
+        @keyframes shineBurst {
+          0% { opacity: 0; transform: scale(0.5); }
+          30% { opacity: 1; transform: scale(1.2); }
+          100% { opacity: 0; transform: scale(1.5); }
+        }
+        @keyframes sparkle {
+          0% { opacity: 0; transform: scale(0) rotate(0deg); }
+          50% { opacity: 1; transform: scale(1.5) rotate(180deg); }
+          100% { opacity: 0; transform: scale(0) rotate(360deg); }
+        }
+        @keyframes sparkleBurst {
+          0% { opacity: 0; transform: translate(0, 0) scale(0); }
+          50% { opacity: 1; transform: translate(0, 0) scale(1.5); }
+          100% { opacity: 0; transform: translate(0, 0) scale(0); }
+        }
+        @keyframes impactFlash {
+          0% { opacity: 0; transform: scale(0.5); }
+          30% { opacity: 1; transform: scale(1.2); }
+          100% { opacity: 0; transform: scale(1.5); }
+        }
+        @keyframes impactLine {
+          0% { opacity: 1; transform: scaleY(1); }
+          100% { opacity: 0; transform: scaleY(3); }
         }
       `}</style>
     </div>
   );
 };
 
-// === REST OF YOUR APP CODE (Keep unchanged) ===
+// === REST OF YOUR APP CODE (unchanged) ===
 const calculateRank = (activityCount: number, referralCount: number): FanRank => {
   if (referralCount >= 5 || activityCount >= 100) return 'Founding Legend';
   if (activityCount >= 60) return 'Legend';
@@ -202,7 +311,6 @@ const getReferralCodeFromUrl = (): string | null => {
 const App: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
   
-  // ===== ALWAYS SHOW WORLD CUP SPLASH =====
   const [showWorldCupSplash, setShowWorldCupSplash] = useState(true);
   
   useEffect(() => {
@@ -391,7 +499,6 @@ const App: React.FC = () => {
   const isProfileComplete = profile?.displayName && profile?.favoriteClubId && 
     localStorage.getItem('profile_completed') === 'true';
 
-  // ===== HANDLE WORLD CUP SPLASH COMPLETE =====
   const handleWorldCupSplashComplete = () => {
     setShowWorldCupSplash(false);
   };
@@ -407,12 +514,10 @@ const App: React.FC = () => {
     );
   }
 
-  // ===== SHOW WORLD CUP SPLASH EVERY TIME =====
   if (showWorldCupSplash) {
     return <WorldCupSplash onComplete={handleWorldCupSplashComplete} />;
   }
 
-  // ===== ONBOARDING SPLASH (for new users) =====
   if (!isProfileComplete) {
     return (
       <SplashScreen 
@@ -511,7 +616,6 @@ const App: React.FC = () => {
     );
   }
 
-  // ===== DASHBOARD =====
   return (
     <DashboardScreen 
       profile={profile} 
