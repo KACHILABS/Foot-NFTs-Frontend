@@ -6,11 +6,13 @@ import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthT
 import SplashScreen from './views/SplashScreen';
 import DashboardScreen from './views/DashboardScreen';
 
-// ===== WORLD CUP SPLASH SCREEN =====
+// ===== STUNNING WORLD CUP SPLASH SCREEN =====
 const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
+    // Animate progress bar
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -21,9 +23,13 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
       });
     }, 100);
 
+    // Start fade out at 4.5 seconds, complete at 5 seconds
     const timer = setTimeout(() => {
-      onComplete();
-    }, 5000);
+      setFadeOut(true);
+      setTimeout(() => {
+        onComplete();
+      }, 500);
+    }, 4500);
 
     return () => {
       clearInterval(interval);
@@ -32,55 +38,141 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
   }, [onComplete]);
 
   return (
-    <div className="fixed inset-0 bg-darkBg flex flex-col items-center justify-center z-50">
+    <div className={`fixed inset-0 bg-darkBg flex flex-col items-center justify-center z-50 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
+      {/* Animated background grid */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-600/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,197,94,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,197,94,0.05)_1px,transparent_1px)] bg-[size:50px_50px] animate-[gridMove_20s_linear_infinite]" />
       </div>
 
-      <div className="relative z-10 text-center px-6">
-        <img
-          src="/logo.png"
-          alt="FOOT NFTs"
-          className="w-20 h-20 mx-auto mb-4 object-contain"
-          onError={(e) => {
-            const t = e.target as HTMLImageElement;
-            t.onerror = null;
-            t.src = 'https://placehold.co/80x80/22c55e/ffffff?text=FOOT';
-          }}
-        />
-        
-        <div className="text-7xl mb-4 animate-bounce">🏆⚽</div>
-        
-        <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-green-500 to-yellow-500 bg-clip-text text-transparent font-oxanium">
-          WORLD CUP 2026
-        </h1>
-        
-        <p className="text-sm text-gray-400 font-space-mono mb-6">
-          USA • Canada • Mexico
-        </p>
+      {/* Floating orbs */}
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-green-500/10 rounded-full blur-3xl animate-[floatOrb_6s_ease-in-out_infinite]" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-yellow-500/10 rounded-full blur-3xl animate-[floatOrb_8s_ease-in-out_infinite_1s]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-600/5 rounded-full blur-3xl animate-pulse" />
 
-        <div className="bg-green-600/20 border border-green-500/30 rounded-2xl p-3 mb-6">
-          <p className="text-green-500 font-bold text-sm font-oxanium">
-            🎉 Rep Your Country • Earn FTC 🎉
-          </p>
+      {/* Main content */}
+      <div className="relative z-10 text-center px-6 animate-[fadeInUp_1s_ease-out]">
+        {/* Animated Logo with ring pulse */}
+        <div className="relative inline-block mb-6">
+          <div className="absolute inset-0 rounded-full border-2 border-green-500/30 animate-[ringPulse_2s_ease-out_infinite]" />
+          <div className="absolute inset-0 rounded-full border-2 border-yellow-500/20 animate-[ringPulse_2s_ease-out_infinite_0.5s]" />
+          <img
+            src="/logo.png"
+            alt="FOOT NFTs"
+            className="w-24 h-24 mx-auto object-contain relative z-10 animate-[logoFloat_3s_ease-in-out_infinite]"
+            onError={(e) => {
+              const t = e.target as HTMLImageElement;
+              t.onerror = null;
+              t.src = 'https://placehold.co/96x96/22c55e/ffffff?text=FOOT';
+            }}
+          />
         </div>
 
-        <div className="w-48 mx-auto">
-          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+        {/* Trophy with bounce and glow */}
+        <div className="relative inline-block mb-4">
+          <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-2xl animate-pulse" />
+          <div className="text-8xl animate-[trophyBounce_2s_ease-in-out_infinite] relative z-10 drop-shadow-[0_0_40px_rgba(234,179,8,0.3)]">
+            🏆
+          </div>
+        </div>
+
+        {/* Title with gradient animation */}
+        <h1 className="text-5xl md:text-6xl font-black mb-2 bg-gradient-to-r from-green-400 via-yellow-400 to-green-400 bg-[length:200%_auto] text-transparent bg-clip-text animate-[shimmer_3s_linear_infinite] font-oxanium">
+          WORLD CUP 2026
+        </h1>
+
+        {/* Host cities with flag emojis */}
+        <div className="flex justify-center gap-4 mb-4">
+          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.3s_both]">🇺🇸 USA</span>
+          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.5s_both]">🇨🇦 CANADA</span>
+          <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.7s_both]">🇲🇽 MEXICO</span>
+        </div>
+
+        {/* Date */}
+        <p className="text-xs text-gray-500 font-space-mono mb-6 animate-[fadeInUp_0.6s_ease-out_0.9s_both]">
+          JUNE 11 - JULY 19, 2026
+        </p>
+
+        {/* Tagline box with glow */}
+        <div className="relative inline-block mb-6">
+          <div className="absolute inset-0 bg-green-500/10 rounded-2xl blur-xl animate-pulse" />
+          <div className="relative bg-green-600/10 border border-green-500/30 rounded-2xl px-6 py-3 backdrop-blur-sm animate-[fadeInUp_0.6s_ease-out_1.1s_both]">
+            <p className="text-green-400 font-bold text-sm font-oxanium tracking-wider">
+              ⚡ REP YOUR COUNTRY • EARN FTC ⚡
+            </p>
+          </div>
+        </div>
+
+        {/* Animated progress bar */}
+        <div className="w-64 mx-auto animate-[fadeInUp_0.6s_ease-out_1.3s_both]">
+          <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-green-500 to-yellow-500 transition-all duration-100"
+              className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-green-500 bg-[length:200%_100%] rounded-full transition-all duration-100 animate-[shimmer_2s_linear_infinite]"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-600 mt-2 font-space-mono">
-            LOADING...
-          </p>
+          <div className="flex justify-between mt-2">
+            <span className="text-[10px] text-gray-600 font-space-mono">LOADING</span>
+            <span className="text-[10px] text-green-500 font-space-mono font-bold">{progress}%</span>
+          </div>
         </div>
 
-        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono">
+        {/* Floating particles */}
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1.5 h-1.5 rounded-full bg-green-500/40 animate-[particleFloat_4s_linear_infinite]"
+            style={{
+              left: `${10 + Math.random() * 80}%`,
+              top: `${10 + Math.random() * 80}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              width: `${2 + Math.random() * 4}px`,
+              height: `${2 + Math.random() * 4}px`,
+            }}
+          />
+        ))}
+
+        {/* Powered by */}
+        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono animate-[fadeInUp_0.6s_ease-out_1.5s_both]">
           FOOT NFTs • Powered by KACHI LABS
         </p>
       </div>
+
+      <style>{`
+        @keyframes gridMove {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(50px, 50px); }
+        }
+        @keyframes floatOrb {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(30px, -30px) scale(1.1); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes logoFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes trophyBounce {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-15px) scale(1.05); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes ringPulse {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes particleFloat {
+          0% { transform: translateY(0) scale(0); opacity: 0; }
+          20% { opacity: 1; }
+          80% { opacity: 1; }
+          100% { transform: translateY(-80px) scale(1); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };
@@ -98,11 +190,9 @@ const getReferralCodeFromUrl = (): string | null => {
   try {
     const tg = (window as any).Telegram?.WebApp;
     const startParam = tg?.initDataUnsafe?.start_param;
-    
     if (startParam && startParam.startsWith('ref_')) {
       return startParam.replace('ref_', '');
     }
-    
     const urlParams = new URLSearchParams(window.location.search);
     const startapp = urlParams.get('startapp');
     if (startapp && startapp.startsWith('ref_')) {
@@ -117,12 +207,8 @@ const getReferralCodeFromUrl = (): string | null => {
 const App: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
   
-  // ===== SHOW WORLD CUP SPLASH ONCE PER DAY =====
-  const [showWorldCupSplash, setShowWorldCupSplash] = useState(() => {
-    const lastSeen = localStorage.getItem('worldcup_splash_last_seen');
-    const today = new Date().toISOString().split('T')[0];
-    return lastSeen !== today;
-  });
+  // ===== ALWAYS SHOW WORLD CUP SPLASH =====
+  const [showWorldCupSplash, setShowWorldCupSplash] = useState(true);
   
   useEffect(() => {
     const wasCleared = checkAppVersion();
@@ -313,8 +399,6 @@ const App: React.FC = () => {
   // ===== HANDLE WORLD CUP SPLASH COMPLETE =====
   const handleWorldCupSplashComplete = () => {
     setShowWorldCupSplash(false);
-    // Save today's date so it won't show again until tomorrow
-    localStorage.setItem('worldcup_splash_last_seen', new Date().toISOString().split('T')[0]);
   };
 
   if (loading) {
@@ -328,7 +412,7 @@ const App: React.FC = () => {
     );
   }
 
-  // ===== SHOW WORLD CUP SPLASH ONCE PER DAY =====
+  // ===== SHOW WORLD CUP SPLASH EVERY TIME =====
   if (showWorldCupSplash) {
     return <WorldCupSplash onComplete={handleWorldCupSplashComplete} />;
   }
