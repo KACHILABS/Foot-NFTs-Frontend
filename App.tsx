@@ -2,17 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { OnboardingState, UserProfile, WalletState, FanRank } from './types';
 import { CLUBS } from './constants';
 import { api } from './src/services/api';
-import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthToken, setAuthSession } from './src/utils/versionControl';
+import { checkAppVersion, getUserId, isAuthenticated, getAuthToken, setAuthSession } from './src/utils/versionControl';
 import SplashScreen from './views/SplashScreen';
 import DashboardScreen from './views/DashboardScreen';
 
-// ===== STUNNING WORLD CUP SPLASH SCREEN =====
+// ===== WORLD CUP SPLASH WITH BALLER FOOT & BALL =====
 const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    // Animate progress bar
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -23,7 +22,6 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
       });
     }, 100);
 
-    // Start fade out at 4.5 seconds, complete at 5 seconds
     const timer = setTimeout(() => {
       setFadeOut(true);
       setTimeout(() => {
@@ -38,64 +36,137 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
   }, [onComplete]);
 
   return (
-    <div className={`fixed inset-0 bg-darkBg flex flex-col items-center justify-center z-50 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
-      {/* Animated background grid */}
+    <div className={`fixed inset-0 bg-gradient-to-b from-[#0A0A0F] via-[#0D1B2A] to-[#0A0A0F] flex flex-col items-center justify-center z-50 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'} overflow-hidden`}>
+      
+      {/* Animated Stadium Light Beams */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,197,94,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,197,94,0.05)_1px,transparent_1px)] bg-[size:50px_50px] animate-[gridMove_20s_linear_infinite]" />
-      </div>
-
-      {/* Floating orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-green-500/10 rounded-full blur-3xl animate-[floatOrb_6s_ease-in-out_infinite]" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-yellow-500/10 rounded-full blur-3xl animate-[floatOrb_8s_ease-in-out_infinite_1s]" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-600/5 rounded-full blur-3xl animate-pulse" />
-
-      {/* Main content */}
-      <div className="relative z-10 text-center px-6 animate-[fadeInUp_1s_ease-out]">
-        {/* Animated Logo with ring pulse */}
-        <div className="relative inline-block mb-6">
-          <div className="absolute inset-0 rounded-full border-2 border-green-500/30 animate-[ringPulse_2s_ease-out_infinite]" />
-          <div className="absolute inset-0 rounded-full border-2 border-yellow-500/20 animate-[ringPulse_2s_ease-out_infinite_0.5s]" />
-          <img
-            src="/logo.png"
-            alt="FOOT NFTs"
-            className="w-24 h-24 mx-auto object-contain relative z-10 animate-[logoFloat_3s_ease-in-out_infinite]"
-            onError={(e) => {
-              const t = e.target as HTMLImageElement;
-              t.onerror = null;
-              t.src = 'https://placehold.co/96x96/22c55e/ffffff?text=FOOT';
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 bg-gradient-to-t from-green-500/20 to-transparent"
+            style={{
+              left: `${10 + i * 11}%`,
+              top: '0',
+              height: '60%',
+              transform: `rotate(${10 + i * 5}deg)`,
+              transformOrigin: 'bottom center',
+              animation: `lightBeam ${3 + i * 0.3}s ease-in-out infinite ${i * 0.2}s`,
             }}
           />
-        </div>
+        ))}
+      </div>
 
-        {/* Trophy with bounce and glow */}
-        <div className="relative inline-block mb-4">
-          <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-2xl animate-pulse" />
-          <div className="text-8xl animate-[trophyBounce_2s_ease-in-out_infinite] relative z-10 drop-shadow-[0_0_40px_rgba(234,179,8,0.3)]">
-            🏆
+      {/* Animated background grid */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:60px_60px] animate-[gridMove_25s_linear_infinite]" />
+      </div>
+
+      {/* Large floating orbs */}
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-[floatOrb_8s_ease-in-out_infinite]" />
+      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-[floatOrb_10s_ease-in-out_infinite_1s]" />
+
+      {/* Main content */}
+      <div className="relative z-10 text-center px-6 max-w-2xl mx-auto animate-[fadeInUp_1s_ease-out]">
+
+        {/* === BALLER FOOT & BALL === */}
+        <div className="relative mb-8 scale-125">
+          {/* Glow behind */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-green-500/10 rounded-full blur-3xl animate-pulse" />
+          
+          {/* Baller SVG Animation */}
+          <div className="relative w-64 h-64 mx-auto">
+            <svg viewBox="0 0 300 300" className="w-full h-full animate-[trophyBounce_2.5s_ease-in-out_infinite] drop-shadow-[0_0_60px_rgba(34,197,94,0.3)]">
+              {/* Stadium glow ring */}
+              <circle cx="150" cy="150" r="120" fill="none" stroke="rgba(34,197,94,0.1)" strokeWidth="1" className="animate-[spin_20s_linear_infinite]" />
+              <circle cx="150" cy="150" r="100" fill="none" stroke="rgba(234,179,8,0.05)" strokeWidth="1" className="animate-[spin_15s_linear_infinite_reverse]" />
+              
+              {/* Ball */}
+              <g className="animate-[ballFloat_2.5s_ease-in-out_infinite]">
+                <circle cx="150" cy="170" r="45" fill="#1a1a2e" stroke="#22c55e" strokeWidth="2.5" />
+                <circle cx="150" cy="170" r="42" fill="url(#ballGradient)" />
+                {/* Ball pentagon pattern */}
+                <polygon points="150,135 162,150 158,168 142,168 138,150" fill="rgba(34,197,94,0.3)" stroke="#22c55e" strokeWidth="1.5" />
+                <polygon points="160,155 175,150 180,165 172,178 158,175" fill="rgba(234,179,8,0.2)" stroke="#eab308" strokeWidth="1.5" />
+                <polygon points="140,155 125,150 120,165 128,178 142,175" fill="rgba(34,197,94,0.2)" stroke="#22c55e" strokeWidth="1.5" />
+                <line x1="135" y1="145" x2="165" y2="145" stroke="#22c55e" strokeWidth="1" opacity="0.5" />
+                <line x1="130" y1="160" x2="170" y2="160" stroke="#eab308" strokeWidth="1" opacity="0.5" />
+                <line x1="135" y1="175" x2="165" y2="175" stroke="#22c55e" strokeWidth="1" opacity="0.5" />
+                <circle cx="150" cy="170" r="8" fill="#22c55e" opacity="0.3" />
+              </g>
+
+              {/* Foot/Boot - kicking the ball */}
+              <g className="animate-[kickSwing_1.5s_ease-in-out_infinite]">
+                {/* Leg shadow */}
+                <path d="M40 220 L70 200 L85 210 L65 225 Z" fill="rgba(0,0,0,0.3)" />
+                {/* Shin */}
+                <path d="M50 180 L80 195 L75 215 L45 200 Z" fill="#1a1a2e" stroke="#2a2a3e" strokeWidth="1.5" />
+                {/* Boot */}
+                <path d="M75 200 L110 185 L120 195 L100 205 L85 210 Z" fill="#22c55e" stroke="#16a34a" strokeWidth="2" />
+                <path d="M110 185 L120 195 L125 190 L115 180 Z" fill="#eab308" stroke="#ca8a04" strokeWidth="1.5" />
+                {/* Boot studs */}
+                <circle cx="95" cy="207" r="2" fill="#333" />
+                <circle cx="100" cy="205" r="2" fill="#333" />
+                <circle cx="105" cy="202" r="2" fill="#333" />
+              </g>
+
+              {/* Impact lines when foot hits ball */}
+              <g className="animate-[impactFlash_1.5s_ease-in-out_infinite]">
+                <line x1="120" y1="175" x2="135" y2="180" stroke="#eab308" strokeWidth="2" opacity="0.6" />
+                <line x1="125" y1="185" x2="140" y2="195" stroke="#eab308" strokeWidth="2" opacity="0.6" />
+                <line x1="118" y1="195" x2="130" y2="210" stroke="#eab308" strokeWidth="2" opacity="0.4" />
+                <circle cx="115" cy="180" r="4" fill="none" stroke="#eab308" strokeWidth="1.5" opacity="0.6" />
+                <circle cx="112" cy="185" r="8" fill="none" stroke="#eab308" strokeWidth="1" opacity="0.4" />
+              </g>
+
+              {/* Defs for gradients */}
+              <defs>
+                <radialGradient id="ballGradient" cx="40%" cy="40%">
+                  <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity="0.05" />
+                </radialGradient>
+              </defs>
+            </svg>
           </div>
+
+          {/* Floating particles around baller */}
+          {[...Array(15)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-full animate-[particleFloat_4s_linear_infinite]"
+              style={{
+                left: `${20 + Math.random() * 60}%`,
+                top: `${20 + Math.random() * 60}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                width: `${3 + Math.random() * 5}px`,
+                height: `${3 + Math.random() * 5}px`,
+                background: i % 2 === 0 ? '#22c55e' : '#eab308',
+                opacity: 0.4 + Math.random() * 0.4,
+              }}
+            />
+          ))}
         </div>
 
         {/* Title with gradient animation */}
-        <h1 className="text-5xl md:text-6xl font-black mb-2 bg-gradient-to-r from-green-400 via-yellow-400 to-green-400 bg-[length:200%_auto] text-transparent bg-clip-text animate-[shimmer_3s_linear_infinite] font-oxanium">
+        <h1 className="text-5xl md:text-7xl font-black mb-3 bg-gradient-to-r from-green-400 via-yellow-400 to-green-400 bg-[length:200%_auto] text-transparent bg-clip-text animate-[shimmer_3s_linear_infinite] font-oxanium tracking-tight">
           WORLD CUP 2026
         </h1>
 
         {/* Host cities with flag emojis */}
-        <div className="flex justify-center gap-4 mb-4">
+        <div className="flex justify-center gap-6 mb-4">
           <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.3s_both]">🇺🇸 USA</span>
           <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.5s_both]">🇨🇦 CANADA</span>
           <span className="text-sm font-bold text-white/80 animate-[fadeInUp_0.6s_ease-out_0.7s_both]">🇲🇽 MEXICO</span>
         </div>
 
         {/* Date */}
-        <p className="text-xs text-gray-500 font-space-mono mb-6 animate-[fadeInUp_0.6s_ease-out_0.9s_both]">
+        <p className="text-xs text-gray-500 font-space-mono mb-6 animate-[fadeInUp_0.6s_ease-out_0.9s_both] tracking-widest">
           JUNE 11 - JULY 19, 2026
         </p>
 
         {/* Tagline box with glow */}
         <div className="relative inline-block mb-6">
           <div className="absolute inset-0 bg-green-500/10 rounded-2xl blur-xl animate-pulse" />
-          <div className="relative bg-green-600/10 border border-green-500/30 rounded-2xl px-6 py-3 backdrop-blur-sm animate-[fadeInUp_0.6s_ease-out_1.1s_both]">
+          <div className="relative bg-green-600/10 border border-green-500/30 rounded-2xl px-8 py-3 backdrop-blur-sm animate-[fadeInUp_0.6s_ease-out_1.1s_both]">
             <p className="text-green-400 font-bold text-sm font-oxanium tracking-wider">
               ⚡ REP YOUR COUNTRY • EARN FTC ⚡
             </p>
@@ -103,7 +174,7 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
         </div>
 
         {/* Animated progress bar */}
-        <div className="w-64 mx-auto animate-[fadeInUp_0.6s_ease-out_1.3s_both]">
+        <div className="w-72 mx-auto animate-[fadeInUp_0.6s_ease-out_1.3s_both]">
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div 
               className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-green-500 bg-[length:200%_100%] rounded-full transition-all duration-100 animate-[shimmer_2s_linear_infinite]"
@@ -116,23 +187,8 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
           </div>
         </div>
 
-        {/* Floating particles */}
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1.5 h-1.5 rounded-full bg-green-500/40 animate-[particleFloat_4s_linear_infinite]"
-            style={{
-              left: `${10 + Math.random() * 80}%`,
-              top: `${10 + Math.random() * 80}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              width: `${2 + Math.random() * 4}px`,
-              height: `${2 + Math.random() * 4}px`,
-            }}
-          />
-        ))}
-
         {/* Powered by */}
-        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono animate-[fadeInUp_0.6s_ease-out_1.5s_both]">
+        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono animate-[fadeInUp_0.6s_ease-out_1.5s_both] tracking-widest">
           FOOT NFTs • Powered by KACHI LABS
         </p>
       </div>
@@ -140,43 +196,56 @@ const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
       <style>{`
         @keyframes gridMove {
           0% { transform: translate(0, 0); }
-          100% { transform: translate(50px, 50px); }
+          100% { transform: translate(60px, 60px); }
         }
         @keyframes floatOrb {
           0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(30px, -30px) scale(1.1); }
+          50% { transform: translate(50px, -50px) scale(1.1); }
         }
         @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(30px); }
+          from { opacity: 0; transform: translateY(40px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes logoFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
         }
         @keyframes trophyBounce {
           0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-15px) scale(1.05); }
+          50% { transform: translateY(-15px) scale(1.03); }
+        }
+        @keyframes ballFloat {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-8px) rotate(3deg); }
+        }
+        @keyframes kickSwing {
+          0%, 100% { transform: rotate(-5deg) translateX(0); }
+          50% { transform: rotate(15deg) translateX(5px); }
+        }
+        @keyframes impactFlash {
+          0%, 100% { opacity: 0; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1); }
         }
         @keyframes shimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
-        @keyframes ringPulse {
-          0% { transform: scale(0.8); opacity: 0.8; }
-          100% { transform: scale(1.5); opacity: 0; }
-        }
         @keyframes particleFloat {
           0% { transform: translateY(0) scale(0); opacity: 0; }
           20% { opacity: 1; }
           80% { opacity: 1; }
-          100% { transform: translateY(-80px) scale(1); opacity: 0; }
+          100% { transform: translateY(-100px) scale(1); opacity: 0; }
+        }
+        @keyframes lightBeam {
+          0%, 100% { opacity: 0.3; transform: rotate(0deg) scaleY(1); }
+          50% { opacity: 0.8; transform: rotate(2deg) scaleY(1.2); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
   );
 };
 
+// === REST OF YOUR APP CODE (Keep unchanged) ===
 const calculateRank = (activityCount: number, referralCount: number): FanRank => {
   if (referralCount >= 5 || activityCount >= 100) return 'Founding Legend';
   if (activityCount >= 60) return 'Legend';
