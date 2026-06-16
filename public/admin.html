@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FOOT NFTs | Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0A0A0F;
+            color: #ffffff;
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Login Screen */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-box {
+            background: #111827;
+            border-radius: 30px;
+            padding: 40px 30px;
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid #1f2937;
+        }
+        .login-box h1 {
+            font-family: 'Oxanium', sans-serif;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .login-box p {
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .login-input {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            background: #0f0f1a;
+            border: 1px solid #1f2937;
+            color: white;
+            font-size: 16px;
+            font-family: 'Rajdhani', sans-serif;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .login-input:focus {
+            border-color: #22c55e;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 16px;
+            border: none;
+            background: #22c55e;
+            color: black;
+            font-family: 'Oxanium', sans-serif;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 16px;
+        }
+        .login-btn:hover {
+            background: #16a34a;
+            transform: scale(0.98);
+        }
+        .login-error {
+            color: #ef4444;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+        }
+
+        /* Admin Dashboard */
+        .admin-header {
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #1f2937;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .admin-header h1 {
+            font-family: 'Oxanium', sans-serif;
+            font-size: 20px;
+            color: #22c55e;
+        }
+        .admin-header .admin-badge {
+            background: rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 10px;
+            font-family: 'Space Mono', monospace;
+            color: #a855f7;
+        }
+
+        .admin-body {
+            padding: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #111827;
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid #1f2937;
+        }
+        .stat-card .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #6b7280;
+            font-family: 'Space Mono', monospace;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'Oxanium', sans-serif;
+            color: #22c55e;
+            margin-top: 4px;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+            align-items: center;
+        }
+        .controls select,
+        .controls input {
+            padding: 10px 16px;
+            border-radius: 16px;
+            background: #111827;
+            border: 1px solid #1f2937;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            outline: none;
+        }
+        .controls select:focus,
+        .controls input:focus {
+            border-color: #22c55e;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 16px;
+            border: none;
+            font-family: 'Oxanium', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #22c55e;
+            color: black;
+        }
+        .btn-primary:hover {
+            background: #16a34a;
+            transform: scale(0.98);
+        }
+        .btn-secondary {
+            background: #1f2937;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #374151;
+        }
+        .btn-purple {
+            background: #a855f7;
+            color: white;
+        }
+        .btn-purple:hover {
+            background: #9333ea;
+        }
+
+        /* Tables */
+        .table-container {
+            background: #111827;
+            border-radius: 20px;
+            border: 1px solid #1f2937;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            background: #0f0f1a;
+            color: #6b7280;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'Space Mono', monospace;
+            border-bottom: 1px solid #1f2937;
+        }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #1f2937;
+            color: #d1d5db;
+        }
+        tr:hover {
+            background: #1a1a2e;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 30px;
+            font-size: 10px;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+        }
+        .badge-positive {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+        .badge-negative {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+        .badge-neutral {
+            background: rgba(107, 114, 128, 0.15);
+            color: #9ca3af;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 0;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #1f2937;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Access Denied */
+        .access-denied {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+        .access-denied .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        .access-denied h2 {
+            font-family: 'Oxanium', sans-serif;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .access-denied p {
+            color: #6b7280;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #1f2937;
+            padding-bottom: 12px;
+        }
+        .tab {
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-family: 'Oxanium', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            background: transparent;
+            color: #6b7280;
+        }
+        .tab.active {
+            background: #22c55e;
+            color: black;
+        }
+        .tab:hover:not(.active) {
+            color: white;
+            background: #1f2937;
+        }
+
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .admin-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .controls {
+                flex-direction: column;
+            }
+            .controls select,
+            .controls input {
+                width: 100%;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== LOGIN ===== -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1>🔐 Admin Access</h1>
+            <p>Enter your Telegram ID to access the dashboard</p>
+            <input type="text" id="telegramIdInput" class="login-input" placeholder="e.g., 992368826" />
+            <button class="login-btn" onclick="handleLogin()">Access Dashboard</button>
+            <div id="loginError" class="login-error">Invalid Telegram ID. Access denied.</div>
+        </div>
+    </div>
+
+    <!-- ===== ADMIN DASHBOARD ===== -->
+    <div id="adminDashboard" style="display: none;">
+        <!-- Header -->
+        <div class="admin-header">
+            <div>
+                <h1>📊 Admin Analytics</h1>
+                <p style="font-size: 11px; color: #6b7280; font-family: 'Space Mono', monospace;">Sentiment & Fan Data</p>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span class="admin-badge">ADMIN</span>
+                <span id="adminUser" style="font-size: 12px; color: #9ca3af;"></span>
+                <button class="btn btn-secondary" onclick="handleLogout()" style="padding: 6px 16px; font-size: 11px;">Logout</button>
+            </div>
+        </div>
+
+        <div class="admin-body">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card"><div class="label">Total Messages</div><div class="value" id="totalMessages">-</div></div>
+                <div class="stat-card"><div class="label">Positive</div><div class="value" style="color:#22c55e;" id="positiveCount">-</div></div>
+                <div class="stat-card"><div class="label">Negative</div><div class="value" style="color:#ef4444;" id="negativeCount">-</div></div>
+                <div class="stat-card"><div class="label">Neutral</div><div class="value" style="color:#6b7280;" id="neutralCount">-</div></div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="sentiment">💬 Sentiment</button>
+                <button class="tab" data-tab="summary">📊 Summary</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <select id="dateRange" onchange="loadData()">
+                    <option value="7">Last 7 days</option>
+                    <option value="14">Last 14 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+                <select id="sentimentFilter" onchange="loadData()">
+                    <option value="all">All Sentiment</option>
+                    <option value="positive">Positive</option>
+                    <option value="negative">Negative</option>
+                    <option value="neutral">Neutral</option>
+                </select>
+                <button class="btn btn-primary" onclick="downloadCSV()">📥 Download CSV</button>
+                <button class="btn btn-purple" onclick="downloadExcel()">📊 Download Excel</button>
+            </div>
+
+            <!-- Tab: Sentiment -->
+            <div id="tab-sentiment" class="tab-content active">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>User</th><th>Message</th><th>Sentiment</th></tr>
+                        </thead>
+                        <tbody id="sentimentTableBody">
+                            <tr><td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Summary -->
+            <div id="tab-summary" class="tab-content">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Positive</th><th>Negative</th><th>Neutral</th><th>Total</th></tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ACCESS DENIED ===== -->
+    <div id="accessDenied" class="access-denied" style="display: none;">
+        <div class="icon">🔒</div>
+        <h2>Access Denied</h2>
+        <p>You don't have permission to view this page.</p>
+    </div>
+
+    <script>
+        const API_BASE = 'https://footnfts.up.railway.app/api';
+        const ADMIN_IDS = ['8468840906', '6964408627'];
+        let currentData = [];
+        let currentUserId = null;
+
+        function handleLogin() {
+            const input = document.getElementById('telegramIdInput');
+            const userId = input.value.trim();
+            const errorEl = document.getElementById('loginError');
+
+            if (!userId) {
+                errorEl.textContent = 'Please enter your Telegram ID';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            if (ADMIN_IDS.includes(userId)) {
+                currentUserId = userId;
+                errorEl.style.display = 'none';
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'block';
+                document.getElementById('adminUser').textContent = '👤 ' + userId;
+                loadData();
+            } else {
+                errorEl.textContent = 'Invalid Telegram ID. Access denied.';
+                errorEl.style.display = 'block';
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('accessDenied').style.display = 'flex';
+            }
+        }
+
+        document.getElementById('telegramIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        function handleLogout() {
+            currentUserId = null;
+            document.getElementById('adminDashboard').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('accessDenied').style.display = 'none';
+            document.getElementById('telegramIdInput').value = '';
+        }
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                const tabName = this.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-' + tabName).classList.add('active');
+            });
+        });
+
+        async function loadData() {
+            const days = document.getElementById('dateRange').value;
+            const sentiment = document.getElementById('sentimentFilter').value;
+
+            // Show loading
+            document.getElementById('sentimentTableBody').innerHTML =
+                `<tr><td colspan="4" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
+            document.getElementById('summaryTableBody').innerHTML =
+                `<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
+
+            try {
+                // Load sentiment data
+                const res = await fetch(`${API_BASE}/admin/sentiment?userId=${currentUserId}&days=${days}&sentiment=${sentiment}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    currentData = data.data || [];
+                    renderStats(data.stats);
+                    renderSentimentTable(currentData);
+                }
+
+                // Load summary data
+                const summaryRes = await fetch(`${API_BASE}/admin/sentiment/summary?userId=${currentUserId}&days=${days}`);
+                const summaryData = await summaryRes.json();
+                if (summaryData.success) {
+                    renderSummaryTable(summaryData.data || []);
+                }
+
+            } catch (error) {
+                console.error('Load error:', error);
+                document.getElementById('sentimentTableBody').innerHTML =
+                    `<tr><td colspan="4" style="text-align:center;padding:40px;color:#ef4444;">Error loading data</td></tr>`;
+                document.getElementById('summaryTableBody').innerHTML =
+                    `<tr><td colspan="5" style="text-align:center;padding:40px;color:#ef4444;">Error loading data</td></tr>`;
+            }
+        }
+
+        function renderStats(stats) {
+            document.getElementById('totalMessages').textContent = stats?.total || 0;
+            document.getElementById('positiveCount').textContent = stats?.positive || 0;
+            document.getElementById('negativeCount').textContent = stats?.negative || 0;
+            document.getElementById('neutralCount').textContent = stats?.neutral || 0;
+        }
+
+        function renderSentimentTable(data) {
+            const tbody = document.getElementById('sentimentTableBody');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:#6b7280;">No data found</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td style="font-size:11px;color:#6b7280;font-family:'Space Mono',monospace;">${new Date(row.created_at).toLocaleDateString()}</td>
+                    <td>${row.user?.username || 'Anonymous'}</td>
+                    <td style="max-width:300px;word-break:break-word;">${row.content || '-'}</td>
+                    <td><span class="badge badge-${row.sentiment}">${(row.sentiment || 'neutral').toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderSummaryTable(data) {
+            const tbody = document.getElementById('summaryTableBody');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">No summary data</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td style="font-family:'Space Mono',monospace;font-size:11px;color:#6b7280;">${row.date}</td>
+                    <td style="color:#22c55e;font-weight:bold;">${row.positive_count}</td>
+                    <td style="color:#ef4444;font-weight:bold;">${row.negative_count}</td>
+                    <td style="color:#6b7280;">${row.neutral_count}</td>
+                    <td style="font-weight:bold;">${row.total_count}</td>
+                </tr>
+            `).join('');
+        }
+
+        function downloadCSV() {
+            if (!currentData || currentData.length === 0) { alert('No data'); return; }
+            const headers = ['Date', 'User', 'Message', 'Sentiment'];
+            const rows = currentData.map(r => [
+                new Date(r.created_at).toLocaleDateString(),
+                r.user?.username || 'Anonymous',
+                `"${(r.content || '').replace(/"/g, '""')}"`,
+                r.sentiment || 'neutral'
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            downloadFile(csv, `sentiment_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+        }
+
+        function downloadExcel() {
+            if (!currentData || currentData.length === 0) { alert('No data'); return; }
+            const headers = ['Date', 'User', 'Message', 'Sentiment'];
+            const rows = currentData.map(r => [
+                new Date(r.created_at).toLocaleDateString(),
+                r.user?.username || 'Anonymous',
+                `"${(r.content || '').replace(/"/g, '""')}"`,
+                r.sentiment || 'neutral'
+            ]);
+            const BOM = '\uFEFF';
+            const csv = BOM + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            downloadFile(csv, `sentiment_${new Date().toISOString().split('T')[0]}.xls`, 'application/vnd.ms-excel');
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
