@@ -6,6 +6,85 @@ import { checkAppVersion, getUserId, isAuthenticated, clearAuthSession, getAuthT
 import SplashScreen from './views/SplashScreen';
 import DashboardScreen from './views/DashboardScreen';
 
+// ===== WORLD CUP SPLASH SCREEN =====
+const WorldCupSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 100);
+
+    const timer = setTimeout(() => {
+      onComplete();
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, [onComplete]);
+
+  return (
+    <div className="fixed inset-0 bg-darkBg flex flex-col items-center justify-center z-50">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-600/20 rounded-full blur-3xl animate-pulse"></div>
+      </div>
+
+      <div className="relative z-10 text-center px-6">
+        <img
+          src="/logo.png"
+          alt="FOOT NFTs"
+          className="w-20 h-20 mx-auto mb-4 object-contain"
+          onError={(e) => {
+            const t = e.target as HTMLImageElement;
+            t.onerror = null;
+            t.src = 'https://placehold.co/80x80/22c55e/ffffff?text=FOOT';
+          }}
+        />
+        
+        <div className="text-7xl mb-4 animate-bounce">🏆⚽</div>
+        
+        <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-green-500 to-yellow-500 bg-clip-text text-transparent font-oxanium">
+          WORLD CUP 2026
+        </h1>
+        
+        <p className="text-sm text-gray-400 font-space-mono mb-6">
+          USA • Canada • Mexico
+        </p>
+
+        <div className="bg-green-600/20 border border-green-500/30 rounded-2xl p-3 mb-6">
+          <p className="text-green-500 font-bold text-sm font-oxanium">
+            🎉 Rep Your Country • Earn FTC 🎉
+          </p>
+        </div>
+
+        <div className="w-48 mx-auto">
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-green-500 to-yellow-500 transition-all duration-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2 font-space-mono">
+            LOADING...
+          </p>
+        </div>
+
+        <p className="absolute bottom-8 left-0 right-0 text-[8px] text-gray-600 text-center font-space-mono">
+          FOOT NFTs • Powered by KACHI LABS
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const calculateRank = (activityCount: number, referralCount: number): FanRank => {
   if (referralCount >= 5 || activityCount >= 100) return 'Founding Legend';
   if (activityCount >= 60) return 'Legend';
@@ -15,21 +94,18 @@ const calculateRank = (activityCount: number, referralCount: number): FanRank =>
   return 'Amateur';
 };
 
-// Get referral code from Telegram startapp parameter
 const getReferralCodeFromUrl = (): string | null => {
   try {
     const tg = (window as any).Telegram?.WebApp;
     const startParam = tg?.initDataUnsafe?.start_param;
     
     if (startParam && startParam.startsWith('ref_')) {
-      console.log('📎 Referral code from Telegram:', startParam.replace('ref_', ''));
       return startParam.replace('ref_', '');
     }
     
     const urlParams = new URLSearchParams(window.location.search);
     const startapp = urlParams.get('startapp');
     if (startapp && startapp.startsWith('ref_')) {
-      console.log('📎 Referral code from URL:', startapp.replace('ref_', ''));
       return startapp.replace('ref_', '');
     }
   } catch (error) {
@@ -40,6 +116,13 @@ const getReferralCodeFromUrl = (): string | null => {
 
 const App: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
+  
+  // ===== SHOW WORLD CUP SPLASH ONCE PER DAY =====
+  const [showWorldCupSplash, setShowWorldCupSplash] = useState(() => {
+    const lastSeen = localStorage.getItem('worldcup_splash_last_seen');
+    const today = new Date().toISOString().split('T')[0];
+    return lastSeen !== today;
+  });
   
   useEffect(() => {
     const wasCleared = checkAppVersion();
@@ -150,7 +233,6 @@ const App: React.FC = () => {
           
           setProfile(userProfile);
           
-          // ✅ FIX: Load wallet address from backend, not null
           setWallet({
             address: profileRes.profile.walletAddress || null,
             balanceFTC: profileRes.profile.ftcBalance || 0,
@@ -228,6 +310,13 @@ const App: React.FC = () => {
   const isProfileComplete = profile?.displayName && profile?.favoriteClubId && 
     localStorage.getItem('profile_completed') === 'true';
 
+  // ===== HANDLE WORLD CUP SPLASH COMPLETE =====
+  const handleWorldCupSplashComplete = () => {
+    setShowWorldCupSplash(false);
+    // Save today's date so it won't show again until tomorrow
+    localStorage.setItem('worldcup_splash_last_seen', new Date().toISOString().split('T')[0]);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-darkBg">
@@ -239,6 +328,12 @@ const App: React.FC = () => {
     );
   }
 
+  // ===== SHOW WORLD CUP SPLASH ONCE PER DAY =====
+  if (showWorldCupSplash) {
+    return <WorldCupSplash onComplete={handleWorldCupSplashComplete} />;
+  }
+
+  // ===== ONBOARDING SPLASH (for new users) =====
   if (!isProfileComplete) {
     return (
       <SplashScreen 
@@ -261,7 +356,6 @@ const App: React.FC = () => {
             if (result.success) {
               setBackendUserId(result.user.id);
 
-              // Save JWT token so authenticated endpoints work
               if (result.token) {
                 localStorage.setItem('token', result.token);
                 setAuthSession(result.token, result.user.id);
@@ -294,7 +388,6 @@ const App: React.FC = () => {
               
               if (result.user.referralCode) {
                 localStorage.setItem('referralCode', result.user.referralCode);
-                console.log('📎 Referral code saved to localStorage:', result.user.referralCode);
               }
               
               setOnboarding(prev => ({
@@ -305,7 +398,6 @@ const App: React.FC = () => {
                 referralCode: result.user.referralCode || prev.referralCode
               }));
 
-              // Claim welcome bonus if not already claimed
               if (!result.user.hasClaimedWelcomeBonus) {
                 try {
                   const bonusResult = await api.user.claimWelcomeBonus(result.user.id);
@@ -319,7 +411,6 @@ const App: React.FC = () => {
                     }));
                     localStorage.setItem('welcome_bonus_claimed', 'true');
                     localStorage.setItem('has_seen_welcome_bonus', 'true');
-                    console.log('🎁 Welcome bonus claimed:', bonusResult.bonusAmount, 'FTC');
                   }
                 } catch (bonusErr) {
                   console.error('Failed to claim welcome bonus:', bonusErr);
@@ -341,6 +432,7 @@ const App: React.FC = () => {
     );
   }
 
+  // ===== DASHBOARD =====
   return (
     <DashboardScreen 
       profile={profile} 
