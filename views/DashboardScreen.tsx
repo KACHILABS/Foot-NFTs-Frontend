@@ -242,8 +242,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const telegramId = localStorage.getItem('telegramId');
       const token = localStorage.getItem('token');
       if (!telegramId || !token) {
-        // Token not yet in localStorage (e.g. right after first login) —
-        // fall back to fetching rank via the leaderboard user endpoint
         if (backendUserId) {
           try {
             const rankRes = await fetch(`${API_BASE}/leaderboard/user/${backendUserId}`);
@@ -267,7 +265,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (onUpdateWallet) {
           onUpdateWallet({ balanceFTC: newBalance });
         }
-        // globalRank is null only when balance is 0 — show dash in that case
         if (data.profile.globalRank != null) {
           setUserRank(data.profile.globalRank);
         }
@@ -297,11 +294,9 @@ const refreshProfile = async () => {
         onUpdateWallet({ address: data.profile.walletAddress });
         setTempWalletAddress(data.profile.walletAddress);
       }
-      // Update rank from backend profile if available
       if (data.profile.globalRank != null) {
         setUserRank(data.profile.globalRank);
       }
-      // Update avatar in localStorage only — do NOT reload the page here
       if (data.profile.avatar) {
         const savedProfile = localStorage.getItem('user_profile');
         if (savedProfile) {
@@ -387,7 +382,6 @@ const refreshProfile = async () => {
     
     setUploadingAvatar(true);
     
-    // Compress image
     const compressImage = (base64: string, maxWidth: number = 500): Promise<string> => {
       return new Promise((resolve) => {
         const img = new Image();
@@ -421,7 +415,6 @@ const refreshProfile = async () => {
           const result = await api.user.updateAvatar(backendUserId, compressedBase64);
           
           if (result.success) {
-            // Update localStorage
             const savedProfile = localStorage.getItem('user_profile');
             if (savedProfile) {
               try {
@@ -431,7 +424,6 @@ const refreshProfile = async () => {
               } catch (_) {}
             }
             
-            // Update the profile prop directly so the UI reflects the change without a reload
             if (profile) {
               profile.avatar = compressedBase64;
             }
@@ -472,7 +464,6 @@ const refreshProfile = async () => {
           onUpdateWallet({ address: tempWalletAddress });
         }
         
-        // Update localStorage
         const savedWallet = localStorage.getItem('user_wallet');
         if (savedWallet) {
           const walletData = JSON.parse(savedWallet);
@@ -502,7 +493,6 @@ const refreshProfile = async () => {
           const lb = res.leaderboard || [];
           setLeaderboardData(lb);
 
-          // Use leaderboard data to set balance immediately — same source as LeaderboardModal
           const me = lb.find((u: any) => u.id === backendUserId);
           if (me && me.ftcBalance != null) {
             setUserFTCBalance(me.ftcBalance);
@@ -510,8 +500,6 @@ const refreshProfile = async () => {
           }
         }
 
-        // Fetch this user's accurate rank from the dedicated endpoint
-        // This runs in parallel with refreshBalance and acts as a safety net
         const rankRes = await fetch(`${API_BASE}/leaderboard/user/${backendUserId}`);
         const rankData = await rankRes.json();
         if (rankData.success && rankData.rank != null) {
@@ -525,7 +513,7 @@ const refreshProfile = async () => {
     loadReferralStats();
   }, [backendUserId]);
 
-  // Update wallet address when wallet prop changes (address only — balance comes from refreshBalance)
+  // Update wallet address when wallet prop changes
   useEffect(() => {
     if (wallet?.address) {
       setTempWalletAddress(wallet.address);
@@ -580,15 +568,13 @@ const refreshProfile = async () => {
     }
   }, [activeTab]);
 
-  // Check for welcome bonus — run ONCE on mount only
+  // Check for welcome bonus
   useEffect(() => {
     const checkWelcomeBonus = async () => {
-      // If either flag is set, never show again
       const hasSeenWelcome = localStorage.getItem('has_seen_welcome_bonus');
       const bonusClaimed = localStorage.getItem('welcome_bonus_claimed');
       if (hasSeenWelcome || bonusClaimed === 'true') return;
 
-      // Ask the backend — if already claimed, mark locally and bail
       if (backendUserId) {
         const telegramId = (onboarding as any).telegramId || localStorage.getItem('telegramId');
         if (telegramId) {
@@ -599,7 +585,6 @@ const refreshProfile = async () => {
               localStorage.setItem('has_seen_welcome_bonus', 'true');
               return;
             }
-            // Only show popup if backend confirms bonus NOT yet claimed
             setShowWelcomeBonus(true);
           } catch (error) {
             console.error('Failed to check bonus status:', error);
@@ -613,7 +598,7 @@ const refreshProfile = async () => {
 
     checkWelcomeBonus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ← empty deps: run once on mount only
+  }, []);
 
   // ===== NOTIFICATION SYSTEM =====
   
@@ -690,13 +675,12 @@ const refreshProfile = async () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ===== EARNING FUNCTION =====
-  // Reasons where the backend route already updated ftc_balance — don't call add-ftc again
   const SKIP_BACKEND_REASONS = new Set([
     'trivia_correct',
     'trivia_participation',
-    'voting',           // banter vote route credits voter directly
-    'jersey_checkin',   // jersey checkin route credits directly
-    'country_tag',      // banter/country-tag route credits directly
+    'voting',
+    'jersey_checkin',
+    'country_tag',
   ]);
 
   const handleEarnFTC = async (amount: number, reason: string = 'activity') => {
@@ -728,14 +712,10 @@ const refreshProfile = async () => {
       }
     }
 
-    // Optimistically update balance in UI immediately, then confirm from server
     setUserFTCBalance(prev => (prev || 0) + amount);
 
-    // Always refresh balance from server — this is the single source of truth
-    // refreshBalance also calls onUpdateWallet with the real DB value
     await refreshBalance();
 
-    // Refresh leaderboard list display
     try {
       const res = await api.leaderboard.getTop();
       if (res.success) setLeaderboardData(res.leaderboard || []);
@@ -778,7 +758,6 @@ const refreshProfile = async () => {
         
         tg?.HapticFeedback.notificationOccurred('success');
         
-        // Refresh leaderboard list display only — rank comes from refreshBalance via globalRank
         const res = await api.leaderboard.getTop();
         if (res.success) {
           setLeaderboardData(res.leaderboard || []);
@@ -987,7 +966,6 @@ const refreshProfile = async () => {
         <p className="text-[10px] uppercase font-black tracking-[0.2em] opacity-80 mb-2">Total Balance</p>
         <h2 className="text-5xl font-black mb-6 tracking-tighter">{userFTCBalance} <span className="text-xl opacity-60">FTC</span></h2>
         
-        {/* Editable Wallet Address */}
         <div className="w-full bg-black/20 backdrop-blur-md p-4 rounded-2xl border border-white/10 group">
           <div className="flex justify-between items-center mb-1">
             <span className="text-[8px] font-black uppercase text-white/60">TON Wallet Address</span>
@@ -1043,7 +1021,6 @@ const refreshProfile = async () => {
         </div>
       )}
       
-      {/* Deposit and Swap Buttons - VISIBLE NOW */}
       <div className="grid grid-cols-2 gap-4">
         <button 
           onClick={() => tg?.showAlert?.('TON Deposit coming soon!')}
@@ -1081,7 +1058,6 @@ const refreshProfile = async () => {
                   {idx === 2 && <span className="text-xl">🥉</span>}
                   {idx > 2 && <span className="text-lg font-black text-white">#{idx + 1}</span>}
                 </div>
-                {/* Avatar */}
                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-700 shrink-0">
                   {user.avatar ? (
                     <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
@@ -1148,7 +1124,41 @@ const refreshProfile = async () => {
           ))}
         </div>
 
-        {/* Trophy Room entry */}
+        {/* ===== SUPPORT CENTER CARD ===== */}
+        <div 
+          onClick={() => {
+            tg?.HapticFeedback.selectionChanged();
+            tg?.showPopup({
+              title: '🛡️ Support Center',
+              message: 'How can we help you?\n\n📧 Email: support@footnfts.com\n💬 Telegram: @FootNfts_Official\n📖 FAQ: Coming soon',
+              buttons: [
+                { id: 'email', type: 'default', text: '📧 Email' },
+                { id: 'telegram', type: 'default', text: '💬 Telegram' },
+                { id: 'cancel', type: 'cancel', text: 'Close' }
+              ]
+            }, (buttonId: string) => {
+              if (buttonId === 'email') {
+                window.open('mailto:support@footnfts.com');
+              } else if (buttonId === 'telegram') {
+                window.open('https://t.me/FootNfts_Official');
+              }
+            });
+          }}
+          className="bg-darkCard rounded-[2.5rem] p-5 border border-blue-500/30 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-blue-950/40 border border-blue-500/30 flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform">
+            🛡️
+          </div>
+          <div className="flex-1">
+            <p className="font-black text-white text-sm tracking-tight">Support Center</p>
+            <p className="text-[9px] text-gray-400 font-medium mt-0.5">Help & FAQs</p>
+          </div>
+          <div className="bg-blue-500/20 text-blue-400 rounded-xl py-2 px-3 shrink-0">
+            <span className="text-[8px] font-black uppercase tracking-widest">Contact</span>
+          </div>
+        </div>
+
+        {/* ===== TROPHY ROOM ENTRY ===== */}
         <div
           onClick={() => { tg?.HapticFeedback.selectionChanged(); setInTrophyRoom(true); }}
           className="bg-darkCard rounded-[2.5rem] p-5 border border-yellow-500/30 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group"
@@ -1378,7 +1388,6 @@ const refreshProfile = async () => {
                   </div>
                 </Card>
                 
-                {/* Referral Stats Section */}
                 <div className="bg-darkDeep rounded-2xl p-4 border border-gray-800">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1397,7 +1406,6 @@ const refreshProfile = async () => {
                 <div className="grid grid-cols-2 gap-3"><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.6-1.38-.97-2.23-1.56-.99-.69-.35-1.07.22-1.69.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.06-.2-.07-.06-.18-.04-.26-.02-.11.02-1.87 1.19-5.28 3.49-.5.34-.95.51-1.36.5-.45-.01-1.31-.25-1.95-.46-.78-.25-1.4-.38-1.35-.81.03-.22.33-.45.9-.68 3.56-1.55 5.93-2.57 7.12-3.06 3.39-1.39 4.09-1.63 4.55-1.64.1 0 .33.02.48.15.12.1.16.25.17.37-.01.09-.02.24-.05.39z"/></svg>X (Twitter)</button><button onClick={() => { const text = `Join me on FOOT NFTs! Use my referral code: ${onboarding.referralCode}`; window.open(`https://wa.me/?text=${encodeURIComponent(text + ' https://t.me/FootNftsapp_bot?startapp=ref_' + onboarding.referralCode)}`, '_blank'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider hover:bg-green-500/20 transition-all" style={{ fontFamily: "'Oxanium', sans-serif" }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>WhatsApp</button></div>
                 <div className="mt-4 pt-3 border-t border-gray-800"><div className="flex justify-between text-[9px] text-gray-500 mb-1"><span style={{ fontFamily: "'Rajdhani', sans-serif" }}>Next reward at 5 referrals</span><span style={{ fontFamily: "'Space Mono', monospace" }}>{referralStats.count}/5</span></div><div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-green-600 rounded-full transition-all duration-500" style={{ width: `${Math.min((referralStats.count / 5) * 100, 100)}%` }}></div></div>{referralStats.count >= 5 && <p className="text-[8px] text-green-500 mt-2 text-center font-bold" style={{ fontFamily: "'Oxanium', sans-serif" }}>🎉 Bonus unlocked! +25 FTC</p>}</div></Card></div>
                 
-                {/* Terms and Conditions */}
                 <div className="mt-2 pt-2 border-t border-gray-800">
                   <p className="text-[8px] text-gray-600 text-center" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
                     By using FOOT NFTs, you agree to our Terms of Service and Privacy Policy.
