@@ -1,6 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserProfile } from '../types';
-import { CLUBS } from '../constants';
 
 // COUNTRY HASHTAG LIST
 const COUNTRY_NAMES = new Set([
@@ -21,7 +20,6 @@ interface BanterMessage {
   userId: string;
   senderName: string;
   senderAvatar: string | null;
-  favoriteClubId: string | null;
   content: string;
   clubTag: string | null;
   votes: number;
@@ -41,16 +39,9 @@ interface BanterHallScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
-const POLL_INTERVAL = 30000;
+const POLL_INTERVAL = 30000; // Changed from 4000 to 30000 (30 seconds)
 const MIN_MESSAGE_LENGTH = 15;
 const LONG_PRESS_MS = 500;
-
-// Helper to get club logo
-const getClubLogo = (clubId: string | null) => {
-  if (!clubId) return null;
-  const club = CLUBS.find(c => c.id === clubId);
-  return club?.badge || null;
-};
 
 const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
   profile,
@@ -91,6 +82,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
 
   const loadMessages = useCallback(async () => {
     try {
+      // Added limit=20 to reduce data transfer
       const res = await fetch(`${API_BASE}/banter/feed?limit=20`);
       const data = await res.json();
       if (data.success && data.posts) {
@@ -100,7 +92,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
           senderName: (post.user?.username && post.user.username !== 'User')
             ? post.user.username : `Fan_${post.user?.telegram_id}`,
           senderAvatar: post.user?.avatar || null,
-          favoriteClubId: post.user?.favorite_club_id || null,
           content: post.content,
           clubTag: post.club_tag,
           votes: post.votes_received || 0,
@@ -382,7 +373,6 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
             const aggReactions = aggregateReactions(msg.reactions);
             const isPickerOpen = emojiPickerFor === msg.id;
             const ct = detectCountryTag(mainPart);
-            const clubLogo = getClubLogo(msg.favoriteClubId);
             return (
               <div key={msg.id} className={`bh-msg-row ${msg.isMe ? 'me' : 'them'}`}>
                 <div className={`bh-msg-group ${msg.isMe ? 'me' : 'them'}`}>
@@ -394,19 +384,7 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
                     </div>
                   )}
                   <div className="bh-msg-col">
-                    {!msg.isMe && (
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {/* Club Logo - NEW */}
-                        {clubLogo && (
-                          <img 
-                            src={clubLogo} 
-                            className="w-4 h-4 rounded-full object-contain" 
-                            alt="club"
-                          />
-                        )}
-                        <span className="bh-sender-name">{msg.senderName}</span>
-                      </div>
-                    )}
+                    {!msg.isMe && <span className="bh-sender-name">{msg.senderName}</span>}
 
                     <div
                       className={`bh-bubble ${msg.isMe ? 'me' : 'them'}`}
@@ -557,6 +535,7 @@ const GLOBAL_STYLES = `
 
   .bh-root { position:fixed; inset:0; display:flex; flex-direction:column; background:#0d0d0d; font-family:'Rajdhani',sans-serif; overflow:hidden; z-index:100; }
 
+  /* Header */
   .bh-header { flex-shrink:0; display:flex; align-items:center; gap:10px; padding:10px 14px; background:#111827; border-bottom:1px solid #1f2937; }
   .bh-back-btn { background:none; border:none; color:#9ca3af; cursor:pointer; padding:4px; display:flex; align-items:center; }
   .bh-avatar { width:38px; height:38px; border-radius:50%; background:#14532d; border:2px solid #22c55e; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
@@ -564,6 +543,7 @@ const GLOBAL_STYLES = `
   .bh-title { font-family:'Oxanium',sans-serif; font-weight:700; font-size:15px; color:#fff; letter-spacing:.05em; }
   .bh-subtitle { font-family:'Space Mono',monospace; font-size:9px; color:#22c55e; margin-top:1px; }
 
+  /* Online users */
   .bh-online-stack { display:flex; align-items:center; gap:2px; }
   .bh-mini-avatar { width:22px; height:22px; border-radius:50%; background:#374151; border:1.5px solid #4b5563; display:flex; align-items:center; justify-content:center; font-size:9px; margin-left:-6px; overflow:hidden; flex-shrink:0; }
   .bh-mini-avatar:first-child { margin-left:0; }
@@ -571,16 +551,20 @@ const GLOBAL_STYLES = `
   .bh-mini-overflow { background:#1f2937; color:#9ca3af; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; }
   .bh-online-label { font-family:'Space Mono',monospace; font-size:8px; color:#22c55e; margin-left:6px; white-space:nowrap; }
 
+  /* Banner */
   .bh-banner { flex-shrink:0; background:rgba(20,83,45,.22); border-bottom:1px solid rgba(34,197,94,.18); padding:5px 14px; }
   .bh-banner-text { font-family:'Space Mono',monospace; font-size:9px; color:#86efac; }
 
+  /* Messages */
   .bh-messages { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 10px 6px; display:flex; flex-direction:column; gap:4px; }
 
+  /* Empty state */
   .bh-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:60px; }
   .bh-empty-icon { width:68px; height:68px; border-radius:50%; background:#1f2937; display:flex; align-items:center; justify-content:center; font-size:34px; margin-bottom:12px; }
   .bh-empty-title { font-family:'Oxanium',sans-serif; color:#9ca3af; font-weight:600; font-size:14px; margin:0; }
   .bh-empty-sub { font-family:'Rajdhani',sans-serif; color:#4b5563; font-size:11px; margin:3px 0 0; }
 
+  /* Message rows */
   .bh-msg-row { display:flex; width:100%; }
   .bh-msg-row.me { justify-content:flex-end; }
   .bh-msg-row.them { justify-content:flex-start; }
@@ -602,15 +586,18 @@ const GLOBAL_STYLES = `
   .bh-banter-badge { display:inline-block; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; color:#facc15; margin-top:3px; }
   .bh-country-badge { display:inline-block; font-family:'Space Mono',monospace; font-size:8px; font-weight:700; color:#60a5fa; margin-top:3px; margin-left:4px; }
 
+  /* Reply quote */
   .bh-reply-preview { background:rgba(0,0,0,.28); border-left:3px solid #22c55e; border-radius:6px; padding:4px 8px; margin-bottom:6px; }
   .bh-reply-preview-text { font-family:'Space Mono',monospace; font-size:9px; color:#86efac; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 
+  /* Emoji picker */
   .bh-emoji-picker { position:absolute; bottom:calc(100% + 6px); display:flex; gap:4px; background:#1f2937; border:1px solid #374151; border-radius:999px; padding:6px 10px; box-shadow:0 8px 24px rgba(0,0,0,.5); z-index:50; animation:bh-fadein .15s ease; }
   .bh-emoji-picker.me { right:0; }
   .bh-emoji-picker.them { left:0; }
   .bh-emoji-btn { background:none; border:none; font-size:18px; cursor:pointer; padding:2px 3px; border-radius:8px; transition:transform .1s; }
   .bh-emoji-btn:active { transform:scale(1.3); }
 
+  /* WhatsApp-style reactions */
   .bh-reactions { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; margin-left:4px; }
   .bh-reactions.me { justify-content:flex-end; margin-right:4px; margin-left:0; }
   .bh-reaction-chip { background:#1e2937; border:1px solid #334155; border-radius:30px; padding:4px 8px; display:inline-flex; align-items:center; gap:4px; cursor:pointer; transition:all 0.15s ease; }
@@ -620,6 +607,7 @@ const GLOBAL_STYLES = `
   .bh-reaction-count { font-family:'Space Mono',monospace; font-size:10px; font-weight:600; color:#94a3b8; }
   .bh-reaction-chip.mine .bh-reaction-count { color:#4ade80; }
 
+  /* Meta row */
   .bh-meta { display:flex; align-items:center; gap:6px; margin-top:2px; margin-left:4px; }
   .bh-meta.me { justify-content:flex-end; margin-right:4px; margin-left:0; }
   .bh-time { font-family:'Space Mono',monospace; font-size:8px; color:#4b5563; }
@@ -631,12 +619,15 @@ const GLOBAL_STYLES = `
   .bh-votes { color:#facc15; }
   .bh-vote-earn { color:#4ade80; margin-left:2px; }
 
+  /* Typing indicator */
   .bh-typing { background:rgba(21,128,61,.4); border-radius:14px 14px 4px 14px; padding:8px 12px; display:flex; gap:4px; align-items:center; }
   .bh-dot { width:6px; height:6px; border-radius:50%; background:#fff; animation:bh-bounce 1.2s infinite ease-in-out; }
 
+  /* Scroll button */
   .bh-scroll-btn { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#15803d; border:none; border-radius:999px; color:#fff; font-family:'Space Mono',monospace; font-size:10px; font-weight:700; padding:6px 14px; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.4); z-index:10; animation:bh-fadein .2s ease; white-space:nowrap; }
   .bh-scroll-btn:active { transform:translateX(-50%) scale(.95); }
 
+  /* Input area */
   .bh-input-area { flex-shrink:0; background:#111827; border-top:1px solid #1f2937; padding:8px 12px 10px; }
   .bh-reply-strip { display:flex; align-items:center; gap:8px; background:rgba(34,197,94,.08); border-left:3px solid #22c55e; border-radius:8px; padding:6px 10px; margin-bottom:8px; }
   .bh-reply-strip-info { flex:1; display:flex; flex-direction:column; min-width:0; }
@@ -645,11 +636,13 @@ const GLOBAL_STYLES = `
   .bh-reply-close { background:none; border:none; color:#6b7280; cursor:pointer; font-size:12px; padding:2px 4px; flex-shrink:0; }
   .bh-reply-close:hover { color:#ef4444; }
 
+  /* Progress bar */
   .bh-progress-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
   .bh-progress-track { flex:1; height:3px; background:#1f2937; border-radius:999px; overflow:hidden; }
   .bh-progress-fill { height:100%; border-radius:999px; transition:width .3s,background-color .3s; }
   .bh-progress-label { font-family:'Space Mono',monospace; font-size:9px; font-weight:700; min-width:32px; text-align:right; }
 
+  /* Input row */
   .bh-input-row { display:flex; align-items:center; gap:8px; }
   .bh-input-wrapper { flex:1; display:flex; align-items:center; background:#0d0d0d; border-radius:999px; border:1px solid #374151; padding:6px 10px 6px 14px; gap:6px; transition:border-color .2s; }
   .bh-input-wrapper:focus-within { border-color:#22c55e; }
@@ -663,13 +656,16 @@ const GLOBAL_STYLES = `
   .bh-send-btn.active:active { transform:scale(.92); }
   .bh-input-hint { font-family:'Space Mono',monospace; font-size:8px; color:#4b5563; text-align:center; margin:6px 0 0; }
 
+  /* Toast */
   .bh-toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:200; background:#16a34a; border-radius:999px; padding:7px 16px; display:flex; align-items:center; gap:6px; box-shadow:0 8px 32px rgba(0,0,0,.5); animation:bh-fadein .3s ease; }
   .bh-toast-text { font-family:'Oxanium',sans-serif; font-size:13px; font-weight:800; color:#000; letter-spacing:.04em; }
 
+  /* Loading */
   .bh-loading { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
   .bh-spinner { width:36px; height:36px; border:3px solid #22c55e; border-top-color:transparent; border-radius:50%; animation:bh-spin .8s linear infinite; }
   .bh-loading-text { font-family:'Rajdhani',sans-serif; font-size:13px; color:#6b7280; margin:0; }
 
+  /* Animations */
   @keyframes bh-bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
   @keyframes bh-fadein { from{opacity:0;transform:translateX(-50%) translateY(-6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes bh-spin { to{transform:rotate(360deg)} }
