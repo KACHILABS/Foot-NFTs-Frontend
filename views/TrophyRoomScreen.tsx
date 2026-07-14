@@ -8,7 +8,6 @@ interface Badge {
   emoji: string;
   description: string;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  ftcReward: number;
   category: string;
   earnedAt?: string;
 }
@@ -26,7 +25,12 @@ const RARITY_STYLE: Record<string, { border: string; bg: string; text: string; l
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
-  jersey: '👕', banter: '🔥', earnings: '💰', referral: '🤝', trivia: '🧠', special: '🏅',
+  jersey: '👕', 
+  banter: '🔥', 
+  earnings: '💰', 
+  referral: '🤝', 
+  trivia: '🧠', 
+  special: '🏅',
 };
 
 const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUserId }) => {
@@ -231,8 +235,8 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
 
                   <div className="space-y-2 mb-6">
                     <div className="flex justify-between text-sm bg-darkDeep rounded-xl px-4 py-3">
-                      <span className="text-gray-400">FTC Reward</span>
-                      <span className="text-green-500 font-black">+{selectedBadge.ftcReward} FTC</span>
+                      <span className="text-gray-400">Category</span>
+                      <span className="text-white font-bold capitalize">{selectedBadge.category}</span>
                     </div>
                     {isEarned && earnedData?.earnedAt && (
                       <div className="flex justify-between text-sm bg-darkDeep rounded-xl px-4 py-3">
