@@ -174,6 +174,83 @@
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
+        .broadcast-panel {
+            background: linear-gradient(180deg, #0c1120 0%, #12182d 100%);
+            border: 1px solid rgba(34, 197, 94, 0.12);
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: 0 24px 90px rgba(0, 0, 0, 0.35);
+            max-width: 940px;
+            margin: 0 auto;
+        }
+
+        .broadcast-panel .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .broadcast-panel label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .broadcast-panel input,
+        .broadcast-panel textarea {
+            width: 100%;
+            padding: 18px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .broadcast-panel input:focus,
+        .broadcast-panel textarea:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+        }
+
+        .broadcast-panel textarea {
+            min-height: 180px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .broadcast-panel .hint {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 12px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .broadcast-panel .btn {
+            width: auto;
+            min-width: 180px;
+            padding: 14px 28px;
+            border-radius: 18px;
+            font-size: 14px;
+            letter-spacing: 0.04em;
+        }
+
+        .broadcast-panel .btn-primary {
+            background: #22c55e;
+            color: black;
+            box-shadow: 0 18px 30px rgba(34, 197, 94, 0.18);
+        }
+
+        .broadcast-panel .btn-primary:hover {
+            background: #16a34a;
+        }
+
         /* Controls */
         .controls {
             display: flex;
@@ -631,41 +708,71 @@
             document.getElementById('usersTableBody').innerHTML =
                 `<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
 
+            let successMessage = 'Dashboard data loaded successfully.';
+            let hasError = false;
+
             try {
                 const sentimentRes = await retryFetch(`${API_BASE}/admin/sentiment?userId=${currentUserId}&days=${days}&sentiment=${sentiment}`);
                 const sentimentData = await sentimentRes.json();
 
-                if (!sentimentData.success) {
-                    throw new Error(sentimentData.error || 'Unable to load sentiment data');
+                if (sentimentData.success) {
+                    currentData = sentimentData.data || [];
+                    renderSentimentTable(currentData);
+                    renderOverviewStats(sentimentData.stats || {});
+                } else {
+                    hasError = true;
+                    showStatus(`Sentiment load warning: ${sentimentData.error || 'No sentiment data available.'}`, 'error');
+                    renderSentimentTable([]);
+                    renderOverviewStats({ positive: 0, negative: 0, neutral: 0, total: 0 });
                 }
-                currentData = sentimentData.data || [];
-                renderSentimentTable(currentData);
-                renderOverviewStats(sentimentData.stats || {});
+            } catch (error) {
+                hasError = true;
+                console.error('Sentiment load error:', error);
+                showStatus('Sentiment data could not be loaded. Showing empty state.', 'error');
+                renderSentimentTable([]);
+                renderOverviewStats({ positive: 0, negative: 0, neutral: 0, total: 0 });
+            }
 
+            try {
                 const summaryRes = await retryFetch(`${API_BASE}/admin/sentiment/summary?userId=${currentUserId}&days=${days}`);
                 const summaryData = await summaryRes.json();
-                if (!summaryData.success) {
-                    throw new Error(summaryData.error || 'Unable to load summary data');
+                if (summaryData.success) {
+                    renderSummaryTable(summaryData.data || []);
+                } else {
+                    hasError = true;
+                    showStatus(`Summary load warning: ${summaryData.error || 'No summary data available.'}`, 'error');
+                    renderSummaryTable([]);
                 }
-                renderSummaryTable(summaryData.data || []);
+            } catch (error) {
+                hasError = true;
+                console.error('Summary load error:', error);
+                showStatus('Summary data could not be loaded. Showing empty state.', 'error');
+                renderSummaryTable([]);
+            }
 
+            try {
                 const statsRes = await retryFetch(`${API_BASE}/admin/analytics?userId=${currentUserId}&days=${days}`);
                 const statsData = await statsRes.json();
-                if (!statsData.success) {
-                    throw new Error(statsData.error || 'Unable to load analytics data');
+                if (statsData.success) {
+                    document.getElementById('totalUsers').textContent = statsData.analytics.totalUsers || 0;
+                    document.getElementById('activeUsers').textContent = statsData.analytics.activeUsers || 0;
+                    document.getElementById('totalFTC').textContent = statsData.analytics.totalFTC || 0;
+                    document.getElementById('totalBanter').textContent = statsData.analytics.totalBanter || 0;
+                    document.getElementById('jerseyCheckins').textContent = statsData.analytics.jerseyCheckins || 0;
+                    document.getElementById('activeUsersLabel').textContent = days === '7' ? 'Active Users (7d)' : `Active Users (${days}d)`;
+                } else {
+                    hasError = true;
+                    showStatus(`Analytics load warning: ${statsData.error || 'No analytics data available.'}`, 'error');
                 }
-                document.getElementById('totalUsers').textContent = statsData.analytics.totalUsers || 0;
-                document.getElementById('activeUsers').textContent = statsData.analytics.activeUsers || 0;
-                document.getElementById('totalFTC').textContent = statsData.analytics.totalFTC || 0;
-                document.getElementById('totalBanter').textContent = statsData.analytics.totalBanter || 0;
-                document.getElementById('jerseyCheckins').textContent = statsData.analytics.jerseyCheckins || 0;
-                document.getElementById('activeUsersLabel').textContent = days === '7' ? 'Active Users (7d)' : `Active Users (${days}d)`;
-
-                await loadUsers(true);
-                showStatus('Dashboard data loaded successfully.', 'success');
             } catch (error) {
-                console.error('Load error:', error);
-                showStatus('Unable to load admin data. Please retry.', 'error');
+                hasError = true;
+                console.error('Analytics load error:', error);
+                showStatus('Analytics data could not be loaded. Some cards may be empty.', 'error');
+            }
+
+            await loadUsers(true);
+            if (!hasError) {
+                showStatus(successMessage, 'success');
             }
         }
 
