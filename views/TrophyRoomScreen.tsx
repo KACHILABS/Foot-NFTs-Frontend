@@ -25,13 +25,20 @@ const RARITY_STYLES: Record<string, string> = {
   legendary: 'border-yellow-500 bg-yellow-950/40 text-yellow-400',
 };
 
-const CATEGORY_ICONS: Record<string, string> = {
-  jersey: '👕',
-  banter: '🔥',
-  earnings: '💰',
-  referral: '🤝',
-  trivia: '🧠',
-  general: '🏆',
+const CATEGORY_LABELS: Record<string, string> = {
+  jersey: 'Jersey',
+  banter: 'Banter',
+  earnings: 'Earnings',
+  referral: 'Referral',
+  trivia: 'Trivia',
+  general: 'General',
+};
+
+const RARITY_ORDER: Record<string, number> = {
+  legendary: 0,
+  epic: 1,
+  rare: 2,
+  common: 3,
 };
 
 const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUserId }) => {
@@ -43,6 +50,9 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
   useEffect(() => {
     if (backendUserId) {
       loadBadges();
+    } else {
+      setBadges([]);
+      setLoading(false);
     }
   }, [backendUserId]);
 
@@ -51,35 +61,45 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
     try {
       const res = await fetch(`${API_BASE}/badges/user/${backendUserId}`);
       const data = await res.json();
-      console.log('Badges data:', data); // Debug log
-      
+      console.log('Badges data:', data);
+
       if (data.success) {
-        // Check if the response has the nested structure
-        if (data.badges && data.badges.all) {
-          setBadges(data.badges.all);
-        } else if (data.badges && Array.isArray(data.badges)) {
-          setBadges(data.badges);
-        } else {
-          setBadges([]);
-        }
+        const badgeList = Array.isArray(data.badges)
+          ? data.badges
+          : data.badges?.all && Array.isArray(data.badges.all)
+            ? data.badges.all
+            : [];
+
+        const normalized = badgeList.map((badge: Badge) => ({
+          ...badge,
+          rarity: badge.rarity || 'common',
+          category: badge.category || 'general',
+          earned: Boolean(badge.earned),
+        }));
+
+        normalized.sort((a, b) => (RARITY_ORDER[a.rarity] || 3) - (RARITY_ORDER[b.rarity] || 3));
+        setBadges(normalized);
+      } else {
+        setBadges([]);
       }
     } catch (error) {
       console.error('Failed to load badges:', error);
+      setBadges([]);
     }
     setLoading(false);
   };
 
-  const earnedBadges = badges.filter(b => b.earned);
-  const lockedBadges = badges.filter(b => !b.earned);
-  const totalBadges = badges.length;
-  const earnedCount = earnedBadges.length;
-  const progress = totalBadges > 0 ? Math.round((earnedCount / totalBadges) * 100) : 0;
-
-  const filteredBadges = activeCategory === 'all' 
-    ? badges 
+  const filteredBadges = activeCategory === 'all'
+    ? badges
     : badges.filter(b => b.category === activeCategory);
 
-  const categories = ['all', ...Array.from(new Set(badges.map(b => b.category)))];
+  const earnedBadges = filteredBadges.filter(b => b.earned);
+  const lockedBadges = filteredBadges.filter(b => !b.earned);
+  const totalBadges = badges.length;
+  const earnedCount = badges.filter(b => b.earned).length;
+  const progress = totalBadges > 0 ? Math.round((earnedCount / totalBadges) * 100) : 0;
+
+  const categories = ['all', 'jersey', 'banter', 'earnings', 'referral', 'trivia'];
 
   const formatDate = (iso?: string) => {
     if (!iso) return '';
@@ -97,6 +117,18 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
     );
   }
 
+  if (!backendUserId) {
+    return (
+      <div className="fixed inset-0 bg-darkBg flex items-center justify-center z-50 px-4">
+        <div className="max-w-md text-center bg-darkCard border border-gray-800 rounded-3xl p-8">
+          <h2 className="text-xl font-black text-white mb-2">Trophy Room</h2>
+          <p className="text-gray-400">No user selected. Please return to the dashboard.</p>
+          <button onClick={onBack} className="mt-6 bg-green-600 text-black px-5 py-3 rounded-2xl font-bold">Back</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-darkBg flex flex-col overflow-hidden z-50">
       {/* Header */}
@@ -108,14 +140,12 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
             </svg>
           </button>
           <div>
-            <h2 className="text-xl font-black text-white">🏆 Trophy Room</h2>
+            <h2 className="text-xl font-black text-white">Trophy Room</h2>
             <p className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">
               {earnedCount}/{totalBadges} Badges Earned
             </p>
           </div>
         </div>
-
-        {/* Progress bar */}
         <div className="space-y-1.5 mt-3">
           <div className="flex justify-between text-[9px] font-mono text-gray-500 uppercase">
             <span>Collection Progress</span>
@@ -141,7 +171,7 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
                   : 'bg-gray-800 text-gray-400'
               }`}
             >
-              {cat === 'all' ? '⚡ All' : `${CATEGORY_ICONS[cat] || '🏅'} ${cat}`}
+              {cat === 'all' ? 'All' : CATEGORY_LABELS[cat] || cat}
             </button>
           ))}
         </div>
@@ -153,7 +183,7 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
         {earnedBadges.length > 0 && (
           <div className="mb-6">
             <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest mb-3 px-1">
-              ✅ Earned ({earnedBadges.length})
+              Earned ({earnedBadges.length})
             </p>
             <div className="grid grid-cols-3 gap-3">
               {earnedBadges.map((badge) => (
@@ -174,7 +204,7 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
         {lockedBadges.length > 0 && (
           <div>
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3 px-1">
-              🔒 Locked ({lockedBadges.length})
+              Locked ({lockedBadges.length})
             </p>
             <div className="grid grid-cols-3 gap-3">
               {lockedBadges.map((badge) => (
@@ -193,9 +223,9 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
 
         {badges.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full py-20">
-            <div className="text-6xl mb-4">🏆</div>
+            <div className="text-6xl mb-4">Trophy Room</div>
             <p className="text-gray-400 text-center">No badges yet</p>
-            <p className="text-gray-500 text-sm text-center">Start earning badges by using the app!</p>
+            <p className="text-gray-500 text-sm text-center">Start earning badges by using the app.</p>
           </div>
         )}
       </div>
@@ -217,7 +247,7 @@ const TrophyRoomScreen: React.FC<TrophyRoomScreenProps> = ({ onBack, backendUser
               <div>
                 <h3 className="text-xl font-black text-white">{selectedBadge.name}</h3>
                 <p className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">
-                  {selectedBadge.rarity?.toUpperCase() || 'COMMON'} · {CATEGORY_ICONS[selectedBadge.category] || '🏆'} {selectedBadge.category || 'General'}
+                  {selectedBadge.rarity?.toUpperCase() || 'COMMON'} · {CATEGORY_LABELS[selectedBadge.category] || selectedBadge.category || 'General'}
                 </p>
               </div>
               <p className="text-sm text-gray-400">{selectedBadge.description}</p>

@@ -155,6 +155,24 @@
             color: #22c55e;
             margin-top: 4px;
         }
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            display: none;
+        }
+        .status-message.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #a7f3d0;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.12);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
 
         /* Controls */
         .controls {
@@ -375,7 +393,7 @@
     <!-- ===== LOGIN ===== -->
     <div id="loginScreen" class="login-container">
         <div class="login-box">
-            <h1>🔐 Admin Access</h1>
+            <h1>Admin Access</h1>
             <p>Enter your Telegram ID to access the dashboard</p>
             <input type="text" id="telegramIdInput" class="login-input" placeholder="e.g., 8468840906" />
             <button class="login-btn" onclick="handleLogin()">Access Dashboard</button>
@@ -388,7 +406,7 @@
         <!-- Header -->
         <div class="admin-header">
             <div>
-                <h1>📊 Admin Analytics</h1>
+                <h1>Admin Analytics</h1>
                 <p style="font-size: 11px; color: #6b7280; font-family: 'Space Mono', monospace;">FOOT NFTs Dashboard</p>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -402,16 +420,17 @@
             <!-- Stats -->
             <div class="stats-grid" id="statsGrid">
                 <div class="stat-card"><div class="label">Total Users</div><div class="value" id="totalUsers">-</div></div>
-                <div class="stat-card"><div class="label">Active Users (7d)</div><div class="value" id="activeUsers">-</div></div>
+                <div class="stat-card"><div class="label" id="activeUsersLabel">Active Users (7d)</div><div class="value" id="activeUsers">-</div></div>
                 <div class="stat-card"><div class="label">FTC Distributed</div><div class="value" id="totalFTC">-</div></div>
                 <div class="stat-card"><div class="label">Banter Posts</div><div class="value" id="totalBanter">-</div></div>
+                <div class="stat-card"><div class="label">Jersey Check-ins</div><div class="value" id="jerseyCheckins">-</div></div>
             </div>
 
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab active" data-tab="sentiment">💬 Sentiment</button>
-                <button class="tab" data-tab="summary">📊 Summary</button>
-                <button class="tab" data-tab="users">👥 Users</button>
+                <button class="tab active" data-tab="overview">Overview</button>
+                <button class="tab" data-tab="users">Users</button>
+                <button class="tab" data-tab="sentiment">Sentiment</button>
             </div>
 
             <!-- Controls -->
@@ -428,33 +447,22 @@
                     <option value="negative">Negative</option>
                     <option value="neutral">Neutral</option>
                 </select>
-                <button class="btn btn-primary" onclick="downloadCSV()">📥 Download CSV</button>
-                <button class="btn btn-purple" onclick="downloadExcel()">📊 Download Excel</button>
+                <button class="btn btn-primary" onclick="downloadSentimentCSV()">Download Sentiment CSV</button>
+                <button class="btn btn-secondary" onclick="downloadUsersCSV()">Download Users CSV</button>
+                <button class="btn btn-purple" onclick="downloadSentimentExcel()">Download Sentiment Excel</button>
             </div>
 
-            <!-- Tab: Sentiment -->
-            <div id="tab-sentiment" class="tab-content active">
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>User</th><th>Message</th><th>Sentiment</th></tr>
-                        </thead>
-                        <tbody id="sentimentTableBody">
-                            <tr><td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Tab: Summary -->
-            <div id="tab-summary" class="tab-content">
-                <div class="table-container">
+            <!-- Tab: Overview -->
+            <div id="tab-overview" class="tab-content active">
+                <div class="status-message" id="statusMessage"></div>
+                <div class="stats-grid" id="overviewStatsGrid"></div>
+                <div class="table-container" style="margin-top: 24px;">
                     <table>
                         <thead>
                             <tr><th>Date</th><th>Positive</th><th>Negative</th><th>Neutral</th><th>Total</th></tr>
                         </thead>
                         <tbody id="summaryTableBody">
-                            <tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Loading...</td></tr>
+                            <tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Loading summary...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -464,15 +472,29 @@
             <div id="tab-users" class="tab-content">
                 <div class="controls" style="margin-bottom: 12px;">
                     <input type="text" id="userSearch" placeholder="Search by username or Telegram ID..." style="flex:1; min-width:200px;" onkeyup="loadUsers()" />
-                    <button class="btn btn-primary" onclick="loadUsers()">🔍 Search</button>
+                    <button class="btn btn-primary" onclick="loadUsers()">Search</button>
                 </div>
                 <div class="table-container">
                     <table>
                         <thead>
-                            <tr><th>Username</th><th>Telegram ID</th><th>FTC Balance</th><th>Joined</th></tr>
+                            <tr><th>Username</th><th>Telegram ID</th><th>FTC Balance</th><th>Joined</th><th>Club</th></tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <tr><td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">Loading users...</td></tr>
+                            <tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Sentiment -->
+            <div id="tab-sentiment" class="tab-content">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>User</th><th>Message</th><th>Sentiment</th></tr>
+                        </thead>
+                        <tbody id="sentimentTableBody">
+                            <tr><td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">Loading sentiment...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -482,7 +504,7 @@
 
     <!-- ===== ACCESS DENIED ===== -->
     <div id="accessDenied" class="access-denied" style="display: none;">
-        <div class="icon">🔒</div>
+        <div class="icon">Access Denied</div>
         <h2>Access Denied</h2>
         <p>You don't have permission to view this page.</p>
     </div>
@@ -491,7 +513,42 @@
         const API_BASE = 'https://footnfts.up.railway.app/api';
         const ADMIN_IDS = ['8468840906', '6964408627'];
         let currentData = [];
+        let currentUsers = [];
         let currentUserId = null;
+
+        function showStatus(message, type = 'error') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        function clearStatus() {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = '';
+            statusEl.className = 'status-message';
+            statusEl.style.display = 'none';
+        }
+
+        async function retryFetch(url, options = {}, retries = 3) {
+            let lastError = null;
+            for (let attempt = 1; attempt <= retries; attempt += 1) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`Request failed ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    lastError = error;
+                    if (attempt === retries) {
+                        throw error;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            throw lastError;
+        }
 
         // ===== LOGIN =====
         function handleLogin() {
@@ -510,7 +567,7 @@
                 errorEl.style.display = 'none';
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('adminDashboard').style.display = 'block';
-                document.getElementById('adminUser').textContent = '👤 ' + userId;
+                document.getElementById('adminUser').textContent = `Admin ${userId}`;
                 loadData();
                 loadUsers();
             } else {
@@ -521,7 +578,7 @@
             }
         }
 
-        document.getElementById('telegramIdInput').addEventListener('keypress', function(e) {
+        document.getElementById('telegramIdInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') handleLogin();
         });
 
@@ -535,7 +592,7 @@
 
         // ===== TABS =====
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', function() {
+            tab.addEventListener('click', function () {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 const tabName = this.dataset.tab;
@@ -548,117 +605,146 @@
         async function loadData() {
             const days = document.getElementById('dateRange').value;
             const sentiment = document.getElementById('sentimentFilter').value;
+            clearStatus();
 
             document.getElementById('sentimentTableBody').innerHTML =
                 `<tr><td colspan="4" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
             document.getElementById('summaryTableBody').innerHTML =
                 `<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
+            document.getElementById('usersTableBody').innerHTML =
+                `<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
 
             try {
-                // Load sentiment
-                const res = await fetch(`${API_BASE}/admin/sentiment?userId=${currentUserId}&days=${days}&sentiment=${sentiment}`);
-                const data = await res.json();
-                if (data.success) {
-                    currentData = data.data || [];
-                    renderSentimentTable(currentData);
-                }
+                const sentimentRes = await retryFetch(`${API_BASE}/admin/sentiment?userId=${currentUserId}&days=${days}&sentiment=${sentiment}`);
+                const sentimentData = await sentimentRes.json();
 
-                // Load summary
-                const summaryRes = await fetch(`${API_BASE}/admin/sentiment/summary?userId=${currentUserId}&days=${days}`);
+                if (!sentimentData.success) {
+                    throw new Error(sentimentData.error || 'Unable to load sentiment data');
+                }
+                currentData = sentimentData.data || [];
+                renderSentimentTable(currentData);
+                renderOverviewStats(sentimentData.stats || {});
+
+                const summaryRes = await retryFetch(`${API_BASE}/admin/sentiment/summary?userId=${currentUserId}&days=${days}`);
                 const summaryData = await summaryRes.json();
-                if (summaryData.success) {
-                    renderSummaryTable(summaryData.data || []);
+                if (!summaryData.success) {
+                    throw new Error(summaryData.error || 'Unable to load summary data');
                 }
+                renderSummaryTable(summaryData.data || []);
 
-                // Load analytics stats
-                const statsRes = await fetch(`${API_BASE}/admin/analytics?userId=${currentUserId}`);
+                const statsRes = await retryFetch(`${API_BASE}/admin/analytics?userId=${currentUserId}&days=${days}`);
                 const statsData = await statsRes.json();
-                if (statsData.success) {
-                    document.getElementById('totalUsers').textContent = statsData.analytics.totalUsers || 0;
-                    document.getElementById('activeUsers').textContent = statsData.analytics.activeUsers || 0;
-                    document.getElementById('totalFTC').textContent = statsData.analytics.totalFTC || 0;
-                    document.getElementById('totalBanter').textContent = statsData.analytics.totalBanter || 0;
+                if (!statsData.success) {
+                    throw new Error(statsData.error || 'Unable to load analytics data');
                 }
+                document.getElementById('totalUsers').textContent = statsData.analytics.totalUsers || 0;
+                document.getElementById('activeUsers').textContent = statsData.analytics.activeUsers || 0;
+                document.getElementById('totalFTC').textContent = statsData.analytics.totalFTC || 0;
+                document.getElementById('totalBanter').textContent = statsData.analytics.totalBanter || 0;
+                document.getElementById('jerseyCheckins').textContent = statsData.analytics.jerseyCheckins || 0;
+                document.getElementById('activeUsersLabel').textContent = days === '7' ? 'Active Users (7d)' : `Active Users (${days}d)`;
 
+                await loadUsers(true);
+                showStatus('Dashboard data loaded successfully.', 'success');
             } catch (error) {
                 console.error('Load error:', error);
+                showStatus('Unable to load admin data. Please retry.', 'error');
             }
         }
 
-        // ===== LOAD USERS =====
-        async function loadUsers() {
+        async function loadUsers(suppressStatus = false) {
+            const days = document.getElementById('dateRange').value;
             const search = document.getElementById('userSearch').value;
-
+            if (!suppressStatus) clearStatus();
             document.getElementById('usersTableBody').innerHTML =
-                `<tr><td colspan="4" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
+                `<tr><td colspan="5" style="text-align:center;padding:40px;"><div class="spinner"></div></td></tr>`;
 
             try {
-                const res = await fetch(`${API_BASE}/admin/users?userId=${currentUserId}&search=${encodeURIComponent(search)}`);
+                const res = await retryFetch(`${API_BASE}/admin/users?userId=${currentUserId}&days=${days}&search=${encodeURIComponent(search)}`);
                 const data = await res.json();
-                if (data.success && data.users) {
-                    renderUsersTable(data.users);
+                if (!data.success) {
+                    throw new Error(data.error || 'Unable to load users');
                 }
+                currentUsers = data.users || [];
+                renderUsersTable(currentUsers);
             } catch (error) {
                 console.error('Users load error:', error);
+                if (!suppressStatus) {
+                    showStatus('Unable to load user list. Please retry.', 'error');
+                }
+                document.getElementById('usersTableBody').innerHTML =
+                    `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">Failed to load users</td></tr>`;
             }
         }
 
-        // ===== RENDER TABLES =====
+        function renderOverviewStats(stats) {
+            const container = document.getElementById('overviewStatsGrid');
+            container.innerHTML = `
+                <div class="stat-card"><div class="label">Positive</div><div class="value">${stats.positive || 0}</div></div>
+                <div class="stat-card"><div class="label">Negative</div><div class="value">${stats.negative || 0}</div></div>
+                <div class="stat-card"><div class="label">Neutral</div><div class="value">${stats.neutral || 0}</div></div>
+                <div class="stat-card"><div class="label">Total Sentiment</div><div class="value">${stats.total || (stats.positive + stats.negative + stats.neutral) || 0}</div></div>
+            `;
+        }
+
         function renderSentimentTable(data) {
             const tbody = document.getElementById('sentimentTableBody');
             if (!data || data.length === 0) {
                 tbody.innerHTML =
-                `<tr><td colspan="4" style="text-align:center;padding:40px;color:#6b7280;">No data found</td></tr>`;
+                    `<tr><td colspan="4" style="text-align:center;padding:40px;color:#6b7280;">No data found</td></tr>`;
                 return;
             }
             tbody.innerHTML = data.map(row => `
-                    <tr>
-                        <td style="font-size:11px;color:#6b7280;font-family:'Space Mono',monospace;">${new Date(row.created_at).toLocaleDateString()}</td>
-                        <td>${row.user?.username || 'Anonymous'}</td>
-                        <td style="max-width:300px;word-break:break-word;">${row.content || '-'}</td>
-                        <td><span class="badge badge-${row.sentiment}">${(row.sentiment || 'neutral').toUpperCase()}</span></td>
-                    </tr>
-                `).join('');
+                <tr>
+                    <td style="font-size:11px;color:#6b7280;font-family:'Space Mono',monospace;">${new Date(row.created_at).toLocaleDateString()}</td>
+                    <td>${row.user?.username || 'Anonymous'}</td>
+                    <td style="max-width:300px;word-break:break-word;">${row.content || '-'}</td>
+                    <td><span class="badge badge-${row.sentiment}">${(row.sentiment || 'neutral').toUpperCase()}</span></td>
+                </tr>
+            `).join('');
         }
 
         function renderSummaryTable(data) {
             const tbody = document.getElementById('summaryTableBody');
             if (!data || data.length === 0) {
                 tbody.innerHTML =
-                `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">No summary data</td></tr>`;
+                    `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">No summary data</td></tr>`;
                 return;
             }
             tbody.innerHTML = data.map(row => `
-                    <tr>
-                        <td style="font-family:'Space Mono',monospace;font-size:11px;color:#6b7280;">${row.date}</td>
-                        <td style="color:#22c55e;font-weight:bold;">${row.positive_count}</td>
-                        <td style="color:#ef4444;font-weight:bold;">${row.negative_count}</td>
-                        <td style="color:#6b7280;">${row.neutral_count}</td>
-                        <td style="font-weight:bold;">${row.total_count}</td>
-                    </tr>
-                `).join('');
+                <tr>
+                    <td style="font-family:'Space Mono',monospace;font-size:11px;color:#6b7280;">${row.date}</td>
+                    <td style="color:#22c55e;font-weight:bold;">${row.positive_count}</td>
+                    <td style="color:#ef4444;font-weight:bold;">${row.negative_count}</td>
+                    <td style="color:#6b7280;">${row.neutral_count}</td>
+                    <td style="font-weight:bold;">${row.total_count}</td>
+                </tr>
+            `).join('');
         }
 
         function renderUsersTable(users) {
             const tbody = document.getElementById('usersTableBody');
             if (!users || users.length === 0) {
                 tbody.innerHTML =
-                `<tr><td colspan="4" style="text-align:center;padding:40px;color:#6b7280;">No users found</td></tr>`;
+                    `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">No users found</td></tr>`;
                 return;
             }
             tbody.innerHTML = users.map(user => `
-                    <tr>
-                        <td>${user.username || 'User'}</td>
-                        <td style="font-family:'Space Mono',monospace;font-size:12px;color:#6b7280;">${user.telegram_id}</td>
-                        <td style="color:#22c55e;font-weight:bold;">${user.ftc_balance || 0}</td>
-                        <td style="font-size:11px;color:#6b7280;">${new Date(user.created_at).toLocaleDateString()}</td>
-                    </tr>
-                `).join('');
+                <tr>
+                    <td>${user.username || 'User'}</td>
+                    <td style="font-family:'Space Mono',monospace;font-size:12px;color:#6b7280;">${user.telegram_id}</td>
+                    <td style="color:#22c55e;font-weight:bold;">${user.ftc_balance || 0}</td>
+                    <td style="font-size:11px;color:#6b7280;">${user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
+                    <td>${user.favorite_club_name || '-'}</td>
+                </tr>
+            `).join('');
         }
 
-        // ===== EXPORT =====
-        function downloadCSV() {
-            if (!currentData || currentData.length === 0) { alert('No data'); return; }
+        function downloadSentimentCSV() {
+            if (!currentData || currentData.length === 0) {
+                alert('No sentiment data available');
+                return;
+            }
             const headers = ['Date', 'User', 'Message', 'Sentiment'];
             const rows = currentData.map(r => [
                 new Date(r.created_at).toLocaleDateString(),
@@ -670,8 +756,28 @@
             downloadFile(csv, `sentiment_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
         }
 
-        function downloadExcel() {
-            if (!currentData || currentData.length === 0) { alert('No data'); return; }
+        function downloadUsersCSV() {
+            if (!currentUsers || currentUsers.length === 0) {
+                alert('No user data available');
+                return;
+            }
+            const headers = ['Username', 'Telegram ID', 'FTC Balance', 'Join Date', 'Club'];
+            const rows = currentUsers.map(user => [
+                user.username || 'User',
+                user.telegram_id || '-',
+                user.ftc_balance || 0,
+                user.created_at ? new Date(user.created_at).toLocaleDateString() : '-',
+                user.favorite_club_name || '-'
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            downloadFile(csv, `users_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+        }
+
+        function downloadSentimentExcel() {
+            if (!currentData || currentData.length === 0) {
+                alert('No sentiment data available');
+                return;
+            }
             const headers = ['Date', 'User', 'Message', 'Sentiment'];
             const rows = currentData.map(r => [
                 new Date(r.created_at).toLocaleDateString(),
