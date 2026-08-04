@@ -431,6 +431,7 @@
                 <button class="tab active" data-tab="overview">Overview</button>
                 <button class="tab" data-tab="users">Users</button>
                 <button class="tab" data-tab="sentiment">Sentiment</button>
+                <button class="tab" data-tab="broadcast">Broadcast</button>
             </div>
 
             <!-- Controls -->
@@ -497,6 +498,22 @@
                             <tr><td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">Loading sentiment...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Tab: Broadcast -->
+            <div id="tab-broadcast" class="tab-content">
+                <div class="broadcast-panel">
+                    <div class="form-row">
+                        <label for="broadcastTitle">Notification Title</label>
+                        <input type="text" id="broadcastTitle" placeholder="FOOT NFTs Admin Update" />
+                    </div>
+                    <div class="form-row">
+                        <label for="broadcastMessage">Message</label>
+                        <textarea id="broadcastMessage" placeholder="Write the message to send to all users..." rows="6"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="sendBroadcast()">Send Broadcast</button>
+                    <p class="hint">This sends a Telegram notification to all users who have started the FOOT NFTs bot.</p>
                 </div>
             </div>
         </div>
@@ -738,6 +755,37 @@
                     <td>${user.favorite_club_name || '-'}</td>
                 </tr>
             `).join('');
+        }
+
+        async function sendBroadcast() {
+            clearStatus();
+            const title = document.getElementById('broadcastTitle').value.trim();
+            const message = document.getElementById('broadcastMessage').value.trim();
+
+            if (!message) {
+                showStatus('Please enter a broadcast message before sending.', 'error');
+                return;
+            }
+
+            try {
+                const res = await retryFetch(`${API_BASE}/admin/broadcast`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUserId, title, message })
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Broadcast failed');
+                }
+
+                showStatus(`Broadcast sent to ${data.successCount}/${data.totalUsers} users.`, 'success');
+                document.getElementById('broadcastTitle').value = '';
+                document.getElementById('broadcastMessage').value = '';
+            } catch (error) {
+                console.error('Broadcast error:', error);
+                showStatus('Unable to send broadcast. Please try again.', 'error');
+            }
         }
 
         function downloadSentimentCSV() {
