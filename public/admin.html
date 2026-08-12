@@ -507,6 +507,7 @@
             <div class="tabs">
                 <button class="tab active" data-tab="overview">Overview</button>
                 <button class="tab" data-tab="users">Users</button>
+                <button class="tab" data-tab="creators">Creators</button>
                 <button class="tab" data-tab="sentiment">Sentiment</button>
                 <button class="tab" data-tab="broadcast">Broadcast</button>
             </div>
@@ -559,6 +560,20 @@
                         </thead>
                         <tbody id="usersTableBody">
                             <tr><td colspan="5" style="text-align: center; padding: 40px; color: #6b7280;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Creators -->
+            <div id="tab-creators" class="tab-content">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>User</th><th>Club</th><th>Niche</th><th>Bio</th><th>Style</th><th>Applied</th><th>Action</th></tr>
+                        </thead>
+                        <tbody id="creatorApplicationsTableBody">
+                            <tr><td colspan="7" style="text-align: center; padding: 40px; color: #6b7280;">Loading creator applications...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -664,6 +679,7 @@
                 document.getElementById('adminUser').textContent = `Admin ${userId}`;
                 loadData();
                 loadUsers();
+                loadCreatorApplications();
             } else {
                 errorEl.textContent = 'Invalid Telegram ID. Access denied.';
                 errorEl.style.display = 'block';
@@ -771,6 +787,7 @@
             }
 
             await loadUsers(true);
+            await loadCreatorApplications();
             if (!hasError) {
                 showStatus(successMessage, 'success');
             }
@@ -798,6 +815,82 @@
                 }
                 document.getElementById('usersTableBody').innerHTML =
                     `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">Failed to load users</td></tr>`;
+            }
+        }
+
+        async function loadCreatorApplications() {
+            try {
+                const res = await retryFetch(`${API_BASE}/admin/creator-applications?userId=${currentUserId}`);
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Unable to load creator applications');
+                }
+
+                const rows = data.applications || [];
+                const tbody = document.getElementById('creatorApplicationsTableBody');
+
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#6b7280;">No creator applications found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = rows.map(app => `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">${app.username || 'Unknown user'}</div>
+                            <div style="font-size:11px;color:#6b7280;font-family:'Space Mono', monospace;">${app.telegramId || '-'}</div>
+                        </td>
+                        <td>${app.club || '-'}</td>
+                        <td>${app.niche || '-'}</td>
+                        <td style="max-width:220px; word-break:break-word;">${(app.bio || '').slice(0, 120)}${(app.bio || '').length > 120 ? '...' : ''}</td>
+                        <td>${app.contentStyle || '-'}</td>
+                        <td>${new Date(app.appliedAt).toLocaleDateString()}</td>
+                        <td>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-primary" style="padding:6px 10px;font-size:10px;" onclick="approveCreator('${app.id}')">Approve</button>
+                                <button class="btn btn-secondary" style="padding:6px 10px;font-size:10px;" onclick="rejectCreator('${app.id}')">Reject</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Creator application load error:', error);
+                document.getElementById('creatorApplicationsTableBody').innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;padding:40px;color:#6b7280;">Failed to load creator applications</td></tr>';
+            }
+        }
+
+        async function approveCreator(applicationId) {
+            try {
+                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUserId, reason: 'Approved by admin' })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Approval failed');
+                showStatus('Creator approved successfully.', 'success');
+                loadCreatorApplications();
+            } catch (error) {
+                console.error('Approve creator error:', error);
+                showStatus('Unable to approve creator.', 'error');
+            }
+        }
+
+        async function rejectCreator(applicationId) {
+            try {
+                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUserId, reason: 'Your creator application was rejected by the admin team.' })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Rejection failed');
+                showStatus('Creator application rejected.', 'success');
+                loadCreatorApplications();
+            } catch (error) {
+                console.error('Reject creator error:', error);
+                showStatus('Unable to reject creator application.', 'error');
             }
         }
 
