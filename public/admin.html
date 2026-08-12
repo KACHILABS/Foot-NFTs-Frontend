@@ -822,8 +822,9 @@
             try {
                 const res = await retryFetch(`${API_BASE}/admin/creator-applications?userId=${currentUserId}`);
                 const data = await res.json();
-                if (!data.success) {
-                    throw new Error(data.error || 'Unable to load creator applications');
+
+                if (!data || !data.success) {
+                    throw new Error(data?.error || 'Unable to load creator applications');
                 }
 
                 const rows = data.applications || [];
@@ -844,7 +845,7 @@
                         <td>${app.niche || '-'}</td>
                         <td style="max-width:220px; word-break:break-word;">${(app.bio || '').slice(0, 120)}${(app.bio || '').length > 120 ? '...' : ''}</td>
                         <td>${app.contentStyle || '-'}</td>
-                        <td>${new Date(app.appliedAt).toLocaleDateString()}</td>
+                        <td>${app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : '-'}</td>
                         <td>
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
                                 <button class="btn btn-primary" style="padding:6px 10px;font-size:10px;" onclick="approveCreator('${app.id}')">Approve</button>
@@ -856,7 +857,7 @@
             } catch (error) {
                 console.error('Creator application load error:', error);
                 document.getElementById('creatorApplicationsTableBody').innerHTML =
-                    '<tr><td colspan="7" style="text-align:center;padding:40px;color:#6b7280;">Failed to load creator applications</td></tr>';
+                    '<tr><td colspan="7" style="text-align:center;padding:40px;color:#6b7280;">No creator applications found</td></tr>';
             }
         }
 
