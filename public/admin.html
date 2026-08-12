@@ -835,25 +835,27 @@
                     return;
                 }
 
-                tbody.innerHTML = rows.map(app => `
+                tbody.innerHTML = rows.map(app => {
+                    const clubText = app.club || app.user?.favorite_club_name || app.user?.favorite_club_id || '-';
+                    return `
                     <tr>
                         <td>
                             <div style="font-weight:600;">${app.username || 'Unknown user'}</div>
                             <div style="font-size:11px;color:#6b7280;font-family:'Space Mono', monospace;">${app.telegramId || '-'}</div>
                         </td>
-                        <td>${app.club || '-'}</td>
+                        <td>${clubText}</td>
                         <td>${app.niche || '-'}</td>
                         <td style="max-width:220px; word-break:break-word;">${(app.bio || '').slice(0, 120)}${(app.bio || '').length > 120 ? '...' : ''}</td>
                         <td>${app.contentStyle || '-'}</td>
                         <td>${app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : '-'}</td>
                         <td>
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <button class="btn btn-primary" style="padding:6px 10px;font-size:10px;" onclick="approveCreator('${app.id}')">Approve</button>
-                                <button class="btn btn-secondary" style="padding:6px 10px;font-size:10px;" onclick="rejectCreator('${app.id}')">Reject</button>
+                                <button class="btn btn-primary" style="padding:6px 10px;font-size:10px;" onclick="approveCreator('${encodeURIComponent(app.id)}')">Approve</button>
+                                <button class="btn btn-secondary" style="padding:6px 10px;font-size:10px;" onclick="rejectCreator('${encodeURIComponent(app.id)}')">Reject</button>
                             </div>
                         </td>
                     </tr>
-                `).join('');
+                `;}).join('');
             } catch (error) {
                 console.error('Creator application load error:', error);
                 document.getElementById('creatorApplicationsTableBody').innerHTML =
@@ -863,7 +865,8 @@
 
         async function approveCreator(applicationId) {
             try {
-                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/approve`, {
+                const cleanId = decodeURIComponent(applicationId);
+                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${cleanId}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: currentUserId, reason: 'Approved by admin' })
@@ -880,7 +883,8 @@
 
         async function rejectCreator(applicationId) {
             try {
-                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/reject`, {
+                const cleanId = decodeURIComponent(applicationId);
+                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${cleanId}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: currentUserId, reason: 'Your creator application was rejected by the admin team.' })
