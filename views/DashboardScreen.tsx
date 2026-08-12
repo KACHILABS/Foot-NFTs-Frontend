@@ -201,8 +201,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const features = [
     { id: 'banter', name: 'Banter Hall', icon: '🔥', description: 'Global fan showdown', comingSoon: false, locked: false },
+    { id: 'terraces', name: 'Digital Terraces', icon: '💬', description: 'Club chat & fan talk', comingSoon: false, locked: false },
     { id: 'jersey', name: 'Jersey Day', icon: '👕', description: 'Rep your colors daily', comingSoon: false, locked: false },
     { id: 'trivia', name: 'Trivia IQ', icon: '⚽', description: 'Test your knowledge', comingSoon: false, locked: false },
+    { id: 'voting', name: 'Tactical Voting', icon: '🗳️', description: 'Vote on matchday tactics', comingSoon: false, locked: false },
     { id: 'fanpod', name: 'Fan Pod', icon: '📹', description: 'Share your fan story', comingSoon: true, locked: true },
     { id: 'hope', name: 'Hope Campaign', icon: '🕊️', description: 'Football for a cause', comingSoon: true, locked: true },
   ];
@@ -947,8 +949,10 @@ const refreshProfile = async () => {
     }
     tg?.HapticFeedback.impactOccurred('medium');
     if (feature.id === 'banter') setInBanterHall(true);
+    if (feature.id === 'terraces') setActiveTab('chat');
     if (feature.id === 'jersey') setInJerseyDay(true);
     if (feature.id === 'trivia') setInTrivia(true);
+    if (feature.id === 'voting') setActiveTab('voting');
   };
 
   const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
@@ -1266,7 +1270,7 @@ const refreshProfile = async () => {
   if (inFanPod) return <FanPodScreen profile={profile} onBack={() => setInFanPod(false)} onEarn={handleEarnFTC} />;
   if (inHopeCampaign) return <HopeCampaignScreen onBack={() => setInHopeCampaign(false)} onEarn={handleEarnFTC} />;
   if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} backendUserId={backendUserId} onEarn={handleEarnFTC} />;
-  if (inCreatorApplication) return <CreatorApplicationScreen onBack={() => setInCreatorApplication(false)} />;
+  if (inCreatorApplication) return <CreatorApplicationScreen profile={profile} backendUserId={backendUserId} onBack={() => setInCreatorApplication(false)} />;
   if (inCreatorProfile && selectedCreator) return (
     <CreatorProfileScreen
       creator={selectedCreator}
