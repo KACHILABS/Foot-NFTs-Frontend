@@ -16,6 +16,11 @@ import FanPodScreen from './FanPodScreen';
 import HopeCampaignScreen from './HopeCampaignScreen';
 import LeaderboardModal from './LeaderboardModal';
 import TrophyRoomScreen from './TrophyRoomScreen';
+import FeedScreen from './FeedScreen';
+import CreatorHubScreen from './CreatorHubScreen';
+import CreatorProfileScreen, { CreatorProfileData } from './CreatorProfileScreen';
+import CreatorApplicationScreen from './CreatorApplicationScreen';
+import DigitalTwinScreen from './DigitalTwinScreen';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -133,6 +138,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [inFanPod, setInFanPod] = useState(false);
   const [inHopeCampaign, setInHopeCampaign] = useState(false);
   const [inTrophyRoom, setInTrophyRoom] = useState(false);
+  const [inCreatorProfile, setInCreatorProfile] = useState(false);
+  const [inCreatorApplication, setInCreatorApplication] = useState(false);
+  const [selectedCreator, setSelectedCreator] = useState<CreatorProfileData | null>(null);
 
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
   const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
@@ -197,6 +205,53 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { id: 'fanpod', name: 'Fan Pod', icon: '📹', description: 'Share your fan story', comingSoon: true, locked: true },
     { id: 'hope', name: 'Hope Campaign', icon: '🕊️', description: 'Football for a cause', comingSoon: true, locked: true },
   ];
+
+  const creatorProfileMap: Record<string, CreatorProfileData> = {
+    'marcus-hale': {
+      id: 'marcus-hale',
+      name: 'Marcus Hale',
+      handle: '@marcusx',
+      club: 'Manchester United',
+      niche: 'Tactics & matchday views',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+      followers: 12800,
+      stats: { posts: 184, avgLikes: 523, engagement: '8.6%' },
+      bio: 'I break down formations, moments under pressure, and what changes a match in the final third.'
+    },
+    'nia-ortiz': {
+      id: 'nia-ortiz',
+      name: 'Nia Ortiz',
+      handle: '@nortiz',
+      club: 'Real Madrid',
+      niche: 'Matchday energy',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+      followers: 9800,
+      stats: { posts: 146, avgLikes: 461, engagement: '9.1%' },
+      bio: 'High-energy matchday analysis, quick reads, and the emotional side of football culture.'
+    },
+    'theo-park': {
+      id: 'theo-park',
+      name: 'Theo Park',
+      handle: '@theopark',
+      club: 'Bayern Munich',
+      niche: 'Analysis',
+      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
+      followers: 7600,
+      stats: { posts: 112, avgLikes: 388, engagement: '7.8%' },
+      bio: 'Patterns, tempo, and pressing structures that decide whether a side controls the game.'
+    },
+    'sofia-blake': {
+      id: 'sofia-blake',
+      name: 'Sofia Blake',
+      handle: '@sofiab',
+      club: 'Barcelona',
+      niche: 'Fan culture',
+      avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80',
+      followers: 6400,
+      stats: { posts: 91, avgLikes: 302, engagement: '7.2%' },
+      bio: 'I tell the story behind the shirt, the city, and the moments fans remember for years.'
+    }
+  };
 
   const NOTIFICATIONS_STORAGE_KEY = 'footnfts_notifications';
 
@@ -811,6 +866,16 @@ const refreshProfile = async () => {
     tg?.HapticFeedback.selectionChanged();
   };
 
+  const handleOpenCreatorProfile = (creatorId: string) => {
+    setSelectedCreator(creatorProfileMap[creatorId] || null);
+    setInCreatorProfile(true);
+  };
+
+  const handleCreatorFollowToggle = () => {
+    if (!selectedCreator) return;
+    setSelectedCreator({ ...selectedCreator, followers: Math.max(0, selectedCreator.followers + 1) });
+  };
+
   const goBack = () => {
     tg?.HapticFeedback.impactOccurred('light');
     if (navigationHistory.length > 1) {
@@ -1200,6 +1265,23 @@ const refreshProfile = async () => {
   if (inFanPod) return <FanPodScreen profile={profile} onBack={() => setInFanPod(false)} onEarn={handleEarnFTC} />;
   if (inHopeCampaign) return <HopeCampaignScreen onBack={() => setInHopeCampaign(false)} onEarn={handleEarnFTC} />;
   if (inChat && selectedChatClub) return <ChatRoomScreen club={selectedChatClub} profile={profile} onBack={() => setInChat(false)} onRecordActivity={onRecordActivity} backendUserId={backendUserId} onEarn={handleEarnFTC} />;
+  if (inCreatorApplication) return <CreatorApplicationScreen onBack={() => setInCreatorApplication(false)} />;
+  if (inCreatorProfile && selectedCreator) return (
+    <CreatorProfileScreen
+      creator={selectedCreator}
+      isFollowing={true}
+      onBack={() => setInCreatorProfile(false)}
+      onToggleFollow={handleCreatorFollowToggle}
+      onOpenFeed={() => {
+        setInCreatorProfile(false);
+        setActiveTab('feed');
+      }}
+      onApply={() => {
+        setInCreatorProfile(false);
+        setInCreatorApplication(true);
+      }}
+    />
+  );
 
   return (
     <div className="h-screen flex flex-col overflow-hidden transition-colors duration-300 bg-transparent" style={{ fontFamily: "'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
@@ -1370,6 +1452,10 @@ const refreshProfile = async () => {
         {showMarketplace ? <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setShowMarketplace(false)} /> : showNotifications ? renderNotificationsPanel() : (
           <>
             {activeTab === 'home' && renderHome()}
+            {activeTab === 'feed' && <FeedScreen profile={profile} backendUserId={backendUserId} onOpenCreator={handleOpenCreatorProfile} />}
+            {activeTab === 'creators' && <CreatorHubScreen profile={profile} onOpenProfile={handleOpenCreatorProfile} onOpenApplication={() => setInCreatorApplication(true)} onBack={() => setActiveTab('home')} />}
+            {activeTab === 'market' && <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setActiveTab('home')} />}
+            {activeTab === 'twin' && <DigitalTwinScreen onBack={() => setActiveTab('home')} />}
             {activeTab === 'profile' && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 flex flex-col gap-6">
                 <Card className="flex flex-col items-center text-center pt-8 pb-8 relative overflow-hidden bg-darkCard border-gray-800">
@@ -1424,14 +1510,34 @@ const refreshProfile = async () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="bg-darkCard/80 backdrop-blur-xl border-t border-gray-800 px-4 py-3 flex justify-between items-center z-40 shrink-0 pb-8">
-        {[
-          { id: 'home', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-          { id: 'club', label: 'Club', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
-          { id: 'voting', label: 'Voting', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
-          { id: 'chat', label: 'Chat', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-          { id: 'wallet', label: 'Wallet', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' }
-        ].map(tab => (<button key={tab.id} onClick={() => navigateTo(tab.id)} className={`flex flex-col items-center gap-1 transition-all relative px-2 ${activeTab === tab.id ? 'text-green-500' : 'text-gray-600'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={tab.icon} /></svg><span className={`text-[7px] font-black uppercase tracking-widest transition-opacity ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`} style={{ fontFamily: "'Oxanium', sans-serif" }}>{tab.label}</span></button>))}
+      <div className="px-3 pb-6 pt-3">
+        <div className="mx-auto flex w-full items-center justify-between gap-2 rounded-[28px] border border-[#1f2a22] bg-[#0d1117] px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+          {[
+            { id: 'home', label: 'Home', icon: '🏠' },
+            { id: 'feed', label: 'Feed', icon: '📰' },
+            { id: 'creators', label: 'Creators', icon: '🎤' },
+            { id: 'market', label: 'Market', icon: '🛍️' },
+            { id: 'twin', label: 'Twin', icon: '🧠' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                if (tab.id === 'home') {
+                  setActiveTab('home');
+                } else {
+                  setActiveTab(tab.id);
+                }
+                setShowNotifications(false);
+                setShowMarketplace(false);
+                tg?.HapticFeedback.selectionChanged();
+              }}
+              className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-[22px] px-1 py-2 transition-all ${activeTab === tab.id ? 'bg-[#1d3d2b] text-[#8ef7b1]' : 'text-gray-400'}`}
+            >
+              <span className="text-xl leading-none">{tab.icon}</span>
+              <span className="text-[8px] font-black uppercase tracking-[0.18em]">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Leaderboard Modal */}
