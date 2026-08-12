@@ -1,12 +1,13 @@
 import React from 'react';
 import Card from '../components/Card';
+import { BackIcon } from '../src/components/Icons';
 
 const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   return (
     <div className="flex flex-col gap-4 pb-24 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between px-1">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-300 text-sm font-bold">
-          <span>←</span>
+      <div className="flex items-center justify-between px-4 pt-3">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-300 text-sm font-bold hover:text-white">
+          <BackIcon className="w-5 h-5" />
           <span>Back</span>
         </button>
       </div>

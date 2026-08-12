@@ -1,66 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { HeartIcon, StarIcon, ChatIcon, ShareIcon } from '../src/components/Icons';
 
-export interface FeedPost {
-  id: string;
-  creator: string;
-  handle: string;
-  avatar: string;
-  club: string;
-  time: string;
+export interface Post {
+  post_id: string;
+  creator_id: string;
+  creator_name: string;
+  creator_avatar: string;
   content: string;
-  likes: number;
-  aligns: number;
-  comments: number;
-  liked: boolean;
-  aligned: boolean;
+  image_url?: string;
+  like_count: number;
+  align_count: number;
+  comment_count: number;
+  user_liked: boolean;
+  user_aligned: boolean;
+  created_at: string;
 }
-
-const starterPosts: FeedPost[] = [
-  {
-    id: 'p1',
-    creator: 'Marcus Hale',
-    handle: '@marcusx',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    club: 'Manchester United',
-    time: '12 min ago',
-    content: 'Matchday mood before kick-off. A quick look at the line-up, the tempo we need, and the one thing this team must win in midfield today.',
-    likes: 128,
-    aligns: 34,
-    comments: 11,
-    liked: false,
-    aligned: true,
-  },
-  {
-    id: 'p2',
-    creator: 'Nia Ortiz',
-    handle: '@nortiz',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
-    club: 'Real Madrid',
-    time: '1 hr ago',
-    content: 'Watching the press trap from midfield. If we keep the ball on the half-turn, we create space for our wingers all night.',
-    likes: 242,
-    aligns: 50,
-    comments: 18,
-    liked: true,
-    aligned: false,
-  },
-  {
-    id: 'p3',
-    creator: 'Theo Park',
-    handle: '@theopark',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
-    club: 'Bayern Munich',
-    time: '3 hr ago',
-    content: 'The best attack starts with one smart pass and one vertical run. I am tracking that pattern all matchweek.',
-    likes: 97,
-    aligns: 22,
-    comments: 9,
-    liked: false,
-    aligned: false,
-  }
-];
 
 interface FeedScreenProps {
   profile?: any | null;
@@ -68,115 +24,256 @@ interface FeedScreenProps {
   onOpenCreator?: (creatorId: string) => void;
 }
 
+const API_BASE = 'https://footnfts.up.railway.app/api';
+
 const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenCreator }) => {
-  const [posts, setPosts] = useState<FeedPost[]>(starterPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newPost, setNewPost] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const toggleReaction = (postId: string, type: 'like' | 'align') => {
-    setPosts(prev => prev.map(post => {
-      if (post.id !== postId) return post;
+  const tg = (window as any).Telegram?.WebApp;
 
-      if (type === 'like') {
-        const nextLiked = !post.liked;
-        return {
-          ...post,
-          likes: Math.max(0, post.likes + (nextLiked ? 1 : -1)),
-          liked: nextLiked,
-        };
+  useEffect(() => {
+    loadFeed();
+    checkCreatorStatus();
+  }, [backendUserId]);
+
+  const checkCreatorStatus = async () => {
+    if (!backendUserId) return;
+    try {
+      const res = await fetch(`${API_BASE}/creator/check/${backendUserId}`);
+      const data = await res.json();
+      setIsCreator(data.approved);
+    } catch (error) {
+      console.error('Creator check error:', error);
+    }
+  };
+
+  const loadFeed = async () => {
+    if (!backendUserId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator/feed?userId=${backendUserId}&limit=50`);
+      const data = await res.json();
+      if (data.success) {
+        setPosts(data.posts || []);
       }
+    } catch (error) {
+      console.error('Feed load error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const nextAligned = !post.aligned;
-      return {
-        ...post,
-        aligns: Math.max(0, post.aligns + (nextAligned ? 1 : -1)),
-        aligned: nextAligned,
-      };
-    }));
+  const handleCreatePost = async () => {
+    if (!newPost.trim() || !backendUserId || !isCreator) return;
+
+    setPosting(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator/post`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: backendUserId,
+          content: newPost,
+          imageUrl: null
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setNewPost('');
+        loadFeed();
+        tg?.HapticFeedback.notificationOccurred('success');
+      }
+    } catch (error) {
+      console.error('Post creation error:', error);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const toggleLike = async (postId: string, liked: boolean) => {
+    if (!backendUserId) return;
+    try {
+      await fetch(`${API_BASE}/creator/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: backendUserId, postId })
+      });
+      loadFeed();
+    } catch (error) {
+      console.error('Like error:', error);
+    }
+  };
+
+  const toggleAlign = async (postId: string, aligned: boolean) => {
+    if (!backendUserId) return;
+    try {
+      await fetch(`${API_BASE}/creator/align`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: backendUserId, postId })
+      });
+      loadFeed();
+    } catch (error) {
+      console.error('Align error:', error);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString();
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-24 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <p className="text-[9px] uppercase tracking-[0.2em] text-gray-500 font-black">Social Feed</p>
-          <h2 className="text-2xl font-black text-white">Chronological</h2>
-        </div>
-        <div className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-1 text-[8px] uppercase tracking-[0.18em] text-green-400 font-black">
-          {posts.length} live
-        </div>
+    <div className="flex flex-col h-full pb-24 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="sticky top-0 z-30 border-b border-gray-800 bg-darkCard/80 backdrop-blur-md px-4 py-3 shrink-0">
+        <h2 className="text-xl font-black text-white">Feed</h2>
+        <p className="text-xs text-gray-500 mt-1">Follow creators to see their posts</p>
       </div>
 
-      <div className="rounded-2xl border border-gray-800 bg-darkCard p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+      {/* Compose Tweet (Creator Only) */}
+      {isCreator && (
+        <div className="border-b border-gray-800 p-4">
+          <div className="flex gap-3">
             <img
               src={profile?.avatar || 'https://picsum.photos/200'}
               alt="You"
-              className="w-9 h-9 rounded-full object-cover border border-gray-700"
+              className="w-10 h-10 rounded-full object-cover"
             />
-            <div className="min-w-0">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-gray-500">Your Feed</p>
-              <p className="text-sm font-black text-white truncate">{profile?.displayName || 'Fan'}</p>
+            <div className="flex-1">
+              <textarea
+                value={newPost}
+                onChange={(e) => setNewPost(e.target.value)}
+                placeholder="What's happening?!"
+                maxLength={280}
+                className="w-full bg-transparent text-xl text-white outline-none resize-none placeholder-gray-500"
+                rows={3}
+              />
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex gap-2">
+                  {/* Icon buttons for media, etc */}
+                </div>
+                <Button
+                  onClick={handleCreatePost}
+                  disabled={!newPost.trim() || posting}
+                  className="rounded-full px-6 py-2 text-sm"
+                >
+                  {posting ? 'Posting...' : 'Post'}
+                </Button>
+              </div>
             </div>
           </div>
-          <Button variant="primary" fullWidth={false} className="px-3 py-2 text-[9px] rounded-xl">Create</Button>
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-col gap-3">
-        {posts.map(post => (
-          <Card key={post.id} className="p-4 border border-gray-800 bg-darkCard">
-            <div className="flex items-center gap-3 mb-3">
-              <button onClick={() => onOpenCreator?.('marcus-hale')} className="shrink-0">
-                <img src={post.avatar} alt={post.creator} className="w-11 h-11 rounded-full object-cover border border-green-500/30" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <button onClick={() => onOpenCreator?.('marcus-hale')} className="text-left">
-                  <p className="text-sm font-black text-white truncate">{post.creator}</p>
+      {/* Feed */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="text-gray-500">Loading feed...</p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 gap-2">
+            <p className="text-gray-500">No posts yet</p>
+            <p className="text-xs text-gray-600">Follow creators to see their posts</p>
+          </div>
+        ) : (
+          posts.map(post => (
+            <div
+              key={post.post_id}
+              className="border-b border-gray-800 p-4 hover:bg-gray-900/50 transition-colors cursor-pointer active:bg-gray-900 group"
+            >
+              <div className="flex gap-3">
+                {/* Avatar */}
+                <button
+                  onClick={() => onOpenCreator?.(post.creator_id)}
+                  className="shrink-0 rounded-full overflow-hidden hover:opacity-80"
+                >
+                  <img
+                    src={post.creator_avatar}
+                    alt={post.creator_name}
+                    className="w-12 h-12 object-cover"
+                  />
                 </button>
-                <div className="flex items-center gap-2 text-[9px] text-gray-500">
-                  <span>{post.handle}</span>
-                  <span>•</span>
-                  <span>{post.club}</span>
-                  <span>•</span>
-                  <span>{post.time}</span>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <button
+                    onClick={() => onOpenCreator?.(post.creator_id)}
+                    className="text-left hover:underline"
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-white truncate">{post.creator_name}</p>
+                      <span className="text-gray-500">·</span>
+                      <span className="text-gray-500">{formatDate(post.created_at)}</span>
+                    </div>
+                  </button>
+
+                  <p className="text-white mt-2 whitespace-pre-wrap break-words">{post.content}</p>
+
+                  {post.image_url && (
+                    <img
+                      src={post.image_url}
+                      alt="Post image"
+                      className="mt-3 rounded-2xl max-w-full border border-gray-700"
+                    />
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex justify-between mt-3 text-gray-500 max-w-[425px] text-xs">
+                    <button
+                      onClick={() => toggleLike(post.post_id, post.user_liked)}
+                      className={`flex items-center gap-2 py-2 px-3 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors ${
+                        post.user_liked ? 'text-red-500' : ''
+                      }`}
+                    >
+                      <HeartIcon className="w-4 h-4" filled={post.user_liked} />
+                      <span>{post.like_count}</span>
+                    </button>
+
+                    <button
+                      onClick={() => toggleAlign(post.post_id, post.user_aligned)}
+                      className={`flex items-center gap-2 py-2 px-3 rounded-full hover:bg-amber-500/10 hover:text-amber-500 transition-colors ${
+                        post.user_aligned ? 'text-amber-500' : ''
+                      }`}
+                    >
+                      <StarIcon className="w-4 h-4" filled={post.user_aligned} />
+                      <span>{post.align_count}</span>
+                    </button>
+
+                    <button className="flex items-center gap-2 py-2 px-3 rounded-full hover:bg-blue-500/10 hover:text-blue-500 transition-colors">
+                      <ChatIcon className="w-4 h-4" />
+                      <span>{post.comment_count}</span>
+                    </button>
+
+                    <button className="flex items-center gap-2 py-2 px-3 rounded-full hover:bg-green-500/10 hover:text-green-500 transition-colors">
+                      <ShareIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <p className="text-sm leading-6 text-gray-200">{post.content}</p>
-
-            <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-800 pt-3">
-              <button
-                onClick={() => toggleReaction(post.id, 'like')}
-                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-bold ${post.liked ? 'bg-red-500/10 text-red-400' : 'bg-gray-800 text-gray-300'}`}
-              >
-                <span>❤️</span>
-                <span>{post.likes}</span>
-              </button>
-
-              <button
-                onClick={() => toggleReaction(post.id, 'align')}
-                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-bold ${post.aligned ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-800 text-gray-300'}`}
-              >
-                <span>⭐</span>
-                <span>{post.aligns}</span>
-              </button>
-
-              <button className="flex items-center gap-1.5 rounded-full bg-gray-800 px-2.5 py-1.5 text-[11px] font-bold text-gray-300">
-                <span>💬</span>
-                <span>{post.comments}</span>
-              </button>
-
-              <button className="flex items-center gap-1.5 rounded-full bg-gray-800 px-2.5 py-1.5 text-[11px] font-bold text-gray-300">
-                <span>↗️</span>
-                <span>Share</span>
-              </button>
-            </div>
-          </Card>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 };
 
 export default FeedScreen;
+
