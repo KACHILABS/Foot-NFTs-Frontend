@@ -4,10 +4,13 @@ import { CLUBS } from './constants';
 import { api } from './src/services/api';
 import { checkAppVersion, getUserId, isAuthenticated, getAuthToken, setAuthSession } from './src/utils/versionControl';
 import SplashScreen from './views/SplashScreen';
+import MaintenanceScreen from './views/MaintenanceScreen';
 import footnftLogo from './src/assets/footnft_logo.png';
 import trophyImage from './src/assets/trophy.png';
 import uclLogo from './src/assets/ucl_logo.png';
 import DashboardScreen from './views/DashboardScreen';
+
+const MAINTENANCE_MODE = true;
 
 // ===== FLYER-STYLE CHAMPIONS LEAGUE SPLASH SCREEN =====
 
@@ -473,6 +476,10 @@ const App: React.FC = () => {
   const handleWorldCupSplashComplete = () => {
     setShowWorldCupSplash(false);
   };
+
+  if (MAINTENANCE_MODE) {
+    return <MaintenanceScreen />;
+  }
 
   if (loading) {
     return (
