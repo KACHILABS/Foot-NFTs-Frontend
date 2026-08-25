@@ -10,7 +10,7 @@ import trophyImage from './src/assets/trophy.png';
 import uclLogo from './src/assets/ucl_logo.png';
 import DashboardScreen from './views/DashboardScreen';
 
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 // ===== FLYER-STYLE CHAMPIONS LEAGUE SPLASH SCREEN =====
 
