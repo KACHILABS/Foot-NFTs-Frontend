@@ -14,6 +14,7 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
   const [scanError, setScanError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<any>(null);
@@ -37,6 +38,7 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
     setCameraReady(false);
     setPermissionDenied(false);
     setScanError(null);
+    setIsRequestingCamera(false);
   };
 
   const startDetection = () => {
@@ -78,28 +80,61 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
     }
   };
 
+  const playVideo = async () => {
+    if (!videoRef.current || !streamRef.current) return;
+    
+    try {
+      const video = videoRef.current;
+      video.srcObject = streamRef.current;
+      video.setAttribute('playsinline', 'true');
+      video.muted = true;
+      
+      await video.play();
+      setCameraReady(true);
+      setPermissionDenied(false);
+      setScanError(null);
+      startDetection();
+    } catch (err: any) {
+      console.error('Video play error:', err);
+      if (err.name === 'NotAllowedError') {
+        setPermissionDenied(true);
+        setScanError('Camera permission was denied. Please allow camera access and try again.');
+      } else {
+        setScanError('Failed to start camera preview: ' + err.message);
+      }
+    }
+  };
+
   useEffect(() => {
     if (showScanner && streamRef.current && videoRef.current && !cameraReady) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.setAttribute('playsinline', 'true');
-      videoRef.current.muted = true;
-      videoRef.current.play()
-        .then(() => {
-          setCameraReady(true);
-          setPermissionDenied(false);
-          startDetection();
-        })
-        .catch((err) => {
-          console.error('Video play error:', err);
-          setScanError('Failed to start camera preview');
-        });
+      playVideo();
     }
   }, [showScanner, cameraReady]);
 
+  useEffect(() => {
+    if (cameraReady && videoRef.current && streamRef.current) {
+      const video = videoRef.current;
+      if (video.srcObject !== streamRef.current) {
+        video.srcObject = streamRef.current;
+      }
+      if (video.paused) {
+        video.play().catch((err) => {
+          console.error('Autoplay failed:', err);
+        });
+      }
+    }
+  }, [cameraReady]);
+
   const requestCamera = async () => {
     try {
+      setIsRequestingCamera(true);
       setScanError(null);
       setPermissionDenied(false);
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not available in this browser');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment',
@@ -108,17 +143,27 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
         },
         audio: false
       });
+      
       streamRef.current = stream;
+      setIsRequestingCamera(false);
       setShowScanner(true);
+      
+      if (videoRef.current) {
+        playVideo();
+      }
     } catch (err: any) {
       console.error('Camera permission error:', err);
+      setIsRequestingCamera(false);
+      
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setPermissionDenied(true);
-        setScanError('Camera permission denied. Please allow camera access in your browser settings.');
+        setScanError('Camera permission denied. Please allow camera access in your browser settings and try again.');
       } else if (err.name === 'NotFoundError') {
         setScanError('No camera found on this device');
+      } else if (err.name === 'NotReadableError') {
+        setScanError('Camera is already in use by another app');
       } else {
-        setScanError(err.message || 'Camera access denied');
+        setScanError(err.message || 'Failed to access camera');
       }
       setShowScanner(true);
     }
@@ -387,8 +432,16 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
           </div>
           <div className="flex-1 flex items-center justify-center relative px-4">
             <div className="relative w-full max-w-sm aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden border border-gray-700">
+              <video
+                ref={videoRef}
+                className={`w-full h-full object-cover ${cameraReady ? 'opacity-100' : 'opacity-0'}`}
+                playsInline
+                muted
+                autoPlay
+              />
+              
               {permissionDenied ? (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6 bg-gray-900/95">
                   <div className="w-16 h-16 rounded-full border border-red-500/30 flex items-center justify-center text-red-400">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
                   </div>
@@ -398,27 +451,32 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
                     Close
                   </button>
                 </div>
-              ) : cameraReady ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    playsInline
-                    muted
-                    autoPlay
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-48 h-48 border-2 border-white/30 rounded-2xl"></div>
-                    <div className="absolute w-56 h-56 border-2 border-[#4ade80] rounded-2xl opacity-80 animate-pulse"></div>
-                  </div>
-                </>
+              ) : !cameraReady ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6 bg-gray-900/95">
+                  {isRequestingCamera ? (
+                    <>
+                      <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center text-gray-400">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-spin"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
+                      </div>
+                      <p className="text-sm text-gray-300 font-medium">Requesting camera access...</p>
+                      <p className="text-xs text-gray-500">Please allow camera permission when prompted</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center text-gray-400">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
+                      </div>
+                      <p className="text-sm text-gray-300 font-medium">Allow camera access to scan QR codes</p>
+                      <button onClick={requestCamera} className="px-6 py-3 bg-[#22c55e] text-black rounded-full text-sm font-black">
+                        Enable Camera
+                      </button>
+                    </>
+                  )}
+                </div>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6">
-                  <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center text-gray-400">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-spin"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
-                  </div>
-                  <p className="text-sm text-gray-300 font-medium">Requesting camera access...</p>
-                  <p className="text-xs text-gray-500">Please allow camera permission when prompted</p>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-48 border-2 border-white/30 rounded-2xl"></div>
+                  <div className="absolute w-56 h-56 border-2 border-[#4ade80] rounded-2xl opacity-80 animate-pulse"></div>
                 </div>
               )}
             </div>
