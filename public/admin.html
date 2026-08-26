@@ -866,35 +866,45 @@
 
         async function approveCreator(applicationId) {
             try {
-                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/approve`, {
+                const url = `${API_BASE}/admin/creator-applications/${applicationId}/approve`;
+                console.log('Approving creator:', { url, userId: currentUserId, applicationId });
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: currentUserId, reason: 'Approved by admin' })
                 });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || 'Approval failed');
+                const text = await res.text();
+                console.log('Approve response:', { status: res.status, text });
+                let data;
+                try { data = JSON.parse(text); } catch (e) { data = { error: text }; }
+                if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
                 showStatus('Creator approved successfully.', 'success');
                 loadCreatorApplications();
             } catch (error) {
                 console.error('Approve creator error:', error);
-                showStatus('Unable to approve creator.', 'error');
+                showStatus('Unable to approve creator: ' + error.message, 'error');
             }
         }
 
         async function rejectCreator(applicationId) {
             try {
-                const res = await retryFetch(`${API_BASE}/admin/creator-applications/${applicationId}/reject`, {
+                const url = `${API_BASE}/admin/creator-applications/${applicationId}/reject`;
+                console.log('Rejecting creator:', { url, userId: currentUserId, applicationId });
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: currentUserId, reason: 'Your creator application was rejected by the admin team.' })
                 });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || 'Rejection failed');
+                const text = await res.text();
+                console.log('Reject response:', { status: res.status, text });
+                let data;
+                try { data = JSON.parse(text); } catch (e) { data = { error: text }; }
+                if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
                 showStatus('Creator application rejected.', 'success');
                 loadCreatorApplications();
             } catch (error) {
                 console.error('Reject creator error:', error);
-                showStatus('Unable to reject creator application.', 'error');
+                showStatus('Unable to reject creator application: ' + error.message, 'error');
             }
         }
 
