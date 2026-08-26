@@ -218,6 +218,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       niche: 'Tactics & matchday views',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
       followers: 12800,
+      verified: true,
       stats: { posts: 184, avgLikes: 523, engagement: '8.6%' },
       bio: 'I break down formations, moments under pressure, and what changes a match in the final third.'
     },
@@ -229,6 +230,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       niche: 'Matchday energy',
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
       followers: 9800,
+      verified: true,
       stats: { posts: 146, avgLikes: 461, engagement: '9.1%' },
       bio: 'High-energy matchday analysis, quick reads, and the emotional side of football culture.'
     },
@@ -240,6 +242,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       niche: 'Analysis',
       avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
       followers: 7600,
+      verified: true,
       stats: { posts: 112, avgLikes: 388, engagement: '7.8%' },
       bio: 'Patterns, tempo, and pressing structures that decide whether a side controls the game.'
     },
@@ -251,6 +254,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       niche: 'Fan culture',
       avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=200&q=80',
       followers: 6400,
+      verified: true,
       stats: { posts: 91, avgLikes: 302, engagement: '7.2%' },
       bio: 'I tell the story behind the shirt, the city, and the moments fans remember for years.'
     }
@@ -869,8 +873,27 @@ const refreshProfile = async () => {
     tg?.HapticFeedback.selectionChanged();
   };
 
-  const handleOpenCreatorProfile = (creatorId: string) => {
-    setSelectedCreator(creatorProfileMap[creatorId] || null);
+  const handleOpenCreatorProfile = (creatorId: string, creatorData?: any) => {
+    if (creatorData) {
+      setSelectedCreator({
+        id: creatorData.id || creatorId,
+        name: creatorData.name,
+        handle: creatorData.handle || '@' + (creatorData.name || '').toLowerCase().replace(/\s+/g, ''),
+        club: creatorData.club,
+        niche: creatorData.niche,
+        avatar: creatorData.avatar,
+        followers: creatorData.followers || 0,
+        verified: creatorData.verified || false,
+        stats: creatorData.stats || { posts: 0, avgLikes: 0, engagement: '0%' },
+        bio: creatorData.bio || '',
+        likes: creatorData.likes || 0,
+        ftcEarned: creatorData.ftcEarned || 0,
+        rating: creatorData.rating || 5,
+        recentPosts: creatorData.recentPosts || []
+      });
+    } else {
+      setSelectedCreator(creatorProfileMap[creatorId] || null);
+    }
     setInCreatorProfile(true);
   };
 
@@ -1277,14 +1300,6 @@ const refreshProfile = async () => {
       isFollowing={true}
       onBack={() => setInCreatorProfile(false)}
       onToggleFollow={handleCreatorFollowToggle}
-      onOpenFeed={() => {
-        setInCreatorProfile(false);
-        setActiveTab('feed');
-      }}
-      onApply={() => {
-        setInCreatorProfile(false);
-        setInCreatorApplication(true);
-      }}
     />
   );
 
@@ -1458,7 +1473,7 @@ const refreshProfile = async () => {
           <>
             {activeTab === 'home' && renderHome()}
             {activeTab === 'feed' && <FeedScreen profile={profile} backendUserId={backendUserId} onOpenCreator={handleOpenCreatorProfile} />}
-            {activeTab === 'creators' && <CreatorHubScreen profile={profile} onOpenProfile={handleOpenCreatorProfile} onOpenApplication={() => setInCreatorApplication(true)} onBack={() => setActiveTab('home')} />}
+            {activeTab === 'creators' && <CreatorHubScreen profile={profile} backendUserId={backendUserId} onOpenProfile={handleOpenCreatorProfile} onOpenApplication={() => setInCreatorApplication(true)} onBack={() => setActiveTab('home')} />}
             {activeTab === 'market' && <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setActiveTab('home')} />}
             {activeTab === 'twin' && <DigitalTwinScreen onBack={() => setActiveTab('home')} />}
             {activeTab === 'profile' && (

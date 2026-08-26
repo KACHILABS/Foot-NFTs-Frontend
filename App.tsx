@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { OnboardingState, UserProfile, WalletState, FanRank } from './types';
 import { CLUBS } from './constants';
 import { api } from './src/services/api';
@@ -283,6 +284,16 @@ const getReferralCodeFromUrl = (): string | null => {
 };
 
 const App: React.FC = () => {
+  const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
+
+  return (
+    <TonConnectUIProvider manifestUrl={manifestUrl}>
+      <AppContent />
+    </TonConnectUIProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
   const tg = (window as any).Telegram?.WebApp;
   
   const [showWorldCupSplash, setShowWorldCupSplash] = useState(true);

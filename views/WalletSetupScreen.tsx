@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { WalletState } from '../types';
+import { useWalletOperations, useTonService } from '../src/services/tonService';
 
 interface WalletSetupScreenProps {
   onBack?: () => void;
@@ -11,21 +13,45 @@ interface WalletSetupScreenProps {
 const WalletSetupScreen: React.FC<WalletSetupScreenProps> = ({ onBack, onConnected }) => {
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [balance, setBalance] = useState('0');
+  
+  const { wallet, connectWallet, isConnected } = useWalletOperations();
+  const tonService = useTonService();
 
-  const simulateConnect = () => {
-    setConnecting(true);
-    setTimeout(() => {
-      setConnecting(false);
+  useEffect(() => {
+    if (wallet) {
       setConnected(true);
+      setConnecting(false);
       
+      // Get wallet balance
+      tonService.getWalletBalance(wallet.account.address)
+        .then(balance => setBalance(balance))
+        .catch(console.error);
+      
+      // Notify parent component
       setTimeout(() => {
         onConnected({
-          address: 'EQA_...8x92',
-          balanceFTC: 50,
+          address: wallet.account.address,
+          balanceFTC: 50, // This would come from your backend
           isConnected: true
         });
       }, 2000);
-    }, 2000);
+    }
+  }, [wallet, tonService, onConnected]);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      await connectWallet();
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      setConnecting(false);
+    }
+  };
+
+  const formatAddress = (address: string) => {
+    if (address.length <= 8) return address;
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
   return (
@@ -85,8 +111,20 @@ const WalletSetupScreen: React.FC<WalletSetupScreenProps> = ({ onBack, onConnect
                      <span className="text-orange-500">Verified</span>
                   </div>
                   <div className="bg-darkDeep p-3 rounded-xl border border-gray-800 font-mono text-xs text-gray-300">
-                     EQA_...8x92
+                     {wallet ? formatAddress(wallet.account.address) : 'EQA_...8x92'}
                   </div>
+                  
+                  {wallet && balance !== '0' && (
+                    <div className="mt-3">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-500 px-1 mb-2">
+                        <span>TON Balance</span>
+                        <span className="text-blue-400">Live</span>
+                      </div>
+                      <div className="bg-darkDeep p-3 rounded-xl border border-gray-800 font-mono text-xs text-gray-300">
+                        {balance} TON
+                      </div>
+                    </div>
+                  )}
                </div>
             </Card>
 
@@ -101,7 +139,7 @@ const WalletSetupScreen: React.FC<WalletSetupScreenProps> = ({ onBack, onConnect
       </div>
 
       <div className={`space-y-3 transition-all duration-500 ${connected ? 'opacity-0 translate-y-10 hidden' : 'opacity-100 translate-y-0'}`}>
-        <Button onClick={simulateConnect} disabled={connecting || connected}>
+        <Button onClick={handleConnect} disabled={connecting || connected}>
           {connecting ? (
             <span className="flex items-center gap-2">
               <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
@@ -114,7 +152,11 @@ const WalletSetupScreen: React.FC<WalletSetupScreenProps> = ({ onBack, onConnect
             'Connect TON Wallet'
           )}
         </Button>
-        <Button variant="secondary" disabled={connecting || connected}>
+        <Button 
+          variant="secondary" 
+          disabled={connecting || connected}
+          onClick={() => window.open('https://wallet.ton.org/', '_blank')}
+        >
           Create New Wallet
         </Button>
       </div>

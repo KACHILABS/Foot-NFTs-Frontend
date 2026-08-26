@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { HeartIcon, StarIcon, ChatIcon, ShareIcon } from '../src/components/Icons';
+import { HeartIcon, ChatIcon, ShareIcon, VerifiedIcon, BackIcon } from '../src/components/Icons';
 
 export interface Post {
   post_id: string;
@@ -16,23 +16,27 @@ export interface Post {
   user_liked: boolean;
   user_aligned: boolean;
   created_at: string;
+  creator_verified?: boolean;
+  creator_handle?: string;
 }
 
 interface FeedScreenProps {
   profile?: any | null;
   backendUserId?: string | null;
-  onOpenCreator?: (creatorId: string) => void;
+  onOpenCreator?: (creatorId: string, creatorData?: any) => void;
+  onBack?: () => void;
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
 
-const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenCreator }) => {
+const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenCreator, onBack }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState('');
   const [posting, setPosting] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const tg = (window as any).Telegram?.WebApp;
 
@@ -59,7 +63,12 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
       const res = await fetch(`${API_BASE}/creator/feed?userId=${backendUserId}&limit=50`);
       const data = await res.json();
       if (data.success) {
-        setPosts(data.posts || []);
+        const normalized = (data.posts || []).map((post: any) => ({
+          ...post,
+          creator_verified: post.verified || false,
+          creator_handle: post.creatorHandle || (post.creator_name ? '@' + post.creator_name.toLowerCase().replace(/\s+/g, '') : null)
+        }));
+        setPosts(normalized);
       }
     } catch (error) {
       console.error('Feed load error:', error);
@@ -79,21 +88,36 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
         body: JSON.stringify({
           userId: backendUserId,
           content: newPost,
-          imageUrl: null
+          imageUrl: imagePreview || null
         })
       });
 
       const data = await res.json();
       if (data.success) {
         setNewPost('');
+        setImagePreview(null);
+        setImageFile(null);
         loadFeed();
         tg?.HapticFeedback.notificationOccurred('success');
+      } else {
+        tg?.showAlert?.(data.error || 'Failed to post');
       }
     } catch (error) {
       console.error('Post creation error:', error);
     } finally {
       setPosting(false);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const toggleLike = async (postId: string, liked: boolean) => {
@@ -132,46 +156,77 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
+    if (minutes < 1) return 'now';
     if (minutes < 60) return `${minutes}m`;
     if (hours < 24) return `${hours}h`;
     if (days < 7) return `${days}d`;
     return date.toLocaleDateString();
   };
 
+  const formatCount = (count: number) => {
+    if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
+    if (count >= 1000) return (count / 1000).toFixed(1) + 'k';
+    return count.toString();
+  };
+
   return (
-    <div className="flex flex-col h-full pb-24 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="sticky top-0 z-30 border-b border-gray-800 bg-darkCard/80 backdrop-blur-md px-4 py-3 shrink-0">
-        <h2 className="text-xl font-black text-white">Feed</h2>
-        <p className="text-xs text-gray-500 mt-1">Follow creators to see their posts</p>
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      {/* Top Nav */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 sticky top-0 z-30 bg-[#0b0f1a]/90 backdrop-blur-md">
+        <button className="w-11 h-11 rounded-full bg-white/5 flex items-center justify-center text-[#f2f4f8]">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div className="flex items-center gap-2.5 bg-white/5 rounded-full px-3.5 py-2">
+          <button className="w-6 h-6 flex items-center justify-center text-[#f2f4f8]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+          <div className="w-px h-5 bg-white/15"></div>
+          <button className="w-6 h-6 flex items-center justify-center text-[#f2f4f8]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
       </div>
 
-      {/* Compose Tweet (Creator Only) */}
+      {/* Compose Post (Creator Only) */}
       {isCreator && (
-        <div className="border-b border-gray-800 p-4">
-          <div className="flex gap-3">
+        <div className="px-4 pb-3">
+          <div className="flex gap-3 items-start">
             <img
               src={profile?.avatar || 'https://picsum.photos/200'}
               alt="You"
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-11 h-11 rounded-full object-cover border border-[#232b3d] shrink-0"
             />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <textarea
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 placeholder="What's happening?!"
                 maxLength={280}
-                className="w-full bg-transparent text-xl text-white outline-none resize-none placeholder-gray-500"
-                rows={3}
+                className="w-full bg-transparent text-base text-white outline-none resize-none placeholder-[#8a94a6] leading-relaxed"
+                rows={2}
               />
-              <div className="flex items-center justify-between mt-4">
+              {imagePreview && (
+                <div className="mt-2 relative inline-block">
+                  <img src={imagePreview} alt="Preview" className="rounded-xl max-h-48 object-cover border border-[#232b3d]" />
+                  <button
+                    onClick={() => { setImagePreview(null); setImageFile(null); }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-[#141a29] rounded-full flex items-center justify-center text-[#8a94a6] text-xs border border-[#232b3d]"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center justify-between mt-3">
                 <div className="flex gap-2">
-                  {/* Icon buttons for media, etc */}
+                  <label className="w-9 h-9 rounded-full bg-[#4a90e2]/10 flex items-center justify-center text-[#4a90e2] cursor-pointer hover:bg-[#4a90e2]/20 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  </label>
                 </div>
                 <Button
                   onClick={handleCreatePost}
                   disabled={!newPost.trim() || posting}
-                  className="rounded-full px-6 py-2 text-sm"
+                  className="rounded-full px-5 py-1.5 text-sm font-bold bg-[#4a90e2] text-white hover:bg-[#4a90e2]/90"
                 >
                   {posting ? 'Posting...' : 'Post'}
                 </Button>
@@ -182,93 +237,111 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
       )}
 
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-[14px] pb-6">
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <p className="text-gray-500">Loading feed...</p>
+            <div className="w-6 h-6 border-2 border-[#4a90e2] border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : posts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <p className="text-gray-500">No posts yet</p>
-            <p className="text-xs text-gray-600">Follow creators to see their posts</p>
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#141a29] flex items-center justify-center text-2xl border border-[#232b3d]">📝</div>
+            <p className="text-sm font-bold text-[#8a94a6]">No posts yet</p>
+            <p className="text-xs text-[#8a94a6]/60 max-w-[200px]">Follow creators to see their posts here</p>
           </div>
         ) : (
-          posts.map(post => (
-            <div
-              key={post.post_id}
-              className="border-b border-gray-800 p-4 hover:bg-gray-900/50 transition-colors cursor-pointer active:bg-gray-900 group"
-            >
-              <div className="flex gap-3">
-                {/* Avatar */}
-                <button
-                  onClick={() => onOpenCreator?.(post.creator_id)}
-                  className="shrink-0 rounded-full overflow-hidden hover:opacity-80"
-                >
-                  <img
-                    src={post.creator_avatar}
-                    alt={post.creator_name}
-                    className="w-12 h-12 object-cover"
-                  />
-                </button>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => onOpenCreator?.(post.creator_id)}
-                    className="text-left hover:underline"
-                  >
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-white truncate">{post.creator_name}</p>
-                      <span className="text-gray-500">·</span>
-                      <span className="text-gray-500">{formatDate(post.created_at)}</span>
+          <div className="flex flex-col gap-3.5">
+            {posts.map(post => (
+              <Card key={post.post_id} className="bg-[#141a29] border border-[#232b3d] rounded-[18px] p-4">
+                {/* Post Header */}
+                <div className="flex gap-2.5 items-start">
+                  <div className="relative shrink-0">
+                    <div className="w-11 h-11 rounded-full bg-[#2c3345] flex items-center justify-center overflow-hidden">
+                      {post.creator_avatar ? (
+                        <img src={post.creator_avatar} alt={post.creator_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-[#8a94a6]"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+                      )}
                     </div>
-                  </button>
-
-                  <p className="text-white mt-2 whitespace-pre-wrap break-words">{post.content}</p>
-
-                  {post.image_url && (
-                    <img
-                      src={post.image_url}
-                      alt="Post image"
-                      className="mt-3 rounded-2xl max-w-full border border-gray-700"
-                    />
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex justify-between mt-3 text-gray-500 max-w-[425px] text-xs">
-                    <button
-                      onClick={() => toggleLike(post.post_id, post.user_liked)}
-                      className={`flex items-center gap-2 py-2 px-3 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors ${
-                        post.user_liked ? 'text-red-500' : ''
-                      }`}
-                    >
-                      <HeartIcon className="w-4 h-4" filled={post.user_liked} />
-                      <span>{post.like_count}</span>
-                    </button>
-
-                    <button
-                      onClick={() => toggleAlign(post.post_id, post.user_aligned)}
-                      className={`flex items-center gap-2 py-2 px-3 rounded-full hover:bg-amber-500/10 hover:text-amber-500 transition-colors ${
-                        post.user_aligned ? 'text-amber-500' : ''
-                      }`}
-                    >
-                      <StarIcon className="w-4 h-4" filled={post.user_aligned} />
-                      <span>{post.align_count}</span>
-                    </button>
-
-                    <button className="flex items-center gap-2 py-2 px-3 rounded-full hover:bg-blue-500/10 hover:text-blue-500 transition-colors">
-                      <ChatIcon className="w-4 h-4" />
-                      <span>{post.comment_count}</span>
-                    </button>
-
-                    <button className="flex items-center gap-2 py-2 px-3 rounded-full hover:bg-green-500/10 hover:text-green-500 transition-colors">
-                      <ShareIcon className="w-4 h-4" />
-                    </button>
+                    <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex gap-[2px] bg-black rounded-md p-[2px_4px]">
+                      <span className="w-[3px] h-[3px] rounded-full bg-white"></span>
+                      <span className="w-[3px] h-[3px] rounded-full bg-white"></span>
+                      <span className="w-[3px] h-[3px] rounded-full bg-white"></span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => onOpenCreator?.(post.creator_id)}
+                        className="text-left hover:underline"
+                      >
+                        <span className="font-bold text-[#f2f4f8] text-[15px]">{post.creator_name}</span>
+                      </button>
+                      {post.creator_verified && (
+                        <VerifiedIcon className="w-3.5 h-3.5 text-[#4a90e2] shrink-0" />
+                      )}
+                      <span className="bg-[#3a3f4b] text-[#f2f4f8] text-[11px] font-bold px-2.5 py-[3px] rounded-full tracking-wide uppercase">Live</span>
+                    </div>
+                    <div className="text-[13px] text-[#8a94a6] mt-0.5 leading-snug">
+                      {post.creator_handle} · Verified Creator
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))
+
+                {/* Post Body */}
+                <p className="text-[15px] text-[#f2f4f8] leading-[1.45] mt-3 whitespace-pre-wrap break-words">{post.content}</p>
+
+                {/* Post Image / Tactics */}
+                {post.image_url && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-[#232b3d] bg-[#05070c]">
+                    <img
+                      src={post.image_url}
+                      alt="Post media"
+                      className="w-full max-h-[400px] object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-4 mt-3 text-[#8a94a6]">
+                  <button
+                    onClick={() => toggleLike(post.post_id, post.user_liked)}
+                    className={`flex items-center gap-1.5 group transition-colors ${
+                      post.user_liked ? 'text-[#e0455f]' : 'hover:text-[#e0455f]'
+                    }`}
+                  >
+                    <HeartIcon className="w-[18px] h-[18px]" filled={post.user_liked} />
+                    <span className="text-[14px] font-medium">{formatCount(post.like_count)}</span>
+                  </button>
+
+                  <button className="flex items-center gap-1.5 text-[#8a94a6] hover:text-[#4a90e2] transition-colors group">
+                    <ChatIcon className="w-[18px] h-[18px]" />
+                    <span className="text-[14px] font-medium">{formatCount(post.comment_count)}</span>
+                  </button>
+
+                  <button className="flex items-center gap-1.5 text-[#8a94a6] hover:text-[#4ade80] transition-colors group">
+                    <ShareIcon className="w-[18px] h-[18px]" />
+                    <span className="text-[14px] font-medium">{formatCount(post.align_count)}</span>
+                  </button>
+
+                  <button
+                    onClick={() => toggleAlign(post.post_id, post.user_aligned)}
+                    className={`flex items-center gap-1.5 ml-auto transition-colors ${
+                      post.user_aligned ? 'text-[#4ade80]' : 'text-[#8a94a6] hover:text-[#4ade80]'
+                    }`}
+                  >
+                    <span className="bg-[#1c2333] text-[#f2f4f8] text-[12px] font-semibold px-3 py-[5px] rounded-full">
+                      Align {formatCount(post.align_count)}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Footnote */}
+                <p className="text-[12.5px] text-[#8a94a6] mt-2.5 leading-relaxed">
+                  Visible instantly to all followers and community members
+                </p>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -276,4 +349,3 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
 };
 
 export default FeedScreen;
-

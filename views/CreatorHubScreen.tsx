@@ -29,10 +29,28 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
   const [creators, setCreators] = useState<CreatorPreview[]>([]);
   const [followed, setFollowed] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [creatorStatus, setCreatorStatus] = useState<{ isCreator: boolean; approved: boolean; hasPending: boolean }>({ isCreator: false, approved: false, hasPending: false });
 
   useEffect(() => {
     loadCreators();
+    checkStatus();
   }, []);
+
+  const checkStatus = async () => {
+    if (!backendUserId) return;
+    try {
+      const res = await fetch(`${API_BASE}/creator/check/${backendUserId}`);
+      const data = await res.json();
+      setCreatorStatus({ isCreator: data.isCreator, approved: data.approved, hasPending: false });
+
+      const appsRes = await fetch(`${API_BASE}/admin/creator-applications?userId=${backendUserId}`);
+      const appsData = await appsRes.json();
+      const pending = (appsData.applications || []).some((app: any) => app.status === 'pending');
+      setCreatorStatus(prev => ({ ...prev, hasPending: pending }));
+    } catch (error) {
+      console.error('Status check error:', error);
+    }
+  };
 
   const loadCreators = async () => {
     setLoading(true);
@@ -145,7 +163,19 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
         </div>
       )}
 
-      <Button onClick={onOpenApplication} className="mt-2 rounded-2xl py-3 text-xs">Apply to become creator</Button>
+      {creatorStatus.approved ? (
+        <Card className="p-4 border border-green-500/30 bg-green-500/10 rounded-2xl">
+          <p className="text-sm font-bold text-green-400 text-center">✓ You are a verified creator</p>
+          <p className="text-xs text-gray-400 text-center mt-1">Go to Feed to start posting</p>
+        </Card>
+      ) : creatorStatus.hasPending ? (
+        <Card className="p-4 border border-yellow-500/30 bg-yellow-500/10 rounded-2xl">
+          <p className="text-sm font-bold text-yellow-400 text-center">Application pending</p>
+          <p className="text-xs text-gray-400 text-center mt-1">You will be notified on Telegram once approved</p>
+        </Card>
+      ) : (
+        <Button onClick={onOpenApplication} className="mt-2 rounded-2xl py-3 text-xs">Apply to become creator</Button>
+      )}
     </div>
   );
 };

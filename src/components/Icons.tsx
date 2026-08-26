@@ -26,7 +26,7 @@ export const MarketIcon: React.FC<{ className?: string }> = ({ className = 'w-6 
 
 export const TwinIcon: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3L3 6v4l3-1v11h12V9l3 1V6l-5-3-2 2h-4L8 3z" />
   </svg>
 );
 
