@@ -13,6 +13,7 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
   const [jsnValue, setJsnValue] = useState('');
   const [scanError, setScanError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<any>(null);
@@ -34,44 +35,29 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
       animFrameRef.current = null;
     }
     setCameraReady(false);
+    setPermissionDenied(false);
+    setScanError(null);
   };
 
-  const startCamera = async () => {
-    try {
-      setScanError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        await videoRef.current.play();
-        setCameraReady(true);
-        startDetection();
-      }
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      setScanError(err.message || 'Camera access denied');
-    }
-  };
-
-  const startDetection = async () => {
+  const startDetection = () => {
     if (!('BarcodeDetector' in window)) {
+      console.warn('BarcodeDetector not supported in this browser');
       return;
     }
     try {
       // @ts-ignore
       detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] });
+      detectFrame();
     } catch (e) {
       console.error('BarcodeDetector init error:', e);
     }
-    detectFrame();
   };
 
   const detectFrame = async () => {
     if (!videoRef.current || !detectorRef.current || videoRef.current.readyState < 2) {
-      animFrameRef.current = requestAnimationFrame(detectFrame);
+      if (showScanner) {
+        animFrameRef.current = requestAnimationFrame(detectFrame);
+      }
       return;
     }
     try {
@@ -87,7 +73,55 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
     } catch (e) {
       // ignore frame errors
     }
-    animFrameRef.current = requestAnimationFrame(detectFrame);
+    if (showScanner) {
+      animFrameRef.current = requestAnimationFrame(detectFrame);
+    }
+  };
+
+  useEffect(() => {
+    if (showScanner && streamRef.current && videoRef.current && !cameraReady) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.setAttribute('playsinline', 'true');
+      videoRef.current.muted = true;
+      videoRef.current.play()
+        .then(() => {
+          setCameraReady(true);
+          setPermissionDenied(false);
+          startDetection();
+        })
+        .catch((err) => {
+          console.error('Video play error:', err);
+          setScanError('Failed to start camera preview');
+        });
+    }
+  }, [showScanner, cameraReady]);
+
+  const requestCamera = async () => {
+    try {
+      setScanError(null);
+      setPermissionDenied(false);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      streamRef.current = stream;
+      setShowScanner(true);
+    } catch (err: any) {
+      console.error('Camera permission error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setPermissionDenied(true);
+        setScanError('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (err.name === 'NotFoundError') {
+        setScanError('No camera found on this device');
+      } else {
+        setScanError(err.message || 'Camera access denied');
+      }
+      setShowScanner(true);
+    }
   };
 
   const handleScanClick = async () => {
@@ -96,8 +130,7 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
       setShowScanner(true);
       return;
     }
-    await startCamera();
-    setShowScanner(true);
+    await requestCamera();
   };
 
   const handleCloseScanner = () => {
@@ -354,13 +387,25 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
           </div>
           <div className="flex-1 flex items-center justify-center relative px-4">
             <div className="relative w-full max-w-sm aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden border border-gray-700">
-              {cameraReady ? (
+              {permissionDenied ? (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6">
+                  <div className="w-16 h-16 rounded-full border border-red-500/30 flex items-center justify-center text-red-400">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
+                  </div>
+                  <p className="text-sm text-red-300 font-medium">Camera access denied</p>
+                  <p className="text-xs text-gray-400">Please enable camera permissions in your browser settings and try again.</p>
+                  <button onClick={handleCloseScanner} className="px-6 py-3 bg-gray-800 text-white rounded-full text-sm font-bold border border-gray-700">
+                    Close
+                  </button>
+                </div>
+              ) : cameraReady ? (
                 <>
                   <video
                     ref={videoRef}
                     className="w-full h-full object-cover"
                     playsInline
                     muted
+                    autoPlay
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-48 h-48 border-2 border-white/30 rounded-2xl"></div>
@@ -370,17 +415,15 @@ const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6">
                   <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center text-gray-400">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="animate-spin"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
                   </div>
-                  <p className="text-sm text-gray-300 font-medium">Allow camera access to scan QR codes</p>
-                  <button onClick={startCamera} className="px-6 py-3 bg-[#22c55e] text-black rounded-full text-sm font-black">
-                    Enable Camera
-                  </button>
+                  <p className="text-sm text-gray-300 font-medium">Requesting camera access...</p>
+                  <p className="text-xs text-gray-500">Please allow camera permission when prompted</p>
                 </div>
               )}
             </div>
           </div>
-          {scanError && (
+          {scanError && !permissionDenied && (
             <div className="p-4 text-center text-red-400 text-xs font-medium">{scanError}</div>
           )}
         </div>
