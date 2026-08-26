@@ -877,7 +877,10 @@
                 console.log('Approve response:', { status: res.status, text });
                 let data;
                 try { data = JSON.parse(text); } catch (e) { data = { error: text }; }
-                if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+                if (!res.ok || !data.success) {
+                    const detail = data.debug ? ` (debug: ${JSON.stringify(data.debug)})` : '';
+                    throw new Error(data.error || `HTTP ${res.status}` + detail);
+                }
                 showStatus('Creator approved successfully.', 'success');
                 loadCreatorApplications();
             } catch (error) {
