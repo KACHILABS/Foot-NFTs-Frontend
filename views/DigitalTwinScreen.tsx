@@ -1,9 +1,164 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Card from '../components/Card';
 import { BackIcon } from '../src/components/Icons';
 
-const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+interface DigitalTwinScreenProps {
+  onBack?: () => void;
+}
+
+const DigitalTwinScreen: React.FC<DigitalTwinScreenProps> = ({ onBack }) => {
   const tg = (window as any).Telegram?.WebApp;
+  const [showScanner, setShowScanner] = useState(false);
+  const [showJsnInput, setShowJsnInput] = useState(false);
+  const [jsnValue, setJsnValue] = useState('');
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<any>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setCameraReady(false);
+  };
+
+  const startCamera = async () => {
+    try {
+      setScanError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        await videoRef.current.play();
+        setCameraReady(true);
+        startDetection();
+      }
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      setScanError(err.message || 'Camera access denied');
+    }
+  };
+
+  const startDetection = async () => {
+    if (!('BarcodeDetector' in window)) {
+      return;
+    }
+    try {
+      // @ts-ignore
+      detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] });
+    } catch (e) {
+      console.error('BarcodeDetector init error:', e);
+    }
+    detectFrame();
+  };
+
+  const detectFrame = async () => {
+    if (!videoRef.current || !detectorRef.current || videoRef.current.readyState < 2) {
+      animFrameRef.current = requestAnimationFrame(detectFrame);
+      return;
+    }
+    try {
+      const barcodes = await detectorRef.current.detect(videoRef.current);
+      if (barcodes && barcodes.length > 0) {
+        const code = barcodes[0].rawValue;
+        tg?.HapticFeedback.notificationOccurred('success');
+        setJsnValue(code);
+        setShowScanner(false);
+        stopCamera();
+        return;
+      }
+    } catch (e) {
+      // ignore frame errors
+    }
+    animFrameRef.current = requestAnimationFrame(detectFrame);
+  };
+
+  const handleScanClick = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setScanError('Camera not supported in this browser');
+      setShowScanner(true);
+      return;
+    }
+    await startCamera();
+    setShowScanner(true);
+  };
+
+  const handleCloseScanner = () => {
+    stopCamera();
+    setShowScanner(false);
+    setScanError(null);
+  };
+
+  const handleJsnSubmit = () => {
+    if (!jsnValue.trim()) return;
+    tg?.HapticFeedback.notificationOccurred('success');
+    setShowJsnInput(false);
+    setJsnValue('');
+  };
+
+  const quickActions = [
+    {
+      label: 'Highlights',
+      sub: '42 available',
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+      color: 'text-[#4ade80]'
+    },
+    {
+      label: 'Match Canvas',
+      sub: '12 collected',
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="3" y="4" width="18" height="14" rx="2" />
+          <path d="M3 15l5-5 4 4 3-3 6 6" />
+          <circle cx="8" cy="8.5" r="1.3" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+      color: 'text-[#4ade80]'
+    },
+    {
+      label: 'Moments',
+      sub: '8 unlocked',
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M12 2l2.6 6.6L21 9.3l-5 4.6 1.3 6.8L12 17.6l-5.3 3.1L8 13.9 3 9.3l6.4-.7z" />
+        </svg>
+      ),
+      color: 'text-[#4ade80]'
+    },
+    {
+      label: 'Rewards',
+      sub: '3 available',
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="3" y="9" width="18" height="12" rx="1.5" />
+          <path d="M3 9h18M12 9v12M12 9c-2 0-4-1.2-4-3.5S9.5 3 12 5c0-1.5 1.5-2 3-1.5S17 6 16 7.5 12 9 12 9zM12 9c2 0 4-1.2 4-3.5S14.5 3 12 5c0-1.5-1.5-2-3-1.5S7 6 8 7.5 12 9 12 9z" />
+        </svg>
+      ),
+      color: 'text-[#eab308]'
+    }
+  ];
 
   return (
     <div className="flex flex-col gap-5 pb-24 animate-in fade-in duration-300 bg-[#060a08]">
@@ -31,19 +186,25 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             <div className="text-[10px] font-bold text-[#4ade80] uppercase tracking-wider mb-2" style={{ fontFamily: "'Space Mono', monospace" }}>Pair Your Jersey</div>
             <p className="text-xs text-[#a9bdb3] leading-relaxed max-w-[270px] mx-auto mb-5">Scan the QR code on your jersey or enter the JSN to pair</p>
             <div className="flex items-center gap-3">
-              <div className="flex-1 bg-[#111c18] border border-dashed border-[rgba(120,255,190,0.18)] rounded-[16px] py-5 flex flex-col items-center gap-2">
+              <button
+                onClick={handleScanClick}
+                className="flex-1 bg-[#111c18] border border-dashed border-[rgba(120,255,190,0.18)] rounded-[16px] py-5 flex flex-col items-center gap-2 hover:border-[rgba(120,255,190,0.35)] transition-colors"
+              >
                 <div className="w-10 h-10 rounded-full border border-[rgba(120,255,190,0.18)] flex items-center justify-center text-[#4ade80]">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
                 </div>
                 <span className="text-xs font-semibold text-[#eef7f1]">Scan QR Code</span>
-              </div>
+              </button>
               <div className="text-[10px] font-bold text-[#6f8579]" style={{ fontFamily: "'Space Mono', monospace" }}>OR</div>
-              <div className="flex-1 bg-[#111c18] border border-dashed border-[rgba(120,255,190,0.18)] rounded-[16px] py-5 flex flex-col items-center gap-2">
+              <button
+                onClick={() => setShowJsnInput(true)}
+                className="flex-1 bg-[#111c18] border border-dashed border-[rgba(120,255,190,0.18)] rounded-[16px] py-5 flex flex-col items-center gap-2 hover:border-[rgba(120,255,190,0.35)] transition-colors"
+              >
                 <div className="w-10 h-10 rounded-full border border-[rgba(120,255,190,0.18)] flex items-center justify-center text-[#4ade80]">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M6 14h6"/></svg>
                 </div>
                 <span className="text-xs font-semibold text-[#eef7f1]">Enter JSN</span>
-              </div>
+              </button>
             </div>
           </div>
         </Card>
@@ -119,48 +280,38 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
               </div>
             </div>
           </div>
-
-          {/* Quick Action Grid */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
-            <div className="bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[14px] py-3 px-1.5 flex flex-col items-center gap-2 text-center">
-              <div className="w-7 h-7 flex items-center justify-center text-[#4ade80]">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>
-              </div>
-              <div className="text-[11px] font-bold text-[#eef7f1] leading-tight">Highlights</div>
-              <div className="text-[9px] text-[#6f8579]" style={{ fontFamily: "'Space Mono', monospace" }}>42 available</div>
-            </div>
-            <div className="bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[14px] py-3 px-1.5 flex flex-col items-center gap-2 text-center">
-              <div className="w-7 h-7 flex items-center justify-center text-[#4ade80]">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>
-              </div>
-              <div className="text-[11px] font-bold text-[#eef7f1] leading-tight">Match Canvas</div>
-              <div className="text-[9px] text-[#6f8579]" style={{ fontFamily: "'Space Mono', monospace" }}>12 collected</div>
-            </div>
-            <div className="bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[14px] py-3 px-1.5 flex flex-col items-center gap-2 text-center">
-              <div className="w-7 h-7 flex items-center justify-center text-[#4ade80]">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2l2.6 6.6L21 9.3l-5 4.6 1.3 6.8L12 17.6l-5.3 3.1L8 13.9 3 9.3l6.4-.7z"/></svg>
-              </div>
-              <div className="text-[11px] font-bold text-[#eef7f1] leading-tight">Moments</div>
-              <div className="text-[9px] text-[#6f8579]" style={{ fontFamily: "'Space Mono', monospace" }}>8 unlocked</div>
-            </div>
-            <div className="bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[14px] py-3 px-1.5 flex flex-col items-center gap-2 text-center">
-              <div className="w-7 h-7 flex items-center justify-center text-[#eab308]">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 9h18M12 9v12M12 9c-2 0-4-1.2-4-3.5S9.5 3 12 5c0-1.5 1.5-2 3-1.5S17 6 16 7.5 12 9 12 9zM12 9c2 0 4-1.2 4-3.5S14.5 3 12 5c0-1.5-1.5-2-3-1.5S7 6 8 7.5 12 9 12 9z"/></svg>
-              </div>
-              <div className="text-[11px] font-bold text-[#eef7f1] leading-tight">Rewards</div>
-              <div className="text-[9px] text-[#6f8579]" style={{ fontFamily: "'Space Mono', monospace" }}>3 available</div>
-            </div>
-          </div>
-
-          {/* Request Highlight Package */}
-          <div className="flex items-center justify-between mt-3 bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[16px] px-3.5 py-3">
-            <div className="flex items-center gap-2.5 text-[#4ade80] text-sm font-semibold">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M21 6H8a5 5 0 00-5 5v1M7 22l-4-4 4-4M3 18h13a5 5 0 005-5v-1"/></svg>
-              Request Highlight Package
-            </div>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#6f8579]"><path d="M9 6l6 6-6 6"/></svg>
-          </div>
         </Card>
+      </div>
+
+      {/* Quick Actions - 2 per row, marketplace-style */}
+      <div className="px-4">
+        <div className="grid grid-cols-2 gap-4">
+          {quickActions.map((item) => (
+            <Card key={item.label} className="p-5 flex flex-col items-center text-center border-[rgba(120,255,190,0.18)] bg-[#0e1613] h-full relative overflow-hidden">
+              <div className="absolute -top-4 -right-4 w-12 h-12 bg-[#111c18] rounded-full blur-xl opacity-50"></div>
+              <div className={`w-20 h-20 bg-[#111c18] rounded-2xl flex items-center justify-center mb-4 border border-[rgba(120,255,190,0.10)] ${item.color}`}>
+                {item.icon}
+              </div>
+              <p className="text-[8px] font-black text-[#6f8579] uppercase tracking-widest mb-1" style={{ fontFamily: "'Space Mono', monospace" }}>Digital Twin</p>
+              <p className="text-sm font-black text-white mb-1 leading-tight">{item.label}</p>
+              <p className="text-[9px] text-[#6f8579] font-bold uppercase mb-4">{item.sub}</p>
+              <button className="w-full py-2.5 bg-[#111c18] text-[#4ade80] rounded-xl text-[9px] font-black uppercase tracking-widest border border-[rgba(120,255,190,0.10)] shadow-sm">
+                Open
+              </button>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Request Highlight Package */}
+      <div className="px-4">
+        <button className="w-full flex items-center justify-between bg-[#111c18] border border-[rgba(120,255,190,0.10)] rounded-[16px] px-4 py-3.5 hover:border-[rgba(120,255,190,0.25)] transition-colors">
+          <div className="flex items-center gap-2.5 text-[#4ade80] text-sm font-semibold">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M21 6H8a5 5 0 00-5 5v1M7 22l-4-4 4-4M3 18h13a5 5 0 005-5v-1"/></svg>
+            Request Highlight Package
+          </div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#6f8579]"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
       </div>
 
       {/* Recent Activity */}
@@ -192,6 +343,68 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           </div>
         </Card>
       </div>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col">
+          <div className="flex items-center justify-between p-4">
+            <button onClick={handleCloseScanner} className="text-white text-sm font-bold">Cancel</button>
+            <span className="text-white text-sm font-bold">Scan QR Code</span>
+            <div className="w-10"></div>
+          </div>
+          <div className="flex-1 flex items-center justify-center relative px-4">
+            <div className="relative w-full max-w-sm aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden border border-gray-700">
+              {cameraReady ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-48 h-48 border-2 border-white/30 rounded-2xl"></div>
+                    <div className="absolute w-56 h-56 border-2 border-[#4ade80] rounded-2xl opacity-80 animate-pulse"></div>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6">
+                  <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center text-gray-400">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><rect x="9" y="9" width="6" height="6"/></svg>
+                  </div>
+                  <p className="text-sm text-gray-300 font-medium">Allow camera access to scan QR codes</p>
+                  <button onClick={startCamera} className="px-6 py-3 bg-[#22c55e] text-black rounded-full text-sm font-black">
+                    Enable Camera
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          {scanError && (
+            <div className="p-4 text-center text-red-400 text-xs font-medium">{scanError}</div>
+          )}
+        </div>
+      )}
+
+      {/* JSN Input Modal */}
+      {showJsnInput && (
+        <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
+          <Card className="w-full max-w-sm bg-[#0e1613] border border-[rgba(120,255,190,0.18)] rounded-[22px] p-5">
+            <div className="text-[10px] font-bold text-[#4ade80] uppercase tracking-wider mb-2" style={{ fontFamily: "'Space Mono', monospace" }}>Enter JSN</div>
+            <p className="text-xs text-[#a9bdb3] mb-4">Type the Jersey Serial Number from your tag</p>
+            <input
+              value={jsnValue}
+              onChange={(e) => setJsnValue(e.target.value)}
+              placeholder="e.g. ARS25-0004821"
+              className="w-full bg-[#111c18] border border-[rgba(120,255,190,0.18)] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-[#4ade80] mb-4"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowJsnInput(false)} className="flex-1 py-3 rounded-full border border-[#2c3648] text-white font-bold text-sm">Cancel</button>
+              <button onClick={handleJsnSubmit} className="flex-1 py-3 rounded-full bg-[#22c55e] text-black font-bold text-sm">Pair</button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
