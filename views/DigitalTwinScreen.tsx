@@ -6,51 +6,9 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const tg = (window as any).Telegram?.WebApp;
 
   return (
-    <div className="flex flex-col gap-0 pb-24 animate-in fade-in duration-300">
-      {/* App Bar */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="w-8 h-8 rounded-full border border-[rgba(120,255,190,0.10)] flex items-center justify-center text-[#a9bdb3] text-lg">
-            ✕
-          </button>
-          <div className="flex items-center gap-2 text-[#eef7f1] font-bold text-lg" style={{ fontFamily: "'Oxanium', sans-serif" }}>
-            <span className="w-2 h-2 rounded-full bg-[#4ade80] shadow-[0_0_8px_1px_rgba(74,222,128,0.7)]"></span>
-            FootNfts App
-          </div>
-        </div>
-        <button className="w-8 h-8 flex items-center justify-center text-[#a9bdb3]">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-      </div>
-
-      {/* Fan Status Strip */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(120,255,190,0.10)]">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full border-2 border-[#16a34a] flex items-center justify-center text-[#eef7f1] font-bold text-sm relative" style={{ fontFamily: "'Oxanium', sans-serif", background: 'radial-gradient(circle at 30% 30%, #ff7a1a 0%, #7a1f00 55%, #1a0800 100%)' }}>
-            KL
-            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#0b1210] flex items-center justify-center text-[10px] border border-[rgba(120,255,190,0.18)]">🔥</div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-bold text-[#6f8579] uppercase tracking-wider" style={{ fontFamily: "'Space Mono', monospace" }}>Fan Status</span>
-              <span className="text-[9px] font-bold text-[#eab308] border border-[rgba(234,179,8,0.3)] rounded-full px-2 py-0.5" style={{ fontFamily: "'Space Mono', monospace" }}>◆ AMATEUR</span>
-            </div>
-            <div className="text-base font-bold text-[#eef7f1] mt-0.5" style={{ fontFamily: "'Oxanium', sans-serif" }}>Kachilabs</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full border border-[rgba(120,255,190,0.10)] flex items-center justify-center text-[#a9bdb3] relative">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-[#22c55e] text-[#04170c] text-[9px] font-bold flex items-center justify-center px-1 shadow-[0_0_0_3px_#060a08]">8</span>
-          </div>
-          <div className="w-9 h-9 rounded-full border border-[rgba(120,255,190,0.10)] flex items-center justify-center text-[#a9bdb3]">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex flex-col gap-5 pb-24 animate-in fade-in duration-300 bg-[#060a08]">
       {/* Sub Nav */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <button onClick={onBack} className="flex items-center gap-1.5 text-[#a9bdb3] text-sm font-semibold">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M15 18l-6-6 6-6"/></svg>
           Back
@@ -66,7 +24,7 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
 
       {/* Pair Your Jersey */}
-      <div className="px-4 mt-1">
+      <div className="px-4">
         <Card className="bg-gradient-to-b from-[rgba(34,197,94,0.05)] to-transparent border border-[rgba(120,255,190,0.18)] rounded-[22px] p-5 text-center relative overflow-hidden">
           <div className="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[220px] h-[220px] bg-[radial-gradient(circle,rgba(34,197,94,0.16)_0%,rgba(34,197,94,0)_70%)] pointer-events-none"></div>
           <div className="relative z-10">
@@ -92,7 +50,7 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
 
       {/* My Paired Jersey */}
-      <div className="px-4 mt-4">
+      <div className="px-4">
         <div className="flex items-center gap-2 mb-2.5">
           <div className="text-[10px] font-bold text-[#4ade80] uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
             <span className="w-[3px] h-3 bg-[#22c55e] rounded-sm inline-block"></span>
@@ -206,7 +164,7 @@ const DigitalTwinScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </div>
 
       {/* Recent Activity */}
-      <div className="px-4 mt-4">
+      <div className="px-4">
         <div className="flex items-center justify-between mb-2.5">
           <div className="text-[10px] font-bold text-[#4ade80] uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: "'Space Mono', monospace" }}>
             <span className="w-[3px] h-3 bg-[#22c55e] rounded-sm inline-block"></span>
