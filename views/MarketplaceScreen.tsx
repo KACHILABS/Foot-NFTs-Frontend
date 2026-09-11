@@ -15,6 +15,14 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
     { name: "Official Club Scarf", category: "Matchday Gear", img: "🧣", desc: "Heritage winter gear" },
   ];
 
+  const ftcUseCases = [
+    { icon: '🏟️', title: 'Unlock club merchandise', text: 'Spend FTC on matchday gear, jerseys, and premium fan drops.' },
+    { icon: '🎁', title: 'Claim limited editions', text: 'Access exclusive digital collectibles and collector-only releases.' },
+    { icon: '⚽', title: 'Redeem on matchday', text: 'Use FTC for special event bundles and in-season stadium perks.' },
+    { icon: '🧢', title: 'Unlock fan rewards', text: 'Get access to premium creator items, community drops, and club perks.' },
+    { icon: '🔥', title: 'Power your engagement', text: 'Earn more FTC through predictions, voting, and participation in Foot-Collect.' },
+  ];
+
   return (
     <div className="flex flex-col gap-6 animate-in slide-in-from-right-10 duration-500 pb-20">
       <div className="flex flex-col gap-1">
@@ -40,6 +48,38 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
           </Button>
         </div>
       </div>
+
+      <Card className="bg-darkCard border border-gray-800 p-5">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-600/15 text-xl ring-1 ring-green-500/30">
+            💡
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-400">FTC Utility</p>
+            <h3 className="text-xl font-black tracking-tight text-white">What Can You Do with FTC in the Foot-Collect Marketplace?</h3>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {ftcUseCases.map((item) => (
+            <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-gray-800 bg-darkDeep p-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-600/10 text-lg ring-1 ring-green-500/20">
+                {item.icon}
+              </div>
+              <div>
+                <p className="text-sm font-black text-white">{item.title}</p>
+                <p className="text-xs leading-relaxed text-gray-400">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 border-t border-gray-800 pt-4">
+          <p className="text-[11px] leading-relaxed text-gray-300">
+            The more you engage, predict, vote, and participate in Foot-Collect, the more FTC you can earn and spend.
+          </p>
+        </div>
+      </Card>
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between px-1">
