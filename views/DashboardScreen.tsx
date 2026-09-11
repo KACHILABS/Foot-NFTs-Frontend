@@ -23,6 +23,7 @@ import CreatorProfileScreen, { CreatorProfileData } from './CreatorProfileScreen
 import CreatorApplicationScreen from './CreatorApplicationScreen';
 import DigitalTwinScreen from './DigitalTwinScreen';
 import FootballCalendarScreen from './FootballCalendarScreen';
+import PlayerRivalryScreen from './PlayerRivalryScreen';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -140,6 +141,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [inFanPod, setInFanPod] = useState(false);
   const [inHopeCampaign, setInHopeCampaign] = useState(false);
   const [inTrophyRoom, setInTrophyRoom] = useState(false);
+  const [inPlayerRivalry, setInPlayerRivalry] = useState(false);
   const [inCreatorProfile, setInCreatorProfile] = useState(false);
   const [inCreatorApplication, setInCreatorApplication] = useState(false);
   const [selectedCreator, setSelectedCreator] = useState<CreatorProfileData | null>(null);
@@ -208,7 +210,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { id: 'trivia', name: 'Trivia IQ', icon: '⚽', description: 'Test your knowledge', comingSoon: false, locked: false },
     { id: 'voting', name: 'Tactical Voting', icon: '🗳️', description: 'Vote on matchday tactics', comingSoon: false, locked: false },
     { id: 'calendar', name: 'Football Calendar', icon: '📅', description: 'Matchday schedule & fixtures', comingSoon: false, locked: false },
-    { id: 'rivalry', name: 'Player Rivalry', icon: '⚔️', description: 'Head-to-head fan debates', comingSoon: true, locked: true },
+    { id: 'rivalry', name: 'Player Rivalry', icon: '⚔️', description: 'Head-to-head fan debates', comingSoon: false, locked: false },
     { id: 'fanpod', name: 'Fan Pod', icon: '📹', description: 'Share your fan story', comingSoon: true, locked: true },
     { id: 'hope', name: 'Hope Campaign', icon: '🕊️', description: 'Football for a cause', comingSoon: true, locked: true },
   ];
@@ -923,6 +925,7 @@ const refreshProfile = async () => {
     setInTrivia(false);
     setInFanPod(false);
     setInHopeCampaign(false);
+    setInPlayerRivalry(false);
   };
 
   // Telegram back button handler
@@ -959,7 +962,7 @@ const refreshProfile = async () => {
   }, [showNotifications, showMarketplace, inChat, inBanterHall, inJerseyDay, inTrivia, inFanPod, inHopeCampaign, navigationHistory, tg]);
 
   useEffect(() => {
-    const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
+    const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign || inPlayerRivalry;
     if (!isOverlayVisible && activeTab === 'home' && navigationHistory[navigationHistory.length - 1] !== 'home') {
       setNavigationHistory(['home']);
     }
@@ -981,6 +984,9 @@ const refreshProfile = async () => {
     if (feature.id === 'trivia') setInTrivia(true);
     if (feature.id === 'voting') setActiveTab('voting');
     if (feature.id === 'calendar') setActiveTab('calendar');
+    if (feature.id === 'rivalry') {
+      setInPlayerRivalry(true);
+    }
   };
 
   const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
@@ -1309,6 +1315,7 @@ const refreshProfile = async () => {
 
   // Screen routing
   if (inTrophyRoom) return <TrophyRoomScreen onBack={() => setInTrophyRoom(false)} backendUserId={backendUserId} />;
+  if (inPlayerRivalry) return <PlayerRivalryScreen onBack={() => setInPlayerRivalry(false)} />;
   if (inTrivia && club) return <TriviaScreen club={club} onboarding={onboarding} onBack={() => setInTrivia(false)} onEarn={handleEarnFTC} onComplete={onTriviaComplete} backendUserId={backendUserId} />;
   if (inJerseyDay && club) return (
   <JerseyDayScreen 
