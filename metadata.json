@@ -1,6 +1,6 @@
 {
-  "name": "FOOT NFTs mini app",
-  "description": "A fan-first football engagement and digital ownership platform powered by the TON blockchain. Join the waitlist, create your fan profile, and rep your club.",
+  "name": "Foot-Collect",
+  "description": "Digital Football Collectibles — collect, trade, and celebrate the game with your club and community.",
   "requestFramePermissions": [
     "camera"
   ]

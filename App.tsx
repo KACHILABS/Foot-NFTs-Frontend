@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { OnboardingState, UserProfile, WalletState, FanRank } from './types';
 import { CLUBS } from './constants';
@@ -6,251 +6,48 @@ import { api } from './src/services/api';
 import { checkAppVersion, getUserId, isAuthenticated, getAuthToken, setAuthSession } from './src/utils/versionControl';
 import SplashScreen from './views/SplashScreen';
 import MaintenanceScreen from './views/MaintenanceScreen';
-import footnftLogo from './src/assets/footnft_logo.png';
-import trophyImage from './src/assets/trophy.png';
-import uclLogo from './src/assets/ucl_logo.png';
 import DashboardScreen from './views/DashboardScreen';
 
 const MAINTENANCE_MODE = false;
 
-// ===== FLYER-STYLE CHAMPIONS LEAGUE SPLASH SCREEN =====
-
-type SplashStar = {
-  id: number;
-  left: string;
-  top: string;
-  fontSize: string;
-  delay: string;
-};
-
-const SPLASH_MESSAGES = [
-  'Loading matchday…',
-  'Shuffling the group stage…',
-  'Polishing the trophy…',
-  'Counting the stars…',
-  'Ready.'
-];
-
-const ChampionsLeagueSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+const BrandSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [fadeOut, setFadeOut] = useState(false);
-  const [showContent, setShowContent] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState(SPLASH_MESSAGES[0]);
-  const [buttonVisible, setButtonVisible] = useState(false);
-  const [minDurationPassed, setMinDurationPassed] = useState(false);
-  const [loaderDone, setLoaderDone] = useState(false);
-  const autoCompleteTimeout = useRef<number | null>(null);
-  const hasCompleted = useRef(false);
-
-  const stars = useMemo<SplashStar[]>(() =>
-    Array.from({ length: 22 }, (_, index) => ({
-      id: index,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      fontSize: `${8 + Math.random() * 10}px`,
-      delay: `${Math.random() * 3.5}s`,
-    })),
-    []
-  );
 
   useEffect(() => {
-    const contentTimer = setTimeout(() => setShowContent(true), 150);
-    const minTimer = setTimeout(() => setMinDurationPassed(true), 7000);
+    const timer = window.setTimeout(() => {
+      setFadeOut(true);
+      window.setTimeout(onComplete, 500);
+    }, 5000);
 
-    const progressInterval = setInterval(() => {
-      setProgress(prev => Math.min(100, prev + Math.random() * 9 + 4));
-    }, 220);
-
-    autoCompleteTimeout.current = window.setTimeout(() => {
-      if (!hasCompleted.current) {
-        hasCompleted.current = true;
-        setFadeOut(true);
-        setTimeout(onComplete, 500);
-      }
-    }, 7000);
-
-    return () => {
-      clearTimeout(contentTimer);
-      clearTimeout(minTimer);
-      clearInterval(progressInterval);
-      if (autoCompleteTimeout.current) window.clearTimeout(autoCompleteTimeout.current);
-    };
+    return () => window.clearTimeout(timer);
   }, [onComplete]);
-
-  useEffect(() => {
-    if (progress >= 100) {
-      setLoaderDone(true);
-      setLoadingMessage(SPLASH_MESSAGES[SPLASH_MESSAGES.length - 1]);
-    } else {
-      const idx = Math.min(Math.floor(progress / 25), SPLASH_MESSAGES.length - 2);
-      setLoadingMessage(SPLASH_MESSAGES[idx]);
-    }
-  }, [progress]);
-
-  useEffect(() => {
-    if (loaderDone && minDurationPassed) {
-      const showTimeout = setTimeout(() => setButtonVisible(true), 300);
-      return () => clearTimeout(showTimeout);
-    }
-  }, [loaderDone, minDurationPassed]);
-
-  const handleEnter = () => {
-    if (hasCompleted.current) return;
-    hasCompleted.current = true;
-    if (autoCompleteTimeout.current) window.clearTimeout(autoCompleteTimeout.current);
-    setFadeOut(true);
-    setTimeout(onComplete, 500);
-  };
-
-  const StarIcon: React.FC = () => (
-    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-green-400" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.3l2.8 6.7 7.1 1-5.4 4.9 1.3 7.1L12 17.8l-6.8 3.6 1.3-7.1-5.4-4.9 7.1-1L12 2.3z" />
-    </svg>
-  );
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center z-50 overflow-hidden transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
       style={{
-        background: 'radial-gradient(120% 90% at 50% -10%, #14257a 0%, transparent 55%), radial-gradient(90% 70% at 100% 110%, #071233 0%, transparent 60%), linear-gradient(160deg, #050b1f 0%, #0a1440 45%, #0c1c52 75%, #071233 100%)'
+        background: 'radial-gradient(circle at top, rgba(59,130,246,0.30), transparent 30%), radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 35%), linear-gradient(180deg, #050816 0%, #0A1020 45%, #111827 100%)'
       }}
     >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="facet f1" />
-        <div className="facet f2" />
-        <div className="facet f3" />
-        <div className="facet f4" />
-        <div className="facet f5" />
-        <div className="shard s1" />
-        <div className="shard s2" />
-        <div className="sheen" />
-        <div className="grain" />
-        <div className="stars absolute inset-0">
-          {stars.map(star => (
-            <div
-              key={star.id}
-              className="star"
-              style={{
-                left: star.left,
-                top: star.top,
-                fontSize: star.fontSize,
-                animationDelay: star.delay,
-              }}
-            >
-              ★
-            </div>
-          ))}
+      <div
+        className="absolute inset-0 opacity-80"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: '32px 32px'
+        }}
+      />
+      <div className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/15 blur-3xl" />
+
+      <div className="relative z-10 px-6 text-center">
+        <div className="mx-auto mb-7 flex h-28 w-28 items-center justify-center rounded-[28px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(96,165,250,0.35)] backdrop-blur-sm">
+          <img src="/logo.png" alt="Foot-Collect logo" className="h-20 w-20 object-contain" />
         </div>
+
+        <h1 className="text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl">Foot-Collect</h1>
+        <p className="mt-3 text-sm font-medium tracking-[0.22em] text-cyan-200/90 uppercase sm:text-base">
+          Digital Football Collectibles
+        </p>
       </div>
-
-      <div className={`relative z-10 text-center px-6 max-w-sm mx-auto transition-all duration-700 ${showContent ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-        <div className="eyebrow text-[12px] uppercase tracking-[0.42em] text-cyan-400 mb-7 font-[Barlow_Condensed] opacity-85">
-          Own the Moment · Own the Pitch
-        </div>
-
-        <div className="lockup flex items-center justify-center gap-6 mb-8 flex-wrap max-w-[92vw] mx-auto">
-          <div className="mark foot">
-            <img src={footnftLogo} alt="FootNFTs logo" className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-white/10 shadow-[0_0_0_3px_rgba(255,255,255,0.08),0_0_24px_rgba(255,120,40,0.28),0_10px_24px_rgba(0,0,0,0.35)] object-cover" />
-          </div>
-          <div className="divider text-[18px] sm:text-[20px] text-slate-300/40">×</div>
-          <div className="mark trophy">
-            <img src={trophyImage} alt="UEFA Champions League trophy" className="h-16 sm:h-[108px] w-auto object-contain rounded-full" />
-          </div>
-          <div className="divider text-[18px] sm:text-[20px] text-slate-300/40">×</div>
-          <div className="mark ucl">
-            <img src={uclLogo} alt="UEFA Champions League logo" className="h-14 sm:h-[80px] w-auto object-contain rounded-full" />
-          </div>
-        </div>
-
-        <h1 className="title text-[clamp(38px,7vw,74px)] font-[Anton] font-normal tracking-[0.02em] leading-[0.95] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-white text-shadow-[0_0_40px_rgba(53,232,255,0.25)] mb-4">
-          FOOT<span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-white bg-clip-text text-transparent">NFTS</span>
-        </h1>
-
-        <div className="subtitle font-[Barlow_Condensed] font-semibold uppercase tracking-[0.28em] text-slate-300 text-[clamp(12px,2vw,16px)] mb-7">
-          UEFA Champions League <span className="season text-yellow-300">· 2026/27</span>
-        </div>
-
-        <div className="tags flex flex-wrap justify-center gap-2 mb-10">
-          <span className="tag text-[13px] uppercase tracking-[0.08em] px-3 py-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">Vote</span>
-          <span className="tag text-[13px] uppercase tracking-[0.08em] px-3 py-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">Banter</span>
-          <span className="tag text-[13px] uppercase tracking-[0.08em] px-3 py-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">Earn FTC</span>
-        </div>
-
-        <div className={`loader-wrap mx-auto w-full max-w-[280px] transition-opacity duration-300 ${buttonVisible ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          <div className="loader-track relative w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-3">
-            <div className="loader-fill absolute left-0 top-0 bottom-0 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full shadow-[0_0_16px_rgba(53,232,255,0.6)]" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="loader-label text-[11px] uppercase tracking-[0.3em] text-slate-300/70 font-[Barlow_Condensed] text-center">
-            {loadingMessage}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleEnter}
-          className={`enter-btn mt-6 px-9 py-3 rounded-full text-sm font-bold uppercase tracking-[0.16em] text-slate-950 bg-gradient-to-r from-cyan-400 to-sky-400 shadow-[0_12px_30px_rgba(53,232,255,0.35)] transition-all ${buttonVisible ? 'show' : ''}`}
-        >
-          Enter the Arena
-        </button>
-      </div>
-
-      <div className="footer-note absolute bottom-5 left-0 right-0 text-center text-[11px] uppercase tracking-[0.2em] text-slate-300/30">
-        © 2026 Foot NFTs · Kachi Labs — Built for fans, built by fans
-      </div>
-
-      <style>{`
-        .facet {
-          position: absolute;
-          background: linear-gradient(135deg, rgba(53,232,255,0.10), rgba(47,95,224,0.04) 60%, transparent);
-          border: 1px solid rgba(120,170,255,0.14);
-          clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
-          filter: blur(0.2px);
-        }
-        .f1 { width: 520px; height: 520px; top: -160px; left: -140px; transform: rotate(12deg); opacity: .55; }
-        .f2 { width: 380px; height: 380px; top: 55%; left: -120px; transform: rotate(-18deg); opacity: .4; }
-        .f3 { width: 640px; height: 640px; top: -220px; right: -220px; transform: rotate(-8deg); opacity: .5; }
-        .f4 { width: 420px; height: 420px; bottom: -180px; right: -80px; transform: rotate(22deg); opacity: .45; }
-        .f5 { width: 300px; height: 300px; bottom: -120px; left: 20%; transform: rotate(-30deg); opacity: .3; }
-        .shard {
-          position: absolute;
-          background: linear-gradient(120deg, rgba(255,255,255,0.05), transparent 70%);
-          clip-path: polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%);
-        }
-        .s1 { width: 220px; height: 900px; top: -100px; left: 12%; transform: rotate(18deg); opacity: .12; }
-        .s2 { width: 160px; height: 900px; top: -200px; right: 22%; transform: rotate(-14deg); opacity: .10; }
-        .sheen {
-          position: absolute;
-          inset: -20%;
-          background: conic-gradient(from 210deg at 50% 45%, transparent 0deg, rgba(53,232,255,0.08) 40deg, transparent 90deg, transparent 300deg, rgba(120,140,255,0.06) 340deg, transparent 360deg);
-          animation: rotateSheen 22s linear infinite;
-        }
-        .grain {
-          position: absolute;
-          inset: 0;
-          background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
-          background-size: 3px 3px;
-          opacity: .5;
-          mix-blend-mode: overlay;
-        }
-        .star {
-          position: absolute;
-          color: rgba(255,255,255,0.55);
-          animation: twinkle 3.5s ease-in-out infinite;
-        }
-        .enter-btn {
-          opacity: 0;
-          transform: translateY(6px);
-          pointer-events: none;
-        }
-        .enter-btn.show {
-          opacity: 1;
-          transform: translateY(0);
-          pointer-events: auto;
-          transition: opacity .5s ease, transform .5s ease;
-        }
-        @keyframes rotateSheen { to { transform: rotate(360deg); } }
-        @keyframes twinkle { 0%, 100% { opacity: .15; } 50% { opacity: .75; } }
-      `}</style>
     </div>
   );
 };
@@ -504,7 +301,7 @@ const AppContent: React.FC = () => {
   }
 
   if (showWorldCupSplash) {
-    return <ChampionsLeagueSplash onComplete={handleWorldCupSplashComplete} />;
+    return <BrandSplash onComplete={handleWorldCupSplashComplete} />;
   }
 
   if (!isProfileComplete) {

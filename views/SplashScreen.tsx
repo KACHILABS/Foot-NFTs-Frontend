@@ -145,7 +145,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
       <div className="mb-10 text-center animate-fade-in-up relative z-10">
         <img
           src="/logo.png"
-          alt="FOOT NFTs Logo"
+          alt="Foot-Collect Logo"
           className="w-28 h-28 mx-auto mb-6 object-contain"
           onError={(e) => {
             const t = e.target as HTMLImageElement;
@@ -153,8 +153,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onClaimBonus })
             t.src = 'https://placehold.co/112x112/22c55e/ffffff?text=FOOT';
           }}
         />
-        <h1 className="text-4xl font-black text-white mb-2 font-display">FOOT NFTs</h1>
-        <p className="text-gray-400">Own the moment. Rep the club.</p>
+        <h1 className="text-4xl font-black text-white mb-2 font-display">Foot-Collect</h1>
+        <p className="text-gray-400">Digital Football Collectibles</p>
       </div>
 
       {/* Form */}

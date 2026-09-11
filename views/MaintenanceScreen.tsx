@@ -73,9 +73,9 @@ const MaintenanceScreen: React.FC = () => {
 
       <section className="maintenance-content" aria-labelledby="maintenance-title">
         <div className="maintenance-logo-wrap">
-          <img src={footnftLogo} alt="FOOT NFTs logo" className="maintenance-logo" />
+          <img src={footnftLogo} alt="Foot-Collect logo" className="maintenance-logo" />
         </div>
-        <p className="maintenance-eyebrow">FOOT NFTs</p>
+        <p className="maintenance-eyebrow">Foot-Collect</p>
         <h1 id="maintenance-title">Server Maintenance</h1>
         <p className="maintenance-message">We are making improvements to serve you better.</p>
 
@@ -91,7 +91,7 @@ const MaintenanceScreen: React.FC = () => {
         <p className="maintenance-status">Back on the pitch soon</p>
       </section>
 
-      <footer className="maintenance-footer">FOOT NFTs</footer>
+      <footer className="maintenance-footer">Foot-Collect</footer>
 
       <style>{`
         .maintenance-screen {
