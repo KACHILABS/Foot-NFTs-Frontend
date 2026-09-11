@@ -16,11 +16,64 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
   ];
 
   const ftcUseCases = [
-    { icon: '🏟️', title: 'Unlock club merchandise', text: 'Spend FTC on matchday gear, jerseys, and premium fan drops.' },
-    { icon: '🎁', title: 'Claim limited editions', text: 'Access exclusive digital collectibles and collector-only releases.' },
-    { icon: '⚽', title: 'Redeem on matchday', text: 'Use FTC for special event bundles and in-season stadium perks.' },
-    { icon: '🧢', title: 'Unlock fan rewards', text: 'Get access to premium creator items, community drops, and club perks.' },
-    { icon: '🔥', title: 'Power your engagement', text: 'Earn more FTC through predictions, voting, and participation in Foot-Collect.' },
+    {
+      title: 'Unlock club merchandise',
+      text: 'Spend FTC on matchday gear, jerseys, and premium fan drops.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 18V6.5A1.5 1.5 0 0 1 4.5 5H19.5A1.5 1.5 0 0 1 21 6.5V18" />
+          <path d="M8 9h8" />
+          <path d="M8 12h8" />
+          <path d="M10 5V3h4v2" />
+          <path d="M6 18h12" />
+        </svg>
+      )
+    },
+    {
+      title: 'Claim limited editions',
+      text: 'Access exclusive digital collectibles and collector-only releases.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3v12" />
+          <path d="M7 18.5A5 5 0 0 0 12 13a5 5 0 0 0 5 5.5" />
+          <path d="M8 8h8" />
+          <path d="M7 5h10" />
+        </svg>
+      )
+    },
+    {
+      title: 'Redeem on matchday',
+      text: 'Use FTC for special event bundles and in-season stadium perks.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 4v6l4 2" />
+          <path d="M8 16l4-4" />
+        </svg>
+      )
+    },
+    {
+      title: 'Unlock fan rewards',
+      text: 'Get access to premium creator items, community drops, and club perks.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3l2.3 4.7L19 8.1l-3.5 3.5 1 5.4-4.5-2.3-4.5 2.3 1-5.4L5 8.1l4.7-.4L12 3Z" />
+        </svg>
+      )
+    },
+    {
+      title: 'Power your engagement',
+      text: 'Earn more FTC through predictions, voting, and participation in Foot-Collect.',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 2v8" />
+          <path d="M8 8l4-6 4 6" />
+          <path d="M5 14h14" />
+          <path d="M7 18h10" />
+          <path d="M9 22h6" />
+        </svg>
+      )
+    },
   ];
 
   return (
@@ -30,6 +83,7 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
         <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Official Club Merchandise</p>
       </div>
 
+      {/*
       <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl bg-darkDeep text-white border border-gray-800">
         <div className="absolute inset-0 bg-green-600 opacity-10"></div>
         <div className="relative p-10 flex flex-col items-center text-center">
@@ -48,11 +102,18 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
           </Button>
         </div>
       </div>
+      */}
 
       <Card className="bg-darkCard border border-gray-800 p-5">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-600/15 text-xl ring-1 ring-green-500/30">
-            💡
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-600/15 text-green-400 ring-1 ring-green-500/30">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2v8" />
+              <path d="M9 5h6" />
+              <path d="M8 12h8" />
+              <path d="M12 15v7" />
+              <path d="M7 18h10" />
+            </svg>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-400">FTC Utility</p>
@@ -63,7 +124,7 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
         <div className="space-y-3">
           {ftcUseCases.map((item) => (
             <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-gray-800 bg-darkDeep p-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-600/10 text-lg ring-1 ring-green-500/20">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-600/10 text-green-300 ring-1 ring-green-500/20">
                 {item.icon}
               </div>
               <div>
@@ -81,6 +142,7 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
         </div>
       </Card>
 
+      {/*
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between px-1">
            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Upcoming Drops</p>
@@ -117,6 +179,7 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
          <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Blockchain Authenticity</p>
          <p className="text-[10px] text-gray-400 font-medium leading-relaxed">Every item in our marketplace is verified via NFT metadata on the TON blockchain to prevent counterfeits.</p>
       </Card>
+      */}
     </div>
   );
 };
