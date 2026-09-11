@@ -159,6 +159,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showBalance, setShowBalance] = useState(true);
   
   // Notification System
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -1179,8 +1180,39 @@ const refreshProfile = async () => {
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-2 gap-4">
         <Card className="bg-green-600 text-black border-none p-5 relative overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer" onClick={() => { tg?.HapticFeedback.selectionChanged(); navigateTo('wallet'); }}>
-          <p className="text-[10px] uppercase opacity-80 font-black tracking-widest mb-1">FTC Balance</p>
-          <p className="text-3xl font-black">{userFTCBalance} <span className="text-xs font-bold opacity-60">FTC</span></p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[10px] uppercase opacity-80 font-black tracking-widest mb-1">FTC Balance</p>
+              <p className="text-3xl font-black">
+                {showBalance ? userFTCBalance : '••••'}
+                {!showBalance && <span className="text-xs font-bold opacity-60 ml-1">FTC</span>}
+                {showBalance && <span className="text-xs font-bold opacity-60"> FTC</span>}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                tg?.HapticFeedback.selectionChanged();
+                setShowBalance(prev => !prev);
+              }}
+              className="mt-1 rounded-full bg-black/10 p-1.5 text-black/70 transition-colors hover:bg-black/15"
+              aria-label={showBalance ? 'Hide balance' : 'Show balance'}
+            >
+              {showBalance ? (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 3l18 18" />
+                  <path d="M10.58 10.58A2 2 0 0 0 13.42 13.42" />
+                  <path d="M9.88 5.32A10.94 10.94 0 0 1 12 5c6.5 0 10 7 10 7a15.69 15.69 0 0 1-4.08 5.06M6.61 6.61A14.7 14.7 0 0 0 2 12s3.5 7 10 7a11.6 11.6 0 0 0 5.39-1.61" />
+                </svg>
+              )}
+            </button>
+          </div>
         </Card>
         <Card className="p-5 border-gray-800 shadow-sm bg-darkCard">
           <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Global Rank</p>

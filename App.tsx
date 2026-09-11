@@ -24,30 +24,16 @@ const BrandSplash: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-50 overflow-hidden transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
       style={{
-        background: 'radial-gradient(circle at top, rgba(59,130,246,0.30), transparent 30%), radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 35%), linear-gradient(180deg, #050816 0%, #0A1020 45%, #111827 100%)'
+        background: '#050816'
       }}
     >
-      <div
-        className="absolute inset-0 opacity-80"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-          backgroundSize: '32px 32px'
-        }}
+      <img
+        src="/splashscreen.png"
+        alt=""
+        className="h-full w-full object-cover"
       />
-      <div className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/15 blur-3xl" />
-
-      <div className="relative z-10 px-6 text-center">
-        <div className="mx-auto mb-7 flex h-28 w-28 items-center justify-center rounded-[28px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(96,165,250,0.35)] backdrop-blur-sm">
-          <img src="/logo.png" alt="Foot-Collect logo" className="h-20 w-20 object-contain" />
-        </div>
-
-        <h1 className="text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl">Foot-Collect</h1>
-        <p className="mt-3 text-sm font-medium tracking-[0.22em] text-cyan-200/90 uppercase sm:text-base">
-          Digital Football Collectibles
-        </p>
-      </div>
     </div>
   );
 };
