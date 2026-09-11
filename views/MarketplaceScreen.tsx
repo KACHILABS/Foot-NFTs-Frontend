@@ -17,8 +17,8 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
 
   const ftcUseCases = [
     {
-      title: 'Unlock club merchandise',
-      text: 'Spend FTC on matchday gear, jerseys, and premium fan drops.',
+      title: 'Buy Official Jerseys',
+      text: 'Use FTC to get home, away, and special-edition kits.',
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 18V6.5A1.5 1.5 0 0 1 4.5 5H19.5A1.5 1.5 0 0 1 21 6.5V18" />
@@ -30,31 +30,31 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
       )
     },
     {
-      title: 'Claim limited editions',
-      text: 'Access exclusive digital collectibles and collector-only releases.',
+      title: 'Shop Sport Gear & Merchandise',
+      text: 'Boots, training kits, scarves, caps, fan gear.',
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3v12" />
-          <path d="M7 18.5A5 5 0 0 0 12 13a5 5 0 0 0 5 5.5" />
-          <path d="M8 8h8" />
-          <path d="M7 5h10" />
+          <path d="M7 9V6.5A2.5 2.5 0 0 1 9.5 4h5A2.5 2.5 0 0 1 17 6.5V9" />
+          <path d="M6 9h12l-1 11H7L6 9Z" />
+          <path d="M9 13h6" />
         </svg>
       )
     },
     {
-      title: 'Redeem on matchday',
-      text: 'Use FTC for special event bundles and in-season stadium perks.',
+      title: 'Pay for Match-Day Tickets',
+      text: 'Use FTC to book and pay for stadium tickets.',
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 4v6l4 2" />
-          <path d="M8 16l4-4" />
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M8 15h3" />
+          <path d="M13 15h3" />
         </svg>
       )
     },
     {
-      title: 'Unlock fan rewards',
-      text: 'Get access to premium creator items, community drops, and club perks.',
+      title: 'Unlock Exclusive Fan Rewards',
+      text: 'VIP experiences, signed merch, meet-and-greets, limited drops.',
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 3l2.3 4.7L19 8.1l-3.5 3.5 1 5.4-4.5-2.3-4.5 2.3 1-5.4L5 8.1l4.7-.4L12 3Z" />
@@ -62,15 +62,14 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
       )
     },
     {
-      title: 'Power your engagement',
-      text: 'Earn more FTC through predictions, voting, and participation in Foot-Collect.',
+      title: 'Redeem Digital Collectibles & Fan Moments',
+      text: 'Trade FTC for Digital Collectibles and Fan Moments in-app.',
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 2v8" />
-          <path d="M8 8l4-6 4 6" />
-          <path d="M5 14h14" />
-          <path d="M7 18h10" />
-          <path d="M9 22h6" />
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 9h8" />
+          <path d="M8 13h5" />
+          <path d="M16 13l2 2-2 2" />
         </svg>
       )
     },
