@@ -22,6 +22,7 @@ import CreatorHubScreen from './CreatorHubScreen';
 import CreatorProfileScreen, { CreatorProfileData } from './CreatorProfileScreen';
 import CreatorApplicationScreen from './CreatorApplicationScreen';
 import DigitalTwinScreen from './DigitalTwinScreen';
+import FootballCalendarScreen from './FootballCalendarScreen';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -206,7 +207,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { id: 'jersey', name: 'Jersey Day', icon: '👕', description: 'Rep your colors daily', comingSoon: false, locked: false },
     { id: 'trivia', name: 'Trivia IQ', icon: '⚽', description: 'Test your knowledge', comingSoon: false, locked: false },
     { id: 'voting', name: 'Tactical Voting', icon: '🗳️', description: 'Vote on matchday tactics', comingSoon: false, locked: false },
-    { id: 'calendar', name: 'Football Calendar', icon: '📅', description: 'Matchday schedule & fixtures', comingSoon: true, locked: true },
+    { id: 'calendar', name: 'Football Calendar', icon: '📅', description: 'Matchday schedule & fixtures', comingSoon: false, locked: false },
     { id: 'rivalry', name: 'Player Rivalry', icon: '⚔️', description: 'Head-to-head fan debates', comingSoon: true, locked: true },
     { id: 'fanpod', name: 'Fan Pod', icon: '📹', description: 'Share your fan story', comingSoon: true, locked: true },
     { id: 'hope', name: 'Hope Campaign', icon: '🕊️', description: 'Football for a cause', comingSoon: true, locked: true },
@@ -979,6 +980,7 @@ const refreshProfile = async () => {
     if (feature.id === 'jersey') setInJerseyDay(true);
     if (feature.id === 'trivia') setInTrivia(true);
     if (feature.id === 'voting') setActiveTab('voting');
+    if (feature.id === 'calendar') setActiveTab('calendar');
   };
 
   const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
@@ -1101,7 +1103,7 @@ const refreshProfile = async () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-darkCard rounded-2xl p-6 max-w-sm w-full border border-green-500/30">
             <h2 className="text-xl font-black text-white mb-4">TON Wallet Address</h2>
-            <p className="text-xs text-gray-400 mb-4">Enter your TON wallet address to receive NFT rewards</p>
+            <p className="text-xs text-gray-400 mb-4">Enter your TON wallet address to receive Digital Collectibles rewards</p>
             <input
               type="text"
               placeholder="EQA... or UQA..."
@@ -1509,6 +1511,7 @@ const refreshProfile = async () => {
             {activeTab === 'feed' && <FeedScreen profile={profile} backendUserId={backendUserId} onOpenCreator={handleOpenCreatorProfile} />}
             {activeTab === 'creators' && <CreatorHubScreen profile={profile} backendUserId={backendUserId} onOpenProfile={handleOpenCreatorProfile} onOpenApplication={() => setInCreatorApplication(true)} onBack={() => setActiveTab('home')} />}
             {activeTab === 'market' && <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setActiveTab('home')} />}
+            {activeTab === 'calendar' && <FootballCalendarScreen onBack={() => setActiveTab('home')} />}
             {activeTab === 'twin' && <DigitalTwinScreen onBack={() => setActiveTab('home')} />}
             {activeTab === 'profile' && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 flex flex-col gap-6">

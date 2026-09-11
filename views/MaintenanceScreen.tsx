@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import footnftLogo from '../src/assets/footnft_logo.png';
 
 type MaintenanceStar = {
   id: number;
@@ -73,7 +72,7 @@ const MaintenanceScreen: React.FC = () => {
 
       <section className="maintenance-content" aria-labelledby="maintenance-title">
         <div className="maintenance-logo-wrap">
-          <img src={footnftLogo} alt="Foot-Collect logo" className="maintenance-logo" />
+          <img src="/logo.png" alt="Foot-Collect logo" className="maintenance-logo" />
         </div>
         <p className="maintenance-eyebrow">Foot-Collect</p>
         <h1 id="maintenance-title">Server Maintenance</h1>

@@ -188,7 +188,7 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
         </>
       )}
 
-      {/* NEW: Coming Soon Tile - Vote Football Highlights to Become NFT */}
+      {/* Coming Soon tile for fan-voted Digital Collectibles */}
       <div className="flex flex-col gap-4 mt-4">
         <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em] px-1">Coming Soon</p>
         <Card className="p-5 border border-gray-800 shadow-sm relative overflow-hidden bg-darkCard/50 opacity-80">
@@ -200,17 +200,17 @@ const VotingScreen: React.FC<VotingScreenProps> = ({ club, onBack, onEarn }) => 
               🎬
             </div>
             <div className="flex-1">
-              <h3 className="text-base font-black text-white mb-1">Vote Football Highlights to Become an NFT</h3>
+              <h3 className="text-base font-black text-white mb-1">Vote Football Highlights to Become Digital Collectibles</h3>
               <p className="text-xs text-gray-400 leading-relaxed">
-                Your vote decides which iconic moments get minted as permanent NFTs on the blockchain. 
-                Each highlight you vote for earns you royalties forever.
+                Your vote decides which iconic moments get turned into permanent Digital Collectibles on the blockchain.
+                Each highlight you vote for can unlock new fan rewards and collectible drops.
               </p>
               <div className="mt-3 flex items-center gap-3">
                 <div className="flex items-center gap-1">
                   <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-[9px] text-gray-500 font-bold">Earn royalties</span>
+                  <span className="text-[9px] text-gray-500 font-bold">Fan rewards</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">

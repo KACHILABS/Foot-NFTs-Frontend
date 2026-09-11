@@ -176,7 +176,7 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify, onBack 
       <Card className="bg-darkCard border border-gray-800 p-6 flex flex-col items-center text-center">
          <div className="text-2xl mb-2">🛡️</div>
          <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Blockchain Authenticity</p>
-         <p className="text-[10px] text-gray-400 font-medium leading-relaxed">Every item in our marketplace is verified via NFT metadata on the TON blockchain to prevent counterfeits.</p>
+         <p className="text-[10px] text-gray-400 font-medium leading-relaxed">Every item in our marketplace is verified via Digital Collectibles metadata on the TON blockchain to prevent counterfeits.</p>
       </Card>
       */}
     </div>
