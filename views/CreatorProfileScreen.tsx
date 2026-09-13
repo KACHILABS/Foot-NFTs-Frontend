@@ -12,6 +12,9 @@ export interface CreatorProfileData {
   avatar: string;
   followers: number;
   verified: boolean;
+  isFollowing?: boolean;
+  creatorId?: string;
+  creatorUserId?: string | null;
   stats: {
     posts: number;
     avgLikes: number;

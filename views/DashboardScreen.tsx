@@ -890,6 +890,9 @@ const refreshProfile = async () => {
         avatar: creatorData.avatar,
         followers: creatorData.followers || 0,
         verified: creatorData.verified || false,
+        isFollowing: !!creatorData.is_following,
+        creatorId: creatorData.creator_id || creatorId,
+        creatorUserId: creatorData.creator_user_id || null,
         stats: creatorData.stats || { posts: 0, avgLikes: 0, engagement: '0%' },
         bio: creatorData.bio || '',
         likes: creatorData.likes || 0,
@@ -903,9 +906,39 @@ const refreshProfile = async () => {
     setInCreatorProfile(true);
   };
 
-  const handleCreatorFollowToggle = () => {
-    if (!selectedCreator) return;
-    setSelectedCreator({ ...selectedCreator, followers: Math.max(0, selectedCreator.followers + 1) });
+  const handleCreatorFollowToggle = async () => {
+    if (!selectedCreator || !backendUserId) return;
+    const creatorId = (selectedCreator as any).creatorId || selectedCreator.id;
+    const wasFollowing = !!(selectedCreator as any).isFollowing;
+    const nextFollowing = !wasFollowing;
+    setSelectedCreator({
+      ...selectedCreator,
+      isFollowing: nextFollowing,
+      followers: Math.max(0, (selectedCreator.followers || 0) + (nextFollowing ? 1 : -1))
+    } as CreatorProfileData);
+    tg?.HapticFeedback.impactOccurred('light');
+    try {
+      const res = await fetch(`${API_BASE}/creator/follow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: backendUserId, creatorId })
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.success) {
+        setSelectedCreator((prev) => prev ? ({
+          ...prev,
+          isFollowing: !!data.following,
+          followers: typeof data.follower_count === 'number' ? data.follower_count : prev.followers
+        } as CreatorProfileData) : prev);
+      }
+    } catch (error) {
+      console.error('Follow toggle error:', error);
+      setSelectedCreator({
+        ...selectedCreator,
+        isFollowing: wasFollowing,
+        followers: Math.max(0, (selectedCreator.followers || 0) + (wasFollowing ? 1 : -1))
+      } as CreatorProfileData);
+    }
   };
 
   const goBack = () => {
@@ -1340,7 +1373,7 @@ const refreshProfile = async () => {
   if (inCreatorProfile && selectedCreator) return (
     <CreatorProfileScreen
       creator={selectedCreator}
-      isFollowing={true}
+      isFollowing={!!(selectedCreator as any).isFollowing}
       onBack={() => setInCreatorProfile(false)}
       onToggleFollow={handleCreatorFollowToggle}
     />
