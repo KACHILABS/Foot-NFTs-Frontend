@@ -879,6 +879,36 @@ const refreshProfile = async () => {
     tg?.HapticFeedback.selectionChanged();
   };
 
+  // Authoritative creator detail: permanent follow state + real follower count
+  const refreshCreatorDetail = async (creatorId: string) => {
+    try {
+      const qs = backendUserId ? `?userId=${backendUserId}` : '';
+      const res = await fetch(`${API_BASE}/creator/detail/${creatorId}${qs}`);
+      const data = await res.json().catch(() => null);
+      if (data?.success && data.creator) {
+        const c = data.creator;
+        setSelectedCreator((prev) => ({
+          ...(prev || {}),
+          id: c.id || creatorId,
+          name: c.name || (prev as any)?.name,
+          handle: c.handle || (prev as any)?.handle,
+          club: c.club ?? (prev as any)?.club,
+          niche: c.niche ?? (prev as any)?.niche,
+          avatar: c.avatar || (prev as any)?.avatar,
+          followers: typeof c.followers === 'number' ? c.followers : (prev as any)?.followers,
+          verified: c.verified ?? (prev as any)?.verified,
+          isFollowing: !!c.isFollowing,
+          creatorId: c.creator_id || creatorId,
+          creatorUserId: c.creator_user_id ?? (prev as any)?.creatorUserId,
+          bio: c.bio ?? (prev as any)?.bio,
+          recentPosts: c.recentPosts || (prev as any)?.recentPosts || []
+        } as CreatorProfileData));
+      }
+    } catch (error) {
+      console.error('Creator detail refresh error:', error);
+    }
+  };
+
   const handleOpenCreatorProfile = (creatorId: string, creatorData?: any) => {
     if (creatorData) {
       setSelectedCreator({
@@ -904,6 +934,7 @@ const refreshProfile = async () => {
       setSelectedCreator(creatorProfileMap[creatorId] || null);
     }
     setInCreatorProfile(true);
+    refreshCreatorDetail(creatorId);
   };
 
   const handleCreatorFollowToggle = async () => {
@@ -1544,7 +1575,7 @@ const refreshProfile = async () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar bg-transparent">
+      <div className={`flex-1 overflow-y-auto no-scrollbar bg-transparent ${activeTab === 'feed' ? 'px-0 py-0' : 'px-6 py-6'}`}>
         {showMarketplace ? <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setShowMarketplace(false)} /> : showNotifications ? renderNotificationsPanel() : (
           <>
             {activeTab === 'home' && renderHome()}

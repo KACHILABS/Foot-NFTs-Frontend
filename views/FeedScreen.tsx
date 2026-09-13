@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeartIcon, ChatIcon, VerifiedIcon, PlusIcon, CloseIcon, ImageIcon, SendIcon } from '../src/components/Icons';
+import { HeartIcon, ChatIcon, VerifiedIcon, PlusIcon, CloseIcon, ImageIcon, SendIcon, StarIcon } from '../src/components/Icons';
 
 export interface Post {
   post_id: string;
@@ -59,6 +59,11 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
+  const PREVIEW_LIMIT = 160;
+  const toggleExpanded = (postId: string) => {
+    setExpandedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+  };
   const [commenting, setCommenting] = useState(false);
 
   const tg = (window as any).Telegram?.WebApp;
@@ -152,6 +157,34 @@ const FeedScreen: React.FC<FeedScreenProps> = ({ profile, backendUserId, onOpenC
       setPosting(false);
     }
   };
+  const toggleAlign = async (postId: string, aligned: boolean) => {
+    if (!backendUserId) return;
+    // Optimistic update
+    setPosts(prev => prev.map(p =>
+      p.post_id === postId
+        ? { ...p, user_aligned: !aligned, align_count: Math.max(0, p.align_count + (aligned ? -1 : 1)) }
+        : p
+    ));
+    try {
+      const res = await fetch(`${API_BASE}/creator/align`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: backendUserId, postId })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error('Align failed');
+      tg?.HapticFeedback?.impactOccurred?.('light');
+    } catch (error) {
+      console.error('Align error:', error);
+      // Revert
+      setPosts(prev => prev.map(p =>
+        p.post_id === postId
+          ? { ...p, user_aligned: aligned, align_count: Math.max(0, p.align_count + (aligned ? 1 : -1)) }
+          : p
+      ));
+    }
+  };
+
 const toggleLike = async (postId: string, liked: boolean) => {
     if (!backendUserId) return;
     // Optimistic update
@@ -343,6 +376,31 @@ const formatDate = (dateStr: string) => {
     </div>
   );
 
+  const renderPostText = (text: string, postId: string) => {
+    if (!text) return null;
+    const expanded = !!expandedPosts[postId];
+    if (text.length <= PREVIEW_LIMIT || expanded) {
+      return (
+        <p className="text-[15px] leading-[1.45] text-[#e7e9ee] whitespace-pre-wrap break-words">
+          {text}
+          {text.length > PREVIEW_LIMIT && (
+            <button onClick={() => toggleExpanded(postId)} className="ml-1 text-[#8a94a6] hover:text-white font-semibold">
+              See less
+            </button>
+          )}
+        </p>
+      );
+    }
+    return (
+      <p className="text-[15px] leading-[1.45] text-[#e7e9ee] whitespace-pre-wrap break-words">
+        {text.slice(0, PREVIEW_LIMIT)}...{' '}
+        <button onClick={() => toggleExpanded(postId)} className="text-white font-bold hover:underline">
+          See more
+        </button>
+      </p>
+    );
+  };
+
   const renderPost = (post: Post) => {
     const isOwnPost = !!backendUserId && !!post.creator_user_id && post.creator_user_id === backendUserId;
     return (
@@ -383,7 +441,7 @@ const formatDate = (dateStr: string) => {
             </div>
 
             {/* Content */}
-            <p className="mt-1.5 text-[15px] text-[#e7e9ee] leading-[1.45] whitespace-pre-wrap break-words">{post.content}</p>
+            <div className="mt-1.5">{renderPostText(post.content, post.post_id)}</div>
 
             {/* Media */}
             {post.image_url && (
@@ -398,7 +456,7 @@ const formatDate = (dateStr: string) => {
             )}
 
             {/* Actions: comment + like (no download/share button) */}
-            <div className="mt-2 flex items-center gap-1 max-w-[260px]">
+            <div className="mt-2 flex items-center gap-1 max-w-[340px]">
               <button
                 onClick={() => openComments(post)}
                 className="flex-1 flex items-center gap-2 py-1 text-[#5b6472] hover:text-[#1d9bf0] transition-colors"
@@ -414,6 +472,15 @@ const formatDate = (dateStr: string) => {
               >
                 <HeartIcon className="w-[18px] h-[18px]" filled={post.user_liked} />
                 <span className="text-[13px] font-semibold">{formatCount(post.like_count)}</span>
+              </button>
+              <button
+                onClick={() => toggleAlign(post.post_id, post.user_aligned)}
+                className={`flex-1 flex items-center gap-2 py-1 transition-colors ${
+                  post.user_aligned ? 'text-[#4da3ff]' : 'text-[#5b6472] hover:text-[#4da3ff]'
+                }`}
+              >
+                <StarIcon className="w-[18px] h-[18px]" filled={post.user_aligned} />
+                <span className="text-[13px] font-semibold">{formatCount(post.align_count)}</span>
               </button>
             </div>
           </div>
@@ -520,12 +587,12 @@ return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       {/* Sticky feed header */}
       <div className="border-b border-white/5 bg-[#0b0f1a]/95 backdrop-blur-md shrink-0">
-        <div className="px-4 pt-3 pb-2">
+        <div className="px-4 pt-2.5 pb-1">
           <h1 className="text-xl font-black text-white tracking-tight">Feed</h1>
         </div>
 
         {/* Thin compose row: avatar + "What's happening?" + add icon */}
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-2.5">
           <div className="flex items-center gap-3">
             {renderAvatar(profile?.avatar, 'You', 'w-9 h-9')}
             <button

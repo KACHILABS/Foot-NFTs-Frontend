@@ -34,7 +34,21 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
   useEffect(() => {
     loadCreators();
     checkStatus();
-  }, []);
+    loadFollowing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendUserId]);
+
+  // Permanent follow state: ids this user already follows (survives refresh)
+  const loadFollowing = async () => {
+    if (!backendUserId) return;
+    try {
+      const res = await fetch(`${API_BASE}/creator/following/${backendUserId}`);
+      const data = await res.json();
+      if (data?.success) setFollowed(data.following || []);
+    } catch (error) {
+      console.error('Following load error:', error);
+    }
+  };
 
   const checkStatus = async () => {
     if (!backendUserId) return;
@@ -89,7 +103,11 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
 
       const data = await res.json();
       if (data.success) {
-        setFollowed(prev => prev.includes(creatorId) ? prev.filter(id => id !== creatorId) : [...prev, creatorId]);
+        const following = !!data.following;
+        setFollowed(prev => following ? (prev.includes(creatorId) ? prev : [...prev, creatorId]) : prev.filter(id => id !== creatorId));
+        if (typeof data.follower_count === 'number') {
+          setCreators(prev => prev.map(c => c.id === creatorId ? { ...c, follower_count: data.follower_count } : c));
+        }
       }
     } catch (error) {
       console.error('Follow error:', error);
