@@ -3,7 +3,7 @@ import { CLUBS } from '../constants';
 
 /* ============================================================
    FOOTBALL CALENDAR — MATCH / ODDS / LINE UP / FORMATIONS / VIRTUAL
-   Dark navy (#050C3A) match centre, 430px portrait, stadium hero.
+   System dark theme match centre, 430px portrait, stadium hero.
    Data: backend Football API proxy → football-data.org (real crests,
    multi-league fixtures, squads). Falls back to ESPN + local.
    ============================================================ */
@@ -84,17 +84,17 @@ const REFRESH_MS = 60000;
 const STADIUM_IMG = '/stadium.jpg';
 
 const C = {
-  navy: '#050C3A',
-  navy2: '#0A174F',
-  navyDeep: '#030A27',
-  card: 'rgba(10, 25, 78, 0.62)',
-  card2: 'rgba(5, 12, 58, 0.55)',
-  border: 'rgba(0, 229, 255, 0.14)',
+  navy: '#0D1B2A',      // system darkDeep
+  navy2: '#111827',     // system darkCard
+  navyDeep: '#0A0A0F',  // system darkBg
+  card: 'rgba(17, 24, 39, 0.72)',
+  card2: 'rgba(13, 27, 42, 0.55)',
+  border: 'rgba(255, 255, 255, 0.10)',
   borderSoft: 'rgba(255,255,255,0.10)',
   green: '#22C55E',
-  greenDeep: '#0F8B46',
-  cyan: '#00E5FF',
-  orange: '#FF6D00',
+  greenDeep: '#16A34A',
+  cyan: '#4da3ff',
+  orange: '#F59E0B',
   text: '#FFFFFF',
   muted: 'rgba(255,255,255,0.58)',
   dim: 'rgba(255,255,255,0.34)',
@@ -102,12 +102,90 @@ const C = {
   font: "'Oxanium', 'Inter', sans-serif",
 };
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: 'match', label: 'Match', icon: '⚽' },
-  { id: 'odds', label: 'Odds', icon: '📊' },
-  { id: 'lineup', label: 'Line up', icon: '🧑‍🤝‍🧑' },
-  { id: 'formation', label: 'Formations', icon: '📋' },
-  { id: 'virtuals', label: 'Virtuals', icon: '🪙' },
+
+/* ---------- inline SVG icons (system icons - no emojis) ---------- */
+const SvgIco: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = 'w-3.5 h-3.5', children }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+const IcoBall: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.4l4.3 3.1-1.6 5H9.3l-1.6-5L12 7.4z" />
+    <path d="M12 3.5v3.9M19.8 9.3l-3.7 1.2M17.4 19.5l-2.7-4M9.3 15.5l-2.7 4M4.2 9.3l3.7 1.2" />
+  </SvgIco>
+);
+const IcoChart: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <path d="M4 4v16h16" />
+    <path d="M8.5 16v-5M13 16V8M17.5 16v-3" />
+  </SvgIco>
+);
+const IcoUsers: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3.5 19.5c.7-3.2 2.9-4.9 5.5-4.9s4.8 1.7 5.5 4.9" />
+    <circle cx="17" cy="9" r="2.4" />
+    <path d="M16.2 14.7c2.3.2 3.9 1.7 4.4 4.3" />
+  </SvgIco>
+);
+const IcoClipboard: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <rect x="5.5" y="4.5" width="13" height="16" rx="2" />
+    <path d="M9 4.5V3h6v1.5" />
+    <path d="M9 10h6M9 13.5h6M9 17h3.5" />
+  </SvgIco>
+);
+const IcoCoin: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5v9M9.8 9.6h3.4a1.9 1.9 0 010 3.8H9.8" />
+  </SvgIco>
+);
+const IcoTrophy: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <path d="M8 21h8M12 17.5V21" />
+    <path d="M7 4h10v4.5a5 5 0 01-10 0V4z" />
+    <path d="M7 5.5H4.5a2.6 2.6 0 002.7 4.2M17 5.5h2.5a2.6 2.6 0 01-2.7 4.2" />
+  </SvgIco>
+);
+const IcoStadium: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <path d="M3 21h18" />
+    <path d="M5 21V9.5L12 4l7 5.5V21" />
+    <path d="M10 21v-4.5h4V21" />
+  </SvgIco>
+);
+const IcoGlobe: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17" />
+    <path d="M12 3.5c2.5 2.4 3.8 5.2 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.2-3.8-8.5s1.3-6.1 3.8-8.5z" />
+  </SvgIco>
+);
+const IcoSignal: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none" />
+    <path d="M8.8 11.8a4.5 4.5 0 016.4 0M6.2 9.2a8 8 0 0111.6 0" />
+  </SvgIco>
+);
+const IcoRefresh: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}>
+    <path d="M21 12a9 9 0 11-2.6-6.4" />
+    <path d="M21 3v6h-6" />
+  </SvgIco>
+);
+const IcoArrowRight: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}><path d="M4.5 12h15M13.5 6l6 6-6 6" /></SvgIco>
+);
+const IcoCheck: React.FC<{ className?: string }> = ({ className }) => (
+  <SvgIco className={className}><path d="M4.5 12.5l4.8 4.8L19.5 6.5" /></SvgIco>
+);
+const TABS: { id: TabId; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  { id: 'match', label: 'Match', Icon: IcoBall },
+  { id: 'odds', label: 'Odds', Icon: IcoChart },
+  { id: 'lineup', label: 'Line up', Icon: IcoUsers },
+  { id: 'formation', label: 'Formations', Icon: IcoClipboard },
+  { id: 'virtuals', label: 'Virtuals', Icon: IcoCoin },
 ];
 
 /* ---------- text helpers ---------- */
@@ -418,19 +496,19 @@ const FootballCalendarScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
     ? matches
     : matches.filter(m => m.competition?.name === filter);
 /* ============================================================
-   THEME STYLES  (scoped, navy #050C3A)
+   THEME STYLES  (scoped, system dark theme)
    ============================================================ */
 const FC_STYLES = `
 .fc-root{
   width:100%; max-width:430px; margin:0 auto; position:relative; overflow:hidden;
   display:flex; flex-direction:column; color:#fff;
-  background:linear-gradient(180deg, #050C3A 0%, #08124B 20%, #050C3A 55%, #030A27 100%);
+  background:#0A0A0F;
   border-radius:26px; min-height:640px;
   font-family:'Inter',sans-serif;
 }
 .fc-hero{ position:relative; padding:12px 14px 4px; }
 .fc-hero-bg{ position:absolute; inset:0; background-image:url('${STADIUM_IMG}'); background-size:cover; background-position:center 32%; opacity:.6; }
-.fc-hero-veil{ position:absolute; inset:0; background:linear-gradient(205deg, rgba(5,12,58,.5) 0%, rgba(8,18,75,.55) 45%, rgba(3,10,39,.94) 100%); }
+.fc-hero-veil{ position:absolute; inset:0; background:linear-gradient(205deg, rgba(17,24,39,.5) 0%, rgba(13,27,42,.55) 45%, rgba(10,10,15,.94) 100%); }
 .fc-hero-inner{ position:relative; z-index:2; }
 
 .fc-top{ display:flex; align-items:center; gap:10px; }
@@ -453,7 +531,7 @@ const FC_STYLES = `
 .fc-meta-chip{ font-family:${C.mono}; font-size:8.5px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); color:rgba(255,255,255,.78); padding:3px 9px; border-radius:999px; letter-spacing:.05em; }
 
 .fc-tabs{ display:flex; gap:6px; overflow-x:auto; padding:8px 14px; }
-.fc-tab{ white-space:nowrap; padding:7px 13px; border-radius:999px; background:rgba(5,12,58,.45); border:1px solid rgba(0,229,255,.12); color:rgba(255,255,255,.62); font-size:11px; font-weight:700; letter-spacing:.03em; display:inline-flex; align-items:center; gap:5px; cursor:pointer; transition:all .15s ease; }
+.fc-tab{ white-space:nowrap; padding:7px 13px; border-radius:999px; background:rgba(17,24,39,.45); border:1px solid rgba(77,163,255,.12); color:rgba(255,255,255,.62); font-size:11px; font-weight:700; letter-spacing:.03em; display:inline-flex; align-items:center; gap:5px; cursor:pointer; transition:all .15s ease; }
 .fc-tab.active{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); color:#000; border-color:transparent; box-shadow:0 4px 14px rgba(34,197,94,.25); }
 
 .fc-body{ padding:14px 14px 24px; display:flex; flex-direction:column; gap:14px; }
@@ -464,7 +542,7 @@ const FC_STYLES = `
 .fc-pill{ display:inline-flex; align-items:center; gap:5px; font-family:${C.mono}; font-size:8.5px; padding:3px 9px; border-radius:999px; letter-spacing:.08em; text-transform:uppercase; }
 .fc-pill.live{ background:rgba(34,197,94,.16); color:${C.green}; border:1px solid rgba(34,197,94,.35); }
 .fc-pill.ft{ background:rgba(255,255,255,.09); color:rgba(255,255,255,.7); border:1px solid rgba(255,255,255,.14); }
-.fc-pill.soon{ background:rgba(0,229,255,.1); color:${C.cyan}; border:1px solid rgba(0,229,255,.28); }
+.fc-pill.soon{ background:rgba(77,163,255,.1); color:${C.cyan}; border:1px solid rgba(77,163,255,.28); }
 ` +
 `/* ---- match list ---- */
 .fc-league{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid ${C.borderSoft}; }
@@ -472,25 +550,25 @@ const FC_STYLES = `
 .fc-league-name{ font-family:${C.font}; font-size:12px; font-weight:700; letter-spacing:.02em; }
 .fc-league-count{ font-family:${C.mono}; font-size:8.5px; color:rgba(255,255,255,.5); }
 .fc-match{ display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; border-top:1px solid rgba(255,255,255,.06); transition:background .15s ease; }
-.fc-match:hover, .fc-match.sel{ background:rgba(0,229,255,.05); }
+.fc-match:hover, .fc-match.sel{ background:rgba(77,163,255,.05); }
 .fc-match-left{ flex:0 0 58px; display:flex; flex-direction:column; align-items:center; }
 .fc-day{ font-family:${C.mono}; font-size:9px; color:rgba(255,255,255,.6); text-transform:uppercase; }
 .fc-time{ font-family:${C.mono}; font-size:13px; font-weight:700; color:#fff; margin-top:3px; }
 .fc-match-mid{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
 .fc-row-team{ display:flex; align-items:center; gap:9px; min-width:0; }
 .fc-crest{ width:26px; height:26px; border-radius:50%; object-fit:contain; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); padding:2px; flex-shrink:0; }
-.fc-crest-fallback{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg, ${C.cyan}, ${C.navy}); color:#000; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; flex-shrink:0; }
+.fc-crest-fallback{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg, ${C.cyan}, ${C.navy}); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; flex-shrink:0; }
 .fc-team-name{ font-size:12.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .fc-score{ font-family:${C.mono}; font-size:14px; font-weight:800; width:34px; text-align:right; color:${C.green}; }
 .fc-score.small{ color:rgba(255,255,255,.35); }
 .fc-match-right{ flex:0 0 66px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
 .fc-filter-row{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:8px 12px; }
-.fc-filter{ font-family:${C.mono}; font-size:8.5px; padding:4px 10px; border-radius:999px; background:rgba(5,12,58,.5); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.62); text-transform:uppercase; letter-spacing:.06em; cursor:pointer; }
+.fc-filter{ font-family:${C.mono}; font-size:8.5px; padding:4px 10px; border-radius:999px; background:rgba(17,24,39,.5); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.62); text-transform:uppercase; letter-spacing:.06em; cursor:pointer; }
 .fc-filter.active{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); color:#000; border-color:transparent; }
 
 /* ---- match centre / selected ---- */
 .fc-centre{ position:relative; background:${C.card}; border:1px solid ${C.border}; border-radius:18px; padding:14px; }
-.fc-centre-veil{ position:absolute; inset:0; border-radius:18px; background:linear-gradient(180deg, rgba(3,10,39,.2), rgba(3,10,39,.55)); pointer-events:none; }
+.fc-centre-veil{ position:absolute; inset:0; border-radius:18px; background:linear-gradient(180deg, rgba(10,10,15,.2), rgba(10,10,15,.55)); pointer-events:none; }
 .fc-vs{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .fc-side{ flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; min-width:0; }
 .fc-side img{ width:52px; height:52px; object-fit:contain; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); padding:3px; }
@@ -501,11 +579,11 @@ const FC_STYLES = `
 .fc-centre-info{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; justify-content:center; }
 .fc-info{ font-family:${C.mono}; font-size:8.5px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.75); letter-spacing:.04em; }
 .fc-quick{ display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; justify-content:center; }
-.fc-quick-btn{ font-size:10.5px; font-weight:800; font-family:${C.font}; padding:7px 12px; border-radius:11px; background:rgba(5,12,58,.55); border:1px solid rgba(0,229,255,.2); color:${C.cyan}; cursor:pointer; letter-spacing:.02em; }
+.fc-quick-btn{ font-size:10.5px; font-weight:800; font-family:${C.font}; padding:7px 12px; border-radius:11px; background:rgba(17,24,39,.55); border:1px solid rgba(77,163,255,.2); color:${C.cyan}; cursor:pointer; letter-spacing:.02em; }
 ` +
 `/* ---- odds ---- */
 .fc-odds-3col{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.fc-odds-cell{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:11px 6px; border-radius:13px; background:rgba(5,12,58,.55); border:1px solid rgba(0,229,255,.16); cursor:pointer; }
+.fc-odds-cell{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:11px 6px; border-radius:13px; background:rgba(17,24,39,.55); border:1px solid rgba(77,163,255,.16); cursor:pointer; }
 .fc-odds-cell.sel{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); border-color:transparent; color:#000; }
 .fc-odds-label{ font-family:${C.mono}; font-size:8.5px; opacity:.75; letter-spacing:.06em; }
 .fc-odds-val{ font-family:${C.font}; font-size:15px; font-weight:800; }
@@ -514,35 +592,43 @@ const FC_STYLES = `
 
 /* ---- lineup ---- */
 .fc-squad{ display:flex; flex-direction:column; gap:5px; padding:11px 12px; }
-.fc-squad-team{ display:flex; align-items:center; gap:9px; padding:8px 10px; background:rgba(3,10,39,.4); border-radius:12px; border:1px solid ${C.borderSoft}; }
+.fc-squad-team{ display:flex; align-items:center; gap:9px; padding:8px 10px; background:rgba(10,10,15,.4); border-radius:12px; border:1px solid ${C.borderSoft}; }
 .fc-squad-team img{ width:28px; height:28px; object-fit:contain; border-radius:8px; background:rgba(255,255,255,.07); padding:2px; }
 .fc-pos-row{ display:flex; align-items:center; justify-content:space-between; padding:7px 10px; background:rgba(255,255,255,.045); border-radius:10px; border:1px solid rgba(255,255,255,.07); }
 .fc-pos-gap{ display:flex; align-items:center; gap:6px; min-width:0; }
-.fc-pos-av{ width:22px; height:22px; border-radius:8px; background:linear-gradient(135deg, rgba(0,229,255,.25), rgba(5,12,58,.6)); color:#fff; font-size:8px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.fc-pos-av{ width:22px; height:22px; border-radius:8px; background:linear-gradient(135deg, rgba(77,163,255,.25), rgba(17,24,39,.6)); color:#fff; font-size:8px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .fc-pos-name{ font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .fc-pos-meta{ font-family:${C.mono}; font-size:8px; color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.04em; }
-.fc-pos-tag{ font-family:${C.mono}; font-size:8px; padding:2px 7px; border-radius:999px; background:rgba(0,229,255,.12); color:${C.cyan}; border:1px solid rgba(0,229,255,.2); }
+.fc-pos-tag{ font-family:${C.mono}; font-size:8px; padding:2px 7px; border-radius:999px; background:rgba(77,163,255,.12); color:${C.cyan}; border:1px solid rgba(77,163,255,.2); }
 
 /* ---- formations pitch ---- */
 .fc-form-row{ display:flex; gap:6px; flex-wrap:wrap; }
-.fc-form-chip{ font-family:${C.mono}; font-size:9px; padding:5px 11px; border-radius:999px; background:rgba(5,12,58,.5); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.65); cursor:pointer; }
+.fc-form-chip{ font-family:${C.mono}; font-size:9px; padding:5px 11px; border-radius:999px; background:rgba(17,24,39,.5); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.65); cursor:pointer; }
 .fc-form-chip.active{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); color:#000; border-color:transparent; }
-.fc-pitch{ position:relative; height:252px; border-radius:18px; overflow:hidden; background:linear-gradient(180deg, #071B3A 0%, #0A2150 100%); }
-.fc-pitch-stripes{ position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(0,229,255,.05) 0 42px, transparent 42px 84px); }
-.fc-pitch-line-c{ position:absolute; top:0; left:50%; width:1px; height:100%; background:rgba(0,229,255,.25); }
-.fc-pitch-line-m{ position:absolute; top:50%; left:6%; width:88%; height:1px; background:rgba(0,229,255,.25); }
+.fc-pitch{ position:relative; height:252px; border-radius:18px; overflow:hidden; background:linear-gradient(180deg, #111827 0%, #0D1B2A 100%); }
+.fc-pitch-stripes{ position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 42px, transparent 42px 84px); }
+.fc-pitch-line-c{ position:absolute; top:0; left:50%; width:1px; height:100%; background:rgba(255,255,255,.22); }
+.fc-pitch-line-m{ position:absolute; top:50%; left:6%; width:88%; height:1px; background:rgba(255,255,255,.22); }
 .fc-pitch-box{ position:absolute; left:6%; width:88%; height:58%; top:21%; border:1px solid rgba(255,255,255,.5); border-radius:4px; opacity:.4; }
 .fc-player{ position:absolute; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#000; border:2px solid rgba(255,255,255,.65); cursor:pointer; transform:translate(-50%,-50%); box-shadow:0 0 10px rgba(0,0,0,.25); }
 
 /* ---- virtuals ---- */
 .fc-vir-out{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:9px; }
-.fc-vir-out-cell{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:11px 6px; border-radius:13px; background:rgba(5,12,58,.55); border:1px solid rgba(0,229,255,.16); cursor:pointer; }
+.fc-vir-out-cell{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:11px 6px; border-radius:13px; background:rgba(17,24,39,.55); border:1px solid rgba(77,163,255,.16); cursor:pointer; }
 .fc-vir-out-cell.sel{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); border-color:transparent; color:#000; }
 .fc-stake-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; }
-.fc-stake-input{ flex:1; background:rgba(5,12,58,.6); border:1px solid rgba(0,229,255,.22); color:#fff; border-radius:11px; padding:10px 12px; font-family:${C.mono}; font-size:13px; outline:none; }
+.fc-stake-input{ flex:1; background:rgba(17,24,39,.6); border:1px solid rgba(77,163,255,.22); color:#fff; border-radius:11px; padding:10px 12px; font-family:${C.mono}; font-size:13px; outline:none; }
 .fc-vir-btn{ font-family:${C.font}; font-size:11.5px; font-weight:800; padding:11px 18px; border-radius:12px; background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); color:#000; border:none; cursor:pointer; box-shadow:0 4px 14px rgba(34,197,94,.25); }
 .fc-vir-trade{ display:flex; align-items:center; justify-content:space-between; gap:9px; padding:10px 12px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.09); border-radius:12px; }
 .fc-vir-sum{ display:flex; justify-content:space-between; gap:10px; font-family:${C.mono}; font-size:10px; color:rgba(255,255,255,.6); }
+/* ---- icon alignment (svg swap-in) ---- */
+.fc-info{ display:inline-flex; align-items:center; gap:5px; }
+.fc-meta-chip{ display:inline-flex; align-items:center; gap:4px; }
+.fc-quick-btn{ display:inline-flex; align-items:center; gap:5px; }
+.fc-vir-btn{ display:inline-flex; align-items:center; gap:6px; }
+.fc-filter{ display:inline-flex; align-items:center; gap:4px; }
+.fc-league svg{ width:16px; height:16px; flex-shrink:0; }
+.fc-tab svg{ width:13px; height:13px; flex-shrink:0; }
 `;
 
 /* ============================================================
@@ -565,7 +651,7 @@ const FC_STYLES = `
     const src = badgeOf(team);
     if (!src) {
       return (
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, #00E5FF, #050C3A)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, #4da3ff, #0D1B2A)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800 }}>
           {initials(team?.name || '?')}
         </div>
       );
@@ -603,8 +689,8 @@ const FC_STYLES = `
             Fresh fixtures across {Math.max(filters.length - 1, 1)} leagues — live scores, odds, line-ups &amp; formations.
           </div>
           <div className="fc-stadium-meta">
-            <span className="fc-meta-chip">↻ auto 60s</span>
-            <span className="fc-meta-chip">📡 {dataSource}</span>
+            <span className="fc-meta-chip"><IcoRefresh className="w-3 h-3" /> auto 60s</span>
+            <span className="fc-meta-chip"><IcoSignal className="w-3 h-3" /> {dataSource}</span>
             <span className="fc-meta-chip">{matches.length} fixtures</span>
           </div>
         </div>
@@ -616,7 +702,7 @@ const FC_STYLES = `
     <div className="fc-tabs">
       {TABS.map(t => (
         <button key={t.id} className={`fc-tab${tab === t.id ? ' active' : ''}`} onClick={() => { haptic(); setTab(t.id); }}>
-          <span>{t.icon}</span>{t.label}
+          <t.Icon className="w-3.5 h-3.5" />{t.label}
         </button>
       ))}
     </div>
@@ -673,18 +759,18 @@ const renderMatchRow = (m: CalendarMatch): React.ReactNode => {
           </div>
         </div>
         <div className="fc-centre-info">
-          <span className="fc-info">🏟 {m.venue || (m.competition?.name || 'Stadium')}</span>
+          <span className="fc-info"><IcoStadium className="w-3 h-3" /> {m.venue || (m.competition?.name || 'Stadium')}</span>
           <span className="fc-info">{m.competition?.name}</span>
           <span className="fc-info">MD {m.matchday || '?'}</span>
           {m.area?.flag ? (
-            <span className="fc-info">🌍 {m.area.name}</span>
+            <span className="fc-info"><IcoGlobe className="w-3 h-3" /> {m.area.name}</span>
           ) : null}
         </div>
         <div className="fc-quick">
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('odds'); }}>📊 Odds</button>
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('lineup'); }}>🧑‍🤝‍🧑 XI</button>
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('formation'); }}>📋 Formation</button>
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('virtuals'); }}>🪙 Virtuals</button>
+          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('odds'); }}><IcoChart className="w-3 h-3" /> Odds</button>
+          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('lineup'); }}><IcoUsers className="w-3 h-3" /> XI</button>
+          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('formation'); }}><IcoClipboard className="w-3 h-3" /> Formation</button>
+          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('virtuals'); }}><IcoCoin className="w-3 h-3" /> Virtuals</button>
         </div>
       </div>
     );
@@ -738,7 +824,7 @@ const noMatchCard = (msg: string): React.ReactNode => (
                 {ms[0]?.competition?.emblem ? (
                   <img src={ms[0].competition.emblem} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                 ) : (
-                  <span style={{ fontSize: 14 }}>🏆</span>
+                  <IcoTrophy className="w-4 h-4 text-[#4da3ff]" />
                 )}
                 <span className="fc-league-name">{league}</span>
                 <span className="fc-league-count">{ms.length}</span>
@@ -920,7 +1006,7 @@ const FORMATIONS: Record<string, { def: number; mid: number; off: number }> = {
     '3-5-2': { def: 3, mid: 5, off: 2 },
     '4-2-3-1': { def: 4, mid: 2, off: 4 },
   };
-  const ROLE_COLOR: Record<string, string> = { Offence: '#22C55E', Midfield: '#00E5FF', Defence: '#FF8C1A', Goalkeeper: '#8B93A9' };
+  const ROLE_COLOR: Record<string, string> = { Offence: '#22C55E', Midfield: '#4da3ff', Defence: '#F59E0B', Goalkeeper: '#8B93A9' };
   const shirtNo = (id: string | number) => (hashNum(String(id)) % 80) + 10;
 
   const renderFormationTab = (m: CalendarMatch | undefined): React.ReactNode => {
@@ -1104,11 +1190,11 @@ const renderVirtualsTab = (m: CalendarMatch | undefined): React.ReactNode => {
             <input className="fc-stake-input" type="number" min="1" step="1" value={stake}
               onChange={(e) => setStake(e.target.value)} aria-label="Stake in FTC" />
             <span style={{ fontFamily: C.mono, fontSize: 10.5, color: 'rgba(255,255,255,.68)', whiteSpace: 'nowrap' }}>
-              @ {oddsOf} → ~{potential} FTC
+              @ {oddsOf} <IcoArrowRight className="w-3 h-3" /> ~{potential} FTC
             </span>
           </div>
           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="fc-vir-btn" onClick={placeTrade}>Place virtual trade →</button>
+            <button className="fc-vir-btn" onClick={placeTrade}><IcoArrowRight className="w-3.5 h-3.5" /> Place virtual trade</button>
           </div>
         </div>
 
@@ -1131,7 +1217,7 @@ const renderVirtualsTab = (m: CalendarMatch | undefined): React.ReactNode => {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
                   <span style={{ color: C.green, fontWeight: 800, fontFamily: C.mono, fontSize: 12 }}>±{t.potential}</span>
                   {!t.settled ? (
-                    <button className="fc-filter" onClick={() => settleTrade(t.id, true)}>Settle ✓</button>
+                    <button className="fc-filter" onClick={() => settleTrade(t.id, true)}><IcoCheck className="w-3 h-3" /> Settle</button>
                   ) : (
                     <span className="fc-pos-tag">{t.won ? 'WON' : 'VOID'}</span>
                   )}
