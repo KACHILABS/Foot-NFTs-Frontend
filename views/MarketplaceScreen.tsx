@@ -25,6 +25,16 @@ const FTC_PER_NGN = 1 / 1500;
 
 const img = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?w=${w}&q=80&auto=format&fit=crop`;
 const PALACE_BADGE = 'https://media.api-sports.io/football/teams/52.png';
+const PALACE_JERSEY = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgNrH5qMnWdaWP6MVW6oRNTQt9L1o9qg4ah84mEPI6q4FGdwuZgYC7tOQmfl78KFUtolP7mhB3YlR43y0zlEv_WcGBF7gYDezh1v67YIeyozYK9QJ98qLrmPLzJgJd0rW4q-ge2TYNkLXFmDCkY4O_r3QdwD7I3D1HO2YCoTgcpOGn15LXDzGyACSeH6L7R/s1000/palace-25-26-home-kit%20%284%29.jpg';
+
+/* ---------- vendor logos (verified live) ---------- */
+const LOGOS: Record<string, string> = {
+  'Nike Football': 'https://images.seeklogo.com/logo-png/9/1/nike-logo-png_seeklogo-99478.png',
+  'adidas Football': 'https://image.shutterstock.com/image-photo/image-260nw-2723017555.jpg',
+  'Puma Football': 'https://cdn.worldvectorlogo.com/logos/puma.svg',
+  'JD Sports': 'https://cdn.worldvectorlogo.com/logos/jd-sports.svg',
+  'Official Club Store': PALACE_BADGE,
+};
 
 /* ---------- tiny inline icons ---------- */
 const Ico: React.FC<{ d: string; className?: string; fill?: string }> = ({ d, className = 'w-4 h-4', fill = 'none' }) => (
@@ -63,12 +73,12 @@ const CATEGORIES: { id: CatId; label: string; Ico: React.FC<{ className?: string
 ];
 
 const VENDORS = [
-  { name: 'Nike Football', mono: 'N', tint: 'bg-white/10', products: '2.4k' },
-  { name: 'adidas Football', mono: 'A', tint: 'bg-[#4da3ff]/20', products: '1.8k' },
+  { name: 'Nike Football', mono: 'N', tint: 'bg-white', products: '2.4k' },
+  { name: 'adidas Football', mono: 'A', tint: 'bg-white', products: '1.8k' },
+  { name: 'Puma Football', mono: 'P', tint: 'bg-white', products: '1.5k' },
   { name: 'Fanatics', mono: 'F', tint: 'bg-[#f59e0b]/20', products: '1.2k' },
-  { name: 'JD Sports', mono: 'JD', tint: 'bg-green-600/20', products: '980' },
-  { name: 'SportPesa', mono: 'SP', tint: 'bg-purple-500/20', products: '760' },
-  { name: 'Official Club Store', mono: 'FC', tint: 'bg-red-500/20', products: '450' },
+  { name: 'JD Sports', mono: 'JD', tint: 'bg-white', products: '980' },
+  { name: 'Official Club Store', mono: 'FC', tint: 'bg-white', products: '450' },
 ];
 
 interface Product {
@@ -76,14 +86,16 @@ interface Product {
   image: string; badge: string; badgeTint: string; cat: 'jerseys' | 'boots' | 'collectibles' | 'gear' | 'accessories';
 }
 const PRODUCTS: Product[] = [
-  { name: 'Crystal Palace Home Jersey', vendor: 'Official Club Store', sub: 'Official Club Merchandise', priceNgn: 85000, image: img('1543326727-cf6c39e8f84c', 500), badge: 'OFFICIAL', badgeTint: 'bg-green-500 text-black', cat: 'jerseys' },
-  { name: 'Nike Mercurial Vapor 16', vendor: 'Nike Football', sub: 'Verified Vendor', priceNgn: 120000, image: img('1595950653106-6c9ebd614d3a', 500), badge: 'VERIFIED VENDOR', badgeTint: 'bg-[#4da3ff] text-black', cat: 'boots' },
-  { name: 'Palace Training Jacket', vendor: 'Official Club Store', sub: 'Official Club Merchandise', priceNgn: 42000, image: img('1591047139829-d91aecb6caea', 500), badge: 'FOOT-COLLECT EXCLUSIVE', badgeTint: 'bg-[#f59e0b] text-black', cat: 'gear' },
+  { name: 'Crystal Palace 25/26 Home Jersey', vendor: 'Official Club Store', sub: 'Official Club Merchandise', priceNgn: 85000, image: PALACE_JERSEY, badge: 'OFFICIAL', badgeTint: 'bg-green-500 text-black', cat: 'jerseys' },
+  { name: 'Nike Mercurial Vapor 16 FG', vendor: 'Nike Football', sub: 'Verified Vendor', priceNgn: 120000, image: img('1595950653106-6c9ebd614d3a', 500), badge: 'VERIFIED VENDOR', badgeTint: 'bg-[#4da3ff] text-black', cat: 'boots' },
+  { name: 'adidas Predator Elite FG Boots', vendor: 'adidas Football', sub: 'Verified Vendor', priceNgn: 145000, image: img('1600185365483-26d7a4cc7519', 500), badge: 'VERIFIED VENDOR', badgeTint: 'bg-[#4da3ff] text-black', cat: 'boots' },
+  { name: 'Palace 25/26 Away Jersey', vendor: 'Official Club Store', sub: 'Official Club Merchandise', priceNgn: 85000, image: img('1543326727-cf6c39e8f84c', 500), badge: 'OFFICIAL', badgeTint: 'bg-green-500 text-black', cat: 'jerseys' },
+  { name: 'Pro Training Drill Jacket', vendor: 'Official Club Store', sub: 'Official Training Wear', priceNgn: 42000, image: img('1591047139829-d91aecb6caea', 500), badge: 'FOOT-COLLECT EXCLUSIVE', badgeTint: 'bg-[#f59e0b] text-black', cat: 'gear' },
   { name: 'Digital Twin 24/25 Jersey', vendor: 'Fanatics', sub: 'Digital Twin Collectible', priceNgn: 75000, image: img('1614632537190-23e4146777db', 500), badge: 'DIGITAL TWIN', badgeTint: 'bg-purple-500 text-black', cat: 'collectibles' },
+  { name: 'Pro Match Ball', vendor: 'Puma Football', sub: 'FIFA Quality Pro Ball', priceNgn: 35000, image: img('1579952363873-27f3bade9f55', 500), badge: 'NEW DROP', badgeTint: 'bg-green-500 text-black', cat: 'accessories' },
   { name: 'Retro Matchday Tee', vendor: 'Fanatics', sub: 'Fan Gear', priceNgn: 28000, image: img('1576566588028-4147f3842f27', 500), badge: 'FAN FAVOURITE', badgeTint: 'bg-white/90 text-black', cat: 'gear' },
-  { name: 'Predator Elite FG Boots', vendor: 'adidas Football', sub: 'Verified Vendor', priceNgn: 145000, image: img('1600185365483-26d7a4cc7519', 500), badge: 'VERIFIED VENDOR', badgeTint: 'bg-[#4da3ff] text-black', cat: 'boots' },
-  { name: 'Street Snapback Cap', vendor: 'JD Sports', sub: 'Accessories', priceNgn: 18000, image: img('1521369909029-2afed882baee', 500), badge: 'NEW DROP', badgeTint: 'bg-green-500 text-black', cat: 'accessories' },
-  { name: 'Keeper Grip Gloves', vendor: 'adidas Football', sub: 'Accessories', priceNgn: 32000, image: img('1613977257363-707ba9348227', 500), badge: 'OFFICIAL', badgeTint: 'bg-green-500 text-black', cat: 'accessories' },
+  { name: 'Keeper Grip Goalkeeper Gloves', vendor: 'adidas Football', sub: 'Matchday Equipment', priceNgn: 32000, image: img('1613977257363-707ba9348227', 500), badge: 'OFFICIAL', badgeTint: 'bg-green-500 text-black', cat: 'accessories' },
+  { name: 'Pitchside Snapback Cap', vendor: 'JD Sports', sub: 'Matchday Accessories', priceNgn: 18000, image: img('1521369909029-2afed882baee', 500), badge: 'FAN FAVOURITE', badgeTint: 'bg-white/90 text-black', cat: 'accessories' },
 ];
 
 const CLUB_CHIPS = [
@@ -237,7 +249,18 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify }) => {
                   Shop Now <IcoArrow className="h-3 w-3" />
                 </button>
               </div>
-              <img src={PALACE_BADGE} alt="Crystal Palace" className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 bg-white/5 object-contain p-1.5" loading="lazy" />
+              <div className="flex shrink-0 items-center pr-1">
+                {['https://media.api-sports.io/football/teams/52.png', 'https://media.api-sports.io/football/teams/49.png', 'https://media.api-sports.io/football/teams/40.png'].map((b, i) => (
+                  <img
+                    key={b}
+                    src={b}
+                    alt="Official club"
+                    loading="lazy"
+                    className={`h-12 w-12 rounded-full border border-white/15 bg-white/10 object-contain p-1 ${i > 0 ? '-ml-4' : ''}`}
+                    style={{ zIndex: 3 - i }}
+                  />
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-gray-800 bg-darkCard px-4 py-3">
@@ -247,7 +270,11 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify }) => {
             </div>
             <div className="flex items-center gap-2">
               {VENDORS.slice(0, 3).map(v => (
-                <span key={v.name} className={`flex h-8 w-8 items-center justify-center rounded-lg border border-gray-800 text-[9px] font-black text-white ${v.tint}`}>{v.mono}</span>
+                <span key={v.name} className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-gray-700 ${LOGOS[v.name] ? 'bg-white' : `border-gray-800 ${v.tint}`}`}>
+                  {LOGOS[v.name]
+                    ? <img src={LOGOS[v.name]} alt={v.name} className="h-full w-full object-contain p-1" loading="lazy" />
+                    : <span className="text-[9px] font-black text-white">{v.mono}</span>}
+                </span>
               ))}
             </div>
           </div>
@@ -262,20 +289,29 @@ const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ onNotify }) => {
             <span className="flex items-center gap-0.5 text-[10px] text-green-500 font-black uppercase tracking-widest">View All <IcoChevron className="h-3 w-3" /></span>
           </div>
           <div className="no-scrollbar -mx-6 flex gap-3 overflow-x-auto px-6 pb-1">
-            {VENDORS.map(v => (
-              <div key={v.name} className="w-[110px] shrink-0 rounded-2xl border border-gray-800 bg-darkCard p-3">
-                <div className={`mb-2 flex h-12 w-full items-center justify-center rounded-xl text-sm font-black text-white ${v.tint}`}>{v.mono}</div>
-                <p className="truncate text-[11px] font-black text-white">{v.name}</p>
-                <div className="mt-1 flex items-center gap-1 text-green-400">
-                  <IcoVerified className="h-3 w-3" />
-                  <span className="text-[8px] font-black uppercase tracking-wider">Verified</span>
+            {VENDORS.map(v => {
+              const logo = LOGOS[v.name];
+              return (
+                <div key={v.name} className="w-[110px] shrink-0 rounded-2xl border border-gray-800 bg-darkCard p-3">
+                  <div className={`mb-2 flex h-12 w-full items-center justify-center rounded-xl overflow-hidden ${v.tint}`}>
+                    {logo ? (
+                      <img src={logo} alt={v.name} className="h-full w-full object-contain p-1.5" loading="lazy" />
+                    ) : (
+                      <span className="text-sm font-black text-white">{v.mono}</span>
+                    )}
+                  </div>
+                  <p className="truncate text-[11px] font-black text-white">{v.name}</p>
+                  <div className="mt-1 flex items-center gap-1 text-green-400">
+                    <IcoVerified className="h-3 w-3" />
+                    <span className="text-[8px] font-black uppercase tracking-wider">Verified</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between text-[8px] font-bold text-gray-500">
+                    <span>{v.products} products</span>
+                    <IcoChevron className="h-2.5 w-2.5" />
+                  </div>
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[8px] font-bold text-gray-500">
-                  <span>{v.products} products</span>
-                  <IcoChevron className="h-2.5 w-2.5" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
