@@ -4,7 +4,7 @@ import Button from '../components/Button';
 import FanRankBadge from '../components/FanRankBadge';
 import { UserProfile, WalletState, OnboardingState, Club, Transaction } from '../types';
 import { CLUBS } from '../constants';
-import MarketplaceScreen from './MarketplaceScreen';
+import MarketplaceScreen, { FtcUtilityCard } from './MarketplaceScreen';
 import ClubProfileScreen from './ClubProfileScreen';
 import ChatRoomScreen from './ChatRoomScreen';
 import BanterHallScreen from './BanterHallScreen';
@@ -1203,6 +1203,9 @@ const refreshProfile = async () => {
           Swap FTC
         </button>
       </div>
+
+      {/* FTC utility (moved from Marketplace) */}
+      <FtcUtilityCard />
       
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between px-1"><p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-[0.2em]">Leaderboard Top 5</p>
@@ -1568,8 +1571,8 @@ const refreshProfile = async () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
             {unreadCount > 0 && !showNotifications && (<span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-green-500 rounded-full flex items-center justify-center text-[8px] font-black text-black px-1 animate-bounce" style={{ fontFamily: "'Oxanium', sans-serif" }}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
           </button>
-          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowMarketplace(!showMarketplace); setShowNotifications(false); }} className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all ${showMarketplace ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M4 7h16M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 11v4m6-4v4" /></svg>
+          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowLeaderboardModal(true); }} aria-label="Leaderboard" className="w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all bg-gray-800/50 text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8M12 17.5V21M7 4h10v4.5a5 5 0 01-10 0V4zM7 5.5H4.5a2.6 2.6 0 002.7 4.2M17 5.5h2.5a2.6 2.6 0 01-2.7 4.2" /></svg>
           </button>
         </div>
       </div>
