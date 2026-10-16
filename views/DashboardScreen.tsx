@@ -8,7 +8,7 @@ import MarketplaceScreen, { FtcUtilityCard } from './MarketplaceScreen';
 import ClubProfileScreen from './ClubProfileScreen';
 import ChatRoomScreen from './ChatRoomScreen';
 import BanterHallScreen from './BanterHallScreen';
-import { HomeIcon, FeedIcon, CreatorsIcon, MarketIcon, TwinIcon } from '../src/components/Icons';
+import { HomeIcon, FeedIcon, CreatorsIcon, PredictionsIcon, MarketIcon, TwinIcon } from '../src/components/Icons';
 import JerseyDayScreen from './JerseyDayScreen';
 import TriviaScreen from './TriviaScreen';
 import VotingScreen from './VotingScreen';
@@ -1650,8 +1650,8 @@ const refreshProfile = async () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
             {unreadCount > 0 && !showNotifications && (<span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-green-500 rounded-full flex items-center justify-center text-[8px] font-black text-black px-1 animate-bounce" style={{ fontFamily: "'Oxanium', sans-serif" }}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
           </button>
-          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowNotifications(false); setShowMarketplace(false); setActiveTab('predictions'); }} aria-label="Predictions" title="Predictions" className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all ${activeTab === 'predictions' ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v4m0 10v4M3 12h4m10 0h4M8.5 8.5l2 2m3 3 2 2m0-7-2 2m-3 3-2 2" /></svg>
+          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowNotifications(false); setShowMarketplace(false); setActiveTab('creators'); }} aria-label="Creators" title="Creators" className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all ${activeTab === 'creators' ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
+            <CreatorsIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -1733,7 +1733,7 @@ const refreshProfile = async () => {
           {[
             { id: 'home', label: 'Home', Component: HomeIcon },
             { id: 'feed', label: 'Feed', Component: FeedIcon },
-            { id: 'creators', label: 'Creators', Component: CreatorsIcon },
+            { id: 'predictions', label: 'Predictions', Component: PredictionsIcon },
             { id: 'market', label: 'Market', Component: MarketIcon },
             { id: 'twin', label: 'Twin', Component: TwinIcon }
           ].map(tab => (

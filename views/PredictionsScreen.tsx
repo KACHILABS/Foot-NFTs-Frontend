@@ -48,7 +48,7 @@ interface PredictionsScreenProps {
 }
 
 const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
-  const token = getAuthToken();
+  const token = getAuthToken() || localStorage.getItem('token');
   const response = await fetch(`${API_BASE}/predictions${path}`, {
     ...init,
     headers: {
@@ -59,6 +59,9 @@ const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
   });
   const data = await response.json();
   if (!response.ok || data?.success === false) {
+    if (response.status === 401) {
+      throw new Error('Your session is missing or expired. Please sign in again to submit predictions or claim rewards.');
+    }
     throw new Error(data?.error || 'The predictions service is unavailable. Please try again.');
   }
   return data as T;
