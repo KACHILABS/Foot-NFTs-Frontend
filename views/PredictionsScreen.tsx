@@ -1,575 +1,519 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getAuthToken, setAuthSession } from '../src/utils/versionControl';
-import { resolveClubBadge } from '../src/utils/clubBadge';
+﻿import React, { useMemo, useState } from 'react';
 
-const API_BASE = 'https://footnfts.up.railway.app/api';
+type Tab = 'upcoming' | 'live' | 'past';
+type View = 'matches' | 'scratch' | 'result' | 'rewards';
 
-type Pick = 'home' | 'draw' | 'away';
-type PredictionStatus = 'pending' | 'correct' | 'incorrect' | 'expired';
-type Section = 'matches' | 'my-picks' | 'rewards';
-type FixtureFilter = 'upcoming' | 'live' | 'past';
-
-interface Team {
-  name: string;
-  shortName?: string;
-  tla?: string;
-  crest?: string;
-  logo?: string;
-}
-
-interface Match {
+type MatchItem = {
   id: string;
-  utcDate: string;
-  status: string;
-  score?: { fullTime?: { home: number | null; away: number | null } } | null;
-  competition?: { name?: string; emblem?: string } | null;
-  homeTeam: Team;
-  awayTeam: Team;
-}
-
-interface Prediction {
-  id: string;
-  matchId: string;
-  kickoffAt: string;
-  match: Match;
-  pick: Pick;
-  result: Pick | null;
-  status: PredictionStatus;
-  rewardAmount: number | null;
-  rewardAwardedAt: string | null;
-  rewardAvailable: boolean;
-  rewardRevealed: boolean;
-  rewardClaimed: boolean;
-  rewardClaimedAt: string | null;
-  createdAt: string;
-}
-
-interface PredictionsScreenProps {
-  userId: string | null;
-  onBack: () => void;
-  onRewardClaimed: (amount: number, balance: number) => void;
-}
-
-const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
-  const token = getAuthToken() || localStorage.getItem('token');
-  let response = await fetch(`${API_BASE}/predictions${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
-  if (response.status === 401) {
-    const initData = (window as any).Telegram?.WebApp?.initData;
-    if (initData) {
-      const sessionResponse = await fetch(`${API_BASE}/auth/telegram/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData }),
-      });
-      const session = await sessionResponse.json();
-      if (sessionResponse.ok && session.success && session.token && session.user?.id) {
-        setAuthSession(session.token, session.user.id);
-        response = await fetch(`${API_BASE}/predictions${path}`, {
-          ...init,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.token}`,
-            ...init?.headers,
-          },
-        });
-      }
-    }
-  }
-  const data = await response.json();
-  if (!response.ok || data?.success === false) {
-    if (response.status === 401) {
-      throw new Error('Your session is missing or expired. Please sign in again to submit predictions or claim rewards.');
-    }
-    throw new Error(data?.error || 'The predictions service is unavailable. Please try again.');
-  }
-  return data as T;
+  league: string;
+  home: string;
+  homeBadge: string;
+  away: string;
+  awayBadge: string;
+  kickoff: string;
+  status: Tab;
 };
 
-const kickoffLabel = (date: string) =>
-  new Date(date).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+type RewardItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  kind: 'Token' | 'Merchandise' | 'Other';
+  status: 'Claimed' | 'Processing' | 'Ready';
+};
 
-const pickLabel = (pick: Pick) => ({ home: 'Home Win', draw: 'Draw', away: 'Away Win' }[pick]);
+const matches: MatchItem[] = [
+  { id: 'm1', league: 'Premier League', home: 'Man United', homeBadge: 'MU', away: 'Liverpool', awayBadge: 'LFC', kickoff: 'Sun, 20 Apr · 16:30', status: 'upcoming' },
+  { id: 'm2', league: 'La Liga', home: 'Real Madrid', homeBadge: 'RM', away: 'Barcelona', awayBadge: 'FCB', kickoff: 'Sun, 20 Apr · 20:00', status: 'upcoming' },
+  { id: 'm3', league: 'Bundesliga', home: 'Bayern Munich', homeBadge: 'BAY', away: 'Dortmund', awayBadge: 'BVB', kickoff: 'Mon, 21 Apr · 20:00', status: 'upcoming' },
+  { id: 'm4', league: 'Premier League', home: 'Arsenal', homeBadge: 'ARS', away: 'Chelsea', awayBadge: 'CHE', kickoff: 'Sat, 19 Apr · 17:00', status: 'past' },
+  { id: 'm5', league: 'Serie A', home: 'Juventus', homeBadge: 'JUV', away: 'Inter Milan', awayBadge: 'INT', kickoff: 'Live · 12:30', status: 'live' },
+];
 
-const CoinIcon: React.FC<{ className?: string; amount?: number | null }> = ({ className = 'h-20 w-20', amount }) => (
-  <svg className={className} viewBox="0 0 120 120" role="img" aria-label={amount ? `${amount} FTC coin` : 'FTC coin'}>
+const rewardHistory: RewardItem[] = [
+  { id: 'r1', title: '50 FTC Tokens', subtitle: 'Apr 20, 2025', kind: 'Token', status: 'Claimed' },
+  { id: 'r2', title: 'Official Jersey (L)', subtitle: 'Apr 12, 2025', kind: 'Merchandise', status: 'Processing' },
+  { id: 'r3', title: 'Football Boots', subtitle: 'Apr 5, 2025', kind: 'Merchandise', status: 'Claimed' },
+  { id: 'r4', title: '100 FTC Tokens', subtitle: 'Mar 28, 2025', kind: 'Token', status: 'Claimed' },
+];
+
+const CoinSvg: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = 'ft-coin ft-coin-lg', style }) => (
+  <svg className={className} style={style} viewBox="0 0 120 120" role="img" aria-label="FTC coin">
     <defs>
-      <linearGradient id="ftc-coin-face" x1="18%" y1="8%" x2="82%" y2="92%">
+      <linearGradient id="coinFace" x1="0%" x2="100%" y1="0%" y2="100%">
         <stop offset="0%" stopColor="#fff3a6" />
-        <stop offset="38%" stopColor="#f2c64f" />
-        <stop offset="72%" stopColor="#d99a20" />
-        <stop offset="100%" stopColor="#9b6210" />
+        <stop offset="35%" stopColor="#f3d56d" />
+        <stop offset="70%" stopColor="#deaa2c" />
+        <stop offset="100%" stopColor="#8a5a06" />
       </linearGradient>
-      <linearGradient id="ftc-coin-rim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="coinRing" x1="0%" x2="100%" y1="0%" y2="100%">
         <stop offset="0%" stopColor="#fff4b5" />
-        <stop offset="48%" stopColor="#d7a631" />
+        <stop offset="50%" stopColor="#d7a631" />
         <stop offset="100%" stopColor="#7c4d0b" />
       </linearGradient>
-      <radialGradient id="ftc-coin-glow">
-        <stop offset="0%" stopColor="#ffe987" stopOpacity=".7" />
-        <stop offset="100%" stopColor="#e8b830" stopOpacity="0" />
-      </radialGradient>
     </defs>
-    <circle cx="60" cy="60" r="58" fill="url(#ftc-coin-glow)" />
-    <circle cx="60" cy="60" r="48" fill="#70470c" stroke="url(#ftc-coin-rim)" strokeWidth="5" />
-    <circle cx="60" cy="60" r="40" fill="url(#ftc-coin-face)" stroke="#ffe58a" strokeWidth="2" />
-    <circle cx="60" cy="60" r="34" fill="none" stroke="#9b6814" strokeOpacity=".65" strokeWidth="1.5" />
-    <text x="60" y="68" textAnchor="middle" fill="#80510d" fontFamily="Arial, sans-serif" fontSize="19" fontWeight="900" letterSpacing="1">FTC</text>
-    <text x="60" y="101" textAnchor="middle" fill="#70470c" fontFamily="Arial, sans-serif" fontSize="7" fontWeight="800" letterSpacing="1.5">FOOT-COLLECT</text>
+    <circle cx="60" cy="60" r="56" fill="rgba(232,184,48,0.2)" />
+    <circle cx="60" cy="60" r="49" fill="#70470c" stroke="url(#coinRing)" strokeWidth="5" />
+    <circle cx="60" cy="60" r="40" fill="url(#coinFace)" stroke="#ffe58a" strokeWidth="2" />
+    <circle cx="60" cy="60" r="34" fill="none" stroke="#9b6814" strokeOpacity="0.7" strokeWidth="1.5" />
+    <text x="60" y="68" textAnchor="middle" fill="#804d06" fontSize="18" fontWeight="900" fontFamily="Arial, sans-serif">FTC</text>
+    <text x="60" y="100" textAnchor="middle" fill="#70470c" fontSize="7" fontWeight="800" letterSpacing="1.3" fontFamily="Arial, sans-serif">FOOT</text>
   </svg>
 );
 
-const FootballIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" />
-    <path d="m12 7 3.5 2.5-1.3 4h-4.4l-1.3-4L12 7Zm0 0V3m3.5 6.5 4-1.3M14.2 13.5l2.5 4m-8.9-4-2.5 4M8.5 9.5l-4-1.3" />
-  </svg>
+const FootballMark: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = 'ft-ball', style }) => (
+  <div className={className} style={style} aria-hidden="true" />
 );
 
-const TeamBadge: React.FC<{ team: Team; small?: boolean }> = ({ team, small = false }) => {
-  const badge = resolveClubBadge(team);
-  return (
-    <div className={`${small ? 'h-8 w-8' : 'h-12 w-12'} flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 p-1`}>
-      {badge ? (
-        <img src={badge} alt={`${team.name} badge`} className="h-full w-full object-contain" loading="lazy" />
-      ) : (
-        <FootballIcon className="h-5 w-5 text-slate-400" />
-      )}
-    </div>
-  );
-};
+const TeamBadge: React.FC<{ label: string; className?: string }> = ({ label, className = '' }) => (
+  <span className={`ft-crest ${className}`}>{label}</span>
+);
 
-const ScratchCanvas: React.FC<{ onReveal: () => Promise<void>; busy: boolean }> = ({ onReveal, busy }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const [revealing, setRevealing] = useState(false);
-  const [message, setMessage] = useState('');
+const PredictionsScreen: React.FC<{ userId?: string | null; onBack: () => void; onRewardClaimed?: (amount: number, balance: number) => void; }> = ({ userId, onBack, onRewardClaimed = () => undefined }) => {
+  const [tab, setTab] = useState<Tab>('upcoming');
+  const [activeView, setActiveView] = useState<View>('matches');
+  const [selectedMatch, setSelectedMatch] = useState<MatchItem | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [pick, setPick] = useState<'home' | 'draw' | 'away'>('away');
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
-    context.fillStyle = '#13202c';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.translate(canvas.width / 2, canvas.height / 2);
-    context.rotate(-0.52);
-    context.fillStyle = 'rgba(213, 166, 53, 0.12)';
-    for (let x = -canvas.width; x < canvas.width; x += 46) {
-      context.fillRect(x, -canvas.height, 20, canvas.height * 2);
-    }
-    context.restore();
-    context.strokeStyle = '#d7ad43';
-    context.lineWidth = 8;
-    context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-    context.fillStyle = '#f7df91';
-    context.textAlign = 'center';
-    context.font = 'bold 32px Oxanium, sans-serif';
-    context.fillText('FOOT-COLLECT', canvas.width / 2, canvas.height / 2 - 14);
-    context.font = 'bold 22px Rajdhani, sans-serif';
-    context.fillText('SCRATCH TO REVEAL', canvas.width / 2, canvas.height / 2 + 28);
-  }, []);
+  const visibleMatches = useMemo(() => matches.filter((item) => item.status === tab), [tab]);
 
-  const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return {
-      x: (event.clientX - bounds.left) * (event.currentTarget.width / bounds.width),
-      y: (event.clientY - bounds.top) * (event.currentTarget.height / bounds.height),
-    };
+  const openScratch = (match: MatchItem) => {
+    setSelectedMatch(match);
+    setRevealed(false);
+    setClaimed(false);
+    setPick('away');
+    setActiveView('scratch');
   };
 
-  const scratch = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current || revealing || busy) return;
-    const context = event.currentTarget.getContext('2d');
-    if (!context) return;
-    const { x, y } = point(event);
-    context.globalCompositeOperation = 'destination-out';
-    context.lineWidth = 56;
-    context.lineCap = 'round';
-    context.lineTo(x, y);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(x, y);
-  };
-
-  const release = async (event: React.PointerEvent<HTMLCanvasElement>) => {
-    drawing.current = false;
-    const canvas = event.currentTarget;
-    const context = canvas.getContext('2d');
-    if (!context || revealing || busy) return;
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let clearPixels = 0;
-    const totalPixels = pixels.length / 4;
-    for (let i = 3; i < pixels.length; i += 4 * 16) {
-      if (pixels[i] < 32) clearPixels++;
-    }
-    if (clearPixels / (totalPixels / 16) < 0.38) return;
-
-    setRevealing(true);
-    setMessage('');
-    try {
-      await onReveal();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not reveal your reward. Please try again.');
-      setRevealing(false);
-    }
+  const revealReward = () => setRevealed(true);
+  const claimReward = () => {
+    setClaimed(true);
+    setActiveView('result');
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-300/40 bg-slate-950">
-      <div className="flex h-44 flex-col items-center justify-center gap-1 text-center">
-        <CoinIcon className="h-24 w-24" />
-        <p className="prediction-title font-black uppercase tracking-widest text-amber-200">FTC Reward</p>
-        <p className="text-sm text-slate-300">Your confirmed coin reward</p>
-      </div>
-      <canvas
-        ref={canvasRef}
-        width={640}
-        height={300}
-        role="img"
-        aria-label="Scratch this card to reveal your confirmed FTC reward"
-        className="absolute inset-0 h-full w-full touch-none cursor-pointer"
-        onPointerDown={(event) => {
-          drawing.current = true;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          const context = event.currentTarget.getContext('2d');
-          if (!context) return;
-          const { x, y } = point(event);
-          context.beginPath();
-          context.moveTo(x, y);
-        }}
-        onPointerMove={scratch}
-        onPointerUp={release}
-        onPointerCancel={() => { drawing.current = false; }}
-      />
-      {(revealing || busy) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-sm font-bold text-white">
-          Confirming your reward…
-        </div>
-      )}
-      {message && <p role="alert" className="absolute bottom-2 left-2 right-2 rounded-lg bg-red-950/90 p-2 text-center text-xs text-red-100">{message}</p>}
-    </div>
-  );
-};
-
-const PredictionsScreen: React.FC<PredictionsScreenProps> = ({ userId, onBack, onRewardClaimed }) => {
-  const [section, setSection] = useState<Section>('matches');
-  const [fixtureFilter, setFixtureFilter] = useState<FixtureFilter>('upcoming');
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [selectedPick, setSelectedPick] = useState<Pick | null>(null);
-  const [scratchPrediction, setScratchPrediction] = useState<Prediction | null>(null);
-  const [rewardAmount, setRewardAmount] = useState(50);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    const [matchResult, predictionResult] = await Promise.allSettled([
-      request<{ matches: Match[]; rewardAmount: number }>('/matches'),
-      userId
-        ? request<{ predictions: Prediction[] }>(`/mine/${encodeURIComponent(userId)}`)
-        : Promise.resolve({ predictions: [] as Prediction[] }),
-    ]);
-    if (matchResult.status === 'fulfilled') {
-      setMatches(matchResult.value.matches);
-      setRewardAmount(matchResult.value.rewardAmount);
-    } else {
-      setMatches([]);
-      setError(matchResult.reason instanceof Error ? matchResult.reason.message : 'Could not load current fixtures.');
-    }
-    if (predictionResult.status === 'fulfilled') {
-      setPredictions(predictionResult.value.predictions);
-    } else {
-      setPredictions([]);
-      setError(current => current || (predictionResult.reason instanceof Error
-        ? predictionResult.reason.message
-        : 'Could not load your predictions.'));
-    }
-    if (!userId) setError(current => current || 'Sign in to submit predictions and collect rewards.');
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const predictionFor = (matchId: string) => predictions.find(prediction => prediction.matchId === matchId);
-
-  const submit = async () => {
-    if (!userId || !selectedMatch || !selectedPick) return;
-    setBusy(true);
-    setError('');
-    try {
-      await request('/submit', {
-        method: 'POST',
-        body: JSON.stringify({ userId, matchId: selectedMatch.id, pick: selectedPick }),
-      });
-      setSelectedMatch(null);
-      setSelectedPick(null);
-      setSection('my-picks');
-      await load();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Prediction could not be submitted.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const reveal = async () => {
-    if (!userId || !scratchPrediction) return;
-    const data = await request<{ rewardAmount: number }>(`/${scratchPrediction.id}/reveal`, {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    });
-    setPredictions(current => current.map(prediction =>
-      prediction.id === scratchPrediction.id
-        ? { ...prediction, rewardAmount: data.rewardAmount, rewardRevealed: true }
-        : prediction
-    ));
-    setScratchPrediction(current => current
-      ? { ...current, rewardAmount: data.rewardAmount, rewardRevealed: true }
-      : current
-    );
-  };
-
-  const claim = async (prediction: Prediction) => {
-    if (!userId) return;
-    setBusy(true);
-    setError('');
-    try {
-      const data = await request<{ amount: number; balance: number }>(`/${prediction.id}/claim`, {
-        method: 'POST',
-        body: JSON.stringify({ userId }),
-      });
-      setPredictions(current => current.map(item =>
-        item.id === prediction.id ? { ...item, rewardClaimed: true } : item
-      ));
-      setScratchPrediction(current => current?.id === prediction.id ? { ...current, rewardClaimed: true } : current);
-      onRewardClaimed(data.amount, data.balance);
-    } catch (claimError) {
-      setError(claimError instanceof Error ? claimError.message : 'Reward could not be claimed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const availableRewards = predictions.filter(prediction => prediction.status === 'correct');
-  const rewardHistory = predictions.filter(prediction => ['correct', 'expired'].includes(prediction.status));
-  const fixturesForFilter = matches.filter(match => {
-    const status = match.status.toUpperCase();
-    if (fixtureFilter === 'upcoming') {
-      return ['SCHEDULED', 'TIMED'].includes(status) && new Date(match.utcDate).getTime() > Date.now();
-    }
-    if (fixtureFilter === 'live') return ['IN_PLAY', 'PAUSED', 'HALF_TIME'].includes(status);
-    return ['FINISHED', 'POST', 'CANCELLED', 'POSTPONED', 'AWARDED'].includes(status);
-  });
-
-  return (
-    <div className="predictions-screen -mx-6 -my-6 min-h-full bg-[#050c12] text-white">
+    <div className="ft-predictions-shell">
       <style>{`
-        .predictions-screen { font-family: Rajdhani, sans-serif; }
-        .prediction-title { font-family: Oxanium, sans-serif; }
-        .prediction-scroll { scrollbar-width: none; }
-        .prediction-scroll::-webkit-scrollbar { display: none; }
+        :root {
+          --bg: #06141a;
+          --panel: #0c1c22;
+          --card: #102a2c;
+          --line: #1d4a3f;
+          --g: #22e07a;
+          --gd: #0f7a45;
+          --text: #f2f7f4;
+          --muted: #8fa7a0;
+          --gold: #e8b830;
+          --dark: #09161b;
+          --soft: rgba(255,255,255,0.06);
+        }
+
+        * { box-sizing: border-box; }
+        .ft-predictions-shell {
+          width: 100%;
+          min-height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: radial-gradient(ellipse at top, #0b2a2c, #04101a 68%);
+          color: var(--text);
+          font-family: Inter, "Segoe UI", sans-serif;
+          padding: 18px 10px 26px;
+        }
+
+        .ft-phone {
+          width: min(100%, 380px);
+          min-height: 760px;
+          background: linear-gradient(180deg, #08181e 0%, #050f14 100%);
+          border: 2px solid #3b6a72;
+          border-radius: 30px;
+          overflow: hidden;
+          box-shadow: 0 0 0 4px #0a1b22, 0 14px 30px rgba(0,0,0,0.45);
+        }
+
+        .ft-statusbar {
+          display: flex;
+          justify-content: space-between;
+          padding: 9px 18px 4px;
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .ft-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 14px 12px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+
+        .ft-topbar .ft-menu { font-size: 15px; font-weight: 700; color: var(--text); }
+        .ft-brand { display: flex; align-items: center; gap: 6px; }
+        .ft-brand span { font-size: 11px; letter-spacing: 0.04em; }
+        .ft-btn-ghost {
+          border: 0; background: transparent; color: var(--text); font-size: 12px; cursor: pointer;
+        }
+
+        .ft-body {
+          padding: 0 14px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
+        }
+
+        .ft-hero {
+          height: 76px;
+          border-radius: 10px;
+          background: linear-gradient(120deg, #0b3a2c, #0a2430 60%, #0a2430 100%);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 10px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .ft-hero:after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 22px);
+        }
+
+        .ft-hero > * { position: relative; z-index: 1; }
+        .ft-hero h1 { margin: 0; font-size: 17px; line-height: 1.1; letter-spacing: 0.01em; }
+        .ft-sub { color: var(--muted); font-size: 9.5px; }
+
+        .ft-tabs {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          background: #0b2226;
+          border-radius: 8px;
+          padding: 2px;
+          font-size: 9px;
+          text-align: center;
+        }
+
+        .ft-tabs .ft-tab {
+          padding: 5px 0;
+          border-radius: 6px;
+          color: var(--muted);
+          border: 0;
+          background: transparent;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .ft-tabs .ft-tab.is-active {
+          background: var(--g);
+          color: #032;
+          font-weight: 800;
+        }
+
+        .ft-card {
+          background: var(--card);
+          border: 1px solid #1b3b3b;
+          border-radius: 10px;
+          padding: 9px;
+        }
+
+        .ft-row { display: flex; align-items: center; gap: 8px; }
+        .ft-row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ft-crest {
+          width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+          font-size: 8px; font-weight: 900; color: #fff; border: 2px solid rgba(255,255,255,0.2); flex: none;
+        }
+
+        .ft-crest.red { background: #d4222a; }
+        .ft-crest.white { background: #e6e6e6; color: #235; }
+        .ft-crest.magenta { background: #a3004a; }
+        .ft-crest.gold { background: #f3c400; color: #111; }
+        .ft-crest.crimson { background: #d6001c; }
+        .ft-crest.green { background: #0f7a45; }
+
+        .ft-match-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .ft-match-meta { font-size: 9.5px; font-weight: 700; }
+        .ft-match-kickoff { color: var(--muted); font-size: 9.5px; }
+
+        .ft-btn {
+          display: block; width: 100%; text-align: center; background: var(--g); color: #032a14; font-weight: 800;
+          border-radius: 8px; padding: 9px; font-size: 10.5px; border: 0; cursor: pointer;
+        }
+
+        .ft-btn-secondary {
+          display: block; width: 100%; text-align: center; background: #0b2226; color: var(--text);
+          border: 1px solid #2f6a63; font-weight: 700; border-radius: 8px; padding: 9px; font-size: 10.5px; cursor: pointer;
+        }
+
+        .ft-btn-small {
+          padding: 4px 12px; width: auto; font-size: 9px; border-radius: 6px; display: inline-block;
+        }
+
+        .ft-ball {
+          width: 14px; height: 14px; border-radius: 50%; display: block; background: radial-gradient(circle at 35% 30%, #fff, #9bd 60%, #245);
+          border: 2px solid var(--g); box-shadow: 0 0 0 2px rgba(34,224,122,0.15);
+        }
+
+        .ft-hero .ft-ball { width: 18px; height: 18px; }
+
+        .ft-scratch-wrap {
+          margin: 6px 10px 0; flex: 1; min-height: 200px; border: 4px solid var(--gold); border-radius: 16px;
+          background: repeating-linear-gradient(115deg, #1b1b14 0 14px, #2b2a16 14px 18px);
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; position: relative;
+          box-shadow: 0 0 24px rgba(232,184,48,0.3);
+        }
+
+        .ft-scratch-wrap b {
+          color: var(--gold); font-size: 16px; letter-spacing: 0.02em; text-transform: uppercase;
+        }
+
+        .ft-scratch-wrap small {
+          color: #e8d9a0; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+        }
+
+        .ft-coin { display: block; }
+        .ft-coin-lg { width: 82px; height: 82px; }
+        .ft-coin-md { width: 70px; height: 70px; }
+        .ft-coin-sm { width: 28px; height: 28px; }
+
+        .ft-reward-box {
+          background: radial-gradient(circle at 50% 35%, rgba(42,42,18,0.96), rgba(8,20,26,0.98));
+          border-radius: 16px; padding: 14px 12px 18px; text-align: center; border: 1px solid rgba(232,184,48,0.3);
+        }
+
+        .ft-prize-card {
+          margin-top: 8px; padding: 12px; border: 2px solid var(--g); border-radius: 14px; background: linear-gradient(#0e5a36, #0b3a2a);
+          text-align: center;
+        }
+
+        .ft-prize-card .ft-coin { margin: 0 auto 8px; }
+
+        .ft-tag {
+          display: inline-block; background: var(--gd); border: 1px solid var(--g); color: #bfffd8; border-radius: 5px; padding: 2px 8px;
+          font-size: 8px; font-weight: 700; text-transform: uppercase;
+        }
+
+        .ft-tag.processing {
+          background: #0b4d6b; border-color: #3cc; color: #bff;
+        }
+
+        .ft-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .ft-item {
+          display: flex; align-items: center; gap: 9px; background: var(--card); border: 1px solid #1b3b3b; border-radius: 10px; padding: 9px;
+        }
+
+        .ft-item-title { flex: 1; font-size: 10.5px; font-weight: 700; }
+        .ft-item-title small { display: block; color: var(--muted); font-weight: 400; font-size: 8.5px; margin-top: 2px; }
+
+        .ft-bnav {
+          display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+          border-top: 1px solid #1b3b3b; background: #071419; padding: 7px 4px 12px; font-size: 7.5px; color: var(--muted); text-align: center;
+        }
+
+        .ft-bnav .active {
+          color: var(--g);
+        }
+
+        .ft-bnav span { display: grid; gap: 4px; justify-items: center; }
+
+        .ft-home-cta {
+          margin-top: auto; display: flex; flex-direction: column; gap: 8px;
+        }
+
+        .ft-faint {
+          color: var(--muted);
+          font-size: 10px;
+        }
+
+        .ft-kicker {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--g);
+        }
       `}</style>
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07131b]/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-xl items-center justify-between">
-          <button onClick={onBack} className="rounded-xl bg-white/5 px-3 py-2 text-sm font-bold text-slate-200" aria-label="Back to home">‹ Back</button>
-          <div className="text-center">
-            <p className="prediction-title text-xs font-black tracking-[0.22em] text-emerald-300">FOOT-COLLECT</p>
-            <h1 className="prediction-title text-lg font-black">PREDICTIONS</h1>
-          </div>
-          <button onClick={() => void load()} className="rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-300" aria-label="Refresh predictions">Refresh</button>
+
+      <div className="ft-phone">
+        <div className="ft-statusbar"><span>9:41</span><span>▂▄▆ ▮</span></div>
+
+        <div className="ft-topbar">
+          <button className="ft-btn-ghost" onClick={onBack} aria-label="Back">Back</button>
+          <div className="ft-brand"><FootballMark className="ft-ball" /><span>FOOT-COLLECT</span></div>
+          <button className="ft-btn-ghost" aria-label="Refresh">Refresh</button>
         </div>
-      </header>
 
-      <main className="prediction-scroll mx-auto flex max-w-xl flex-col gap-4 overflow-y-auto px-4 pb-10 pt-4">
-        <section className="overflow-hidden rounded-3xl border border-emerald-400/20 bg-[radial-gradient(ellipse_at_top_right,_rgba(16,185,129,0.22),_transparent_55%),linear-gradient(140deg,#111e25,#071018)] p-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">Predict · Scratch · Collect</p>
-          <h2 className="prediction-title mt-2 text-2xl font-black">Call the match.</h2>
-          <p className="mt-1 max-w-sm text-sm text-slate-300">Make one prediction before kick-off. Correct picks earn {rewardAmount} FTC after the final whistle and backend result validation.</p>
-          <p className="mt-3 text-[11px] text-slate-400">Free to enter · One prediction per match · No staking</p>
-        </section>
+        {activeView === 'matches' && (
+          <>
+            <div className="ft-body">
+              <div className="ft-hero">
+                <FootballMark className="ft-ball" />
+                <div>
+                  <h1>PREDICTIONS</h1>
+                  <div className="ft-sub">Predict. Win. Collect.</div>
+                </div>
+              </div>
 
-        <nav className="grid grid-cols-3 rounded-2xl border border-white/10 bg-slate-900/70 p-1" aria-label="Predictions sections">
-          {([
-            ['matches', 'Matches'],
-            ['my-picks', 'My Picks'],
-            ['rewards', `My Rewards${availableRewards.length ? ` · ${availableRewards.length}` : ''}`],
-          ] as [Section, string][]).map(([value, label]) => (
-            <button key={value} onClick={() => { setSection(value); setSelectedMatch(null); setScratchPrediction(null); }}
-              className={`rounded-xl px-2 py-2 text-xs font-extrabold transition ${section === value ? 'bg-emerald-400 text-[#06110d]' : 'text-slate-400'}`}>
-              {label}
-            </button>
-          ))}
-        </nav>
+              <div className="ft-tabs" aria-label="Prediction filters">
+                {(['upcoming', 'live', 'past'] as Tab[]).map((option) => (
+                  <button
+                    key={option}
+                    className={`ft-tab ${tab === option ? 'is-active' : ''}`}
+                    onClick={() => setTab(option)}
+                    type="button"
+                  >
+                    {option === 'upcoming' ? 'Upcoming' : option === 'live' ? 'Live' : 'Past'}
+                  </button>
+                ))}
+              </div>
 
-        {error && <div role="alert" className="rounded-xl border border-red-400/30 bg-red-950/40 px-4 py-3 text-sm text-red-100">{error}</div>}
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-8 text-center text-sm text-slate-300">Loading fixtures and predictions…</div>
-        ) : selectedMatch ? (
-          <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
-            <button onClick={() => { setSelectedMatch(null); setSelectedPick(null); }} className="mb-4 text-sm font-bold text-emerald-300">‹ Fixtures</button>
-            <div className="mb-4 flex items-center justify-between gap-2 text-center">
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2"><TeamBadge team={selectedMatch.homeTeam} /><span className="text-sm font-extrabold">{selectedMatch.homeTeam.name}</span></div>
-              <span className="text-xs font-black text-emerald-300">VS</span>
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2"><TeamBadge team={selectedMatch.awayTeam} /><span className="text-sm font-extrabold">{selectedMatch.awayTeam.name}</span></div>
-            </div>
-            <p className="text-center text-xs text-slate-400">{selectedMatch.competition?.name} · {kickoffLabel(selectedMatch.utcDate)}</p>
-            <p className="mt-5 text-center text-sm font-bold">Who will win?</p>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {(['home', 'draw', 'away'] as Pick[]).map(pick => (
-                <button key={pick} onClick={() => setSelectedPick(pick)} aria-pressed={selectedPick === pick}
-                  className={`min-h-14 rounded-xl border px-2 py-3 text-xs font-extrabold ${selectedPick === pick ? 'border-emerald-300 bg-emerald-400 text-slate-950' : 'border-white/10 bg-slate-950/70 text-white'}`}>
-                  {pickLabel(pick)}
-                </button>
+              {visibleMatches.map((match) => (
+                <div key={match.id} className="ft-card">
+                  <div className="ft-row-between">
+                    <div className="ft-row">
+                      <TeamBadge label={match.homeBadge} className="red" />
+                      <span>{match.home}</span>
+                    </div>
+                    <div className="ft-row">
+                      <span>{match.away}</span>
+                      <TeamBadge label={match.awayBadge} className="crimson" />
+                    </div>
+                  </div>
+
+                  <div className="ft-row-between" style={{ marginTop: 6 }}>
+                    <div>
+                      <div className="ft-match-meta">{match.league}</div>
+                      <div className="ft-match-kickoff">{match.kickoff}</div>
+                    </div>
+                    <button className="ft-btn ft-btn-small" type="button" onClick={() => openScratch(match)}>
+                      Predict
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
-            <button onClick={() => void submit()} disabled={!selectedPick || busy}
-              className="mt-4 w-full rounded-xl bg-emerald-400 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
-              {busy ? 'Submitting…' : 'Submit Prediction'}
-            </button>
-            <p className="mt-3 text-center text-[11px] text-slate-400">Submissions lock automatically at kick-off. Picks cannot be changed.</p>
-          </section>
-        ) : scratchPrediction ? (
-          <section className="rounded-3xl border border-amber-300/20 bg-slate-900/70 p-5">
-            <button onClick={() => setScratchPrediction(null)} className="mb-4 text-sm font-bold text-emerald-300">‹ {section === 'my-picks' ? 'My Picks' : 'My Rewards'}</button>
-            <h2 className="prediction-title mb-1 text-xl font-black">You have a gift waiting!</h2>
-            <p className="mb-4 text-sm text-slate-300">Scratch to reveal your reward.</p>
-            {scratchPrediction.rewardRevealed ? (
-              <div className="rounded-2xl border border-amber-300/50 bg-gradient-to-br from-amber-300/20 to-emerald-500/10 p-6 text-center">
-                <CoinIcon className="mx-auto h-32 w-32" amount={scratchPrediction.rewardAmount} />
-                <p className="prediction-title mt-2 text-3xl font-black text-amber-200">{scratchPrediction.rewardAmount} FTC</p>
-                <p className="mt-1 text-sm text-slate-300">Your reward is ready to collect into your app balance.</p>
+
+            <div className="ft-bnav">
+              <span><b>Home</b></span>
+              <span className="active"><b>Pred</b></span>
+              <span><b>Collect</b></span>
+              <span><b>Forum</b></span>
+              <span><b>More</b></span>
+            </div>
+          </>
+        )}
+
+        {activeView === 'scratch' && selectedMatch && (
+          <>
+            <div className="ft-body" style={{ paddingTop: 20 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div className="ft-kicker">You are a winner!</div>
+                <div className="ft-sub" style={{ marginTop: 6, color: '#dde' }}>Scratch the card to reveal your reward</div>
               </div>
-            ) : (
-              <>
-                <ScratchCanvas onReveal={reveal} busy={busy} />
-                <button onClick={() => void reveal().catch(revealError => setError(revealError instanceof Error ? revealError.message : 'Could not reveal your reward.'))}
-                  disabled={busy} className="mt-3 w-full rounded-xl border border-amber-200/40 py-3 text-sm font-bold text-amber-100 disabled:opacity-50">
-                  {busy ? 'Confirming…' : 'Reveal reward without scratching'}
-                </button>
-              </>
-            )}
-            {scratchPrediction.rewardRevealed && (
-              <button onClick={() => void claim(scratchPrediction)} disabled={busy || scratchPrediction.rewardClaimed}
-                className="mt-4 w-full rounded-xl bg-emerald-400 py-3 text-sm font-black text-slate-950 disabled:opacity-50">
-                {scratchPrediction.rewardClaimed ? 'Reward Claimed' : busy ? 'Claiming…' : 'Claim FTC Reward'}
-              </button>
-            )}
-            {scratchPrediction.rewardClaimed && <p className="mt-3 text-center text-sm font-bold text-emerald-300">FTC credited to your in-app balance.</p>}
-          </section>
-        ) : (
-          <section className="flex flex-col gap-3">
-            {section === 'matches' && (
-              <>
-                <nav className="grid grid-cols-3 gap-2" aria-label="Match status filter">
-                  {([
-                    ['upcoming', 'Upcoming'],
-                    ['live', 'Live'],
-                    ['past', 'Past'],
-                  ] as [FixtureFilter, string][]).map(([value, label]) => (
-                    <button key={value} onClick={() => setFixtureFilter(value)} aria-pressed={fixtureFilter === value}
-                      className={`rounded-xl border py-2 text-xs font-extrabold ${fixtureFilter === value ? 'border-emerald-300/50 bg-emerald-400/15 text-emerald-200' : 'border-white/10 bg-slate-900/60 text-slate-400'}`}>
-                      {label}
-                    </button>
-                  ))}
-                </nav>
-                {fixturesForFilter.length ? fixturesForFilter.map(match => {
-              const existing = predictionFor(match.id);
-              return (
-                <article key={match.id} className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">{match.competition?.name || 'Football'}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${fixtureFilter === 'live' ? 'bg-red-400/10 text-red-300' : 'bg-emerald-400/10 text-emerald-300'}`}>
-                      {fixtureFilter === 'live' ? 'LIVE' : fixtureFilter === 'past' ? 'FT' : kickoffLabel(match.utcDate)}
-                    </span>
+
+              <div className="ft-scratch-wrap">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <FootballMark className="ft-ball" style={{ width: 46, height: 46, marginBottom: 12 }} />
+                </div>
+                <b>FOOT-COLLECT</b>
+                <small>Scratch &amp; win</small>
+                <div style={{ position: 'absolute', right: 10, bottom: 6, fontSize: 34, color: 'rgba(255,255,255,0.8)' }}>Tap</div>
+              </div>
+
+              <div className="ft-home-cta">
+                <button className="ft-btn" type="button" onClick={revealReward}>Tap to reveal reward</button>
+              </div>
+            </div>
+
+            {revealed && (
+              <div className="ft-body" style={{ paddingTop: 10 }}>
+                <div className="ft-reward-box">
+                  <div className="ft-kicker" style={{ color: '#f5d678' }}>Congratulations!</div>
+                  <div className="ft-sub" style={{ marginTop: 4, color: '#dde' }}>You have won a reward</div>
+                  <div className="ft-prize-card">
+                    <CoinSvg className="ft-coin ft-coin-md" />
+                    <div style={{ fontWeight: 800, fontSize: 12, marginTop: 10 }}>50 FTC</div>
+                    <div className="ft-sub">Tokens</div>
+                    <span className="ft-tag" style={{ marginTop: 8 }}>Token Reward</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TeamBadge team={match.homeTeam} small />
-                    <span className="min-w-0 flex-1 truncate text-xs font-extrabold">{match.homeTeam.name}</span>
-                    <span className="text-[10px] font-bold text-slate-500">
-                      {match.score?.fullTime?.home != null && match.score?.fullTime?.away != null
-                        ? `${match.score.fullTime.home}–${match.score.fullTime.away}`
-                        : 'VS'}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-right text-xs font-extrabold">{match.awayTeam.name}</span>
-                    <TeamBadge team={match.awayTeam} small />
+                  <div style={{ marginTop: 12 }}>
+                    <button className="ft-btn" type="button" onClick={claimReward}>Claim Reward</button>
                   </div>
-                  {fixtureFilter !== 'upcoming' ? (
-                    existing && <p className="mt-3 rounded-lg bg-slate-950/70 px-3 py-2 text-center text-xs font-bold text-slate-300">Your pick: {pickLabel(existing.pick)}</p>
-                  ) : existing ? (
-                    <p className="mt-3 rounded-lg bg-slate-950/70 px-3 py-2 text-center text-xs font-bold text-slate-300">Your pick: {pickLabel(existing.pick)} · Submitted</p>
-                  ) : (
-                    <button onClick={() => { setSelectedMatch(match); setSelectedPick(null); setError(''); }}
-                      className="mt-3 w-full rounded-xl bg-emerald-400 py-2.5 text-xs font-black text-slate-950">Predict</button>
-                  )}
-                </article>
-              );
-                }) : <p className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-center text-sm text-slate-300">
-                  {fixtureFilter === 'upcoming' ? 'No upcoming fixtures are available right now.' : `No ${fixtureFilter} matches are available right now.`}
-                </p>}
-              </>
+                  <button className="ft-btn-secondary" style={{ marginTop: 8 }} type="button" onClick={() => setActiveView('rewards')}>
+                    View My Rewards
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-            {section === 'my-picks' && (predictions.length ? predictions.map(prediction => (
-              <article key={prediction.id} className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
-                <div className="flex items-center gap-3">
-                  <TeamBadge team={prediction.match.homeTeam} small />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-extrabold">{prediction.match.homeTeam.name} vs {prediction.match.awayTeam.name}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">Your pick: {pickLabel(prediction.pick)} · {kickoffLabel(prediction.kickoffAt)}</p>
-                    {prediction.result && <p className="mt-1 text-[11px] text-slate-400">Match result: {pickLabel(prediction.result)}</p>}
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${prediction.status === 'correct' ? 'bg-emerald-400/15 text-emerald-300' : prediction.status === 'incorrect' ? 'bg-red-400/15 text-red-300' : prediction.status === 'expired' ? 'bg-slate-400/15 text-slate-300' : 'bg-amber-300/15 text-amber-200'}`}>
-                    {prediction.status === 'correct' ? 'Correct' : prediction.status === 'incorrect' ? 'Missed' : prediction.status === 'expired' ? 'Expired' : 'Waiting'}
-                  </span>
-                </div>
-                {prediction.rewardAvailable && (
-                  <button onClick={() => setScratchPrediction(prediction)}
-                    className="mt-3 w-full rounded-xl border border-amber-300/40 bg-amber-200/10 py-2.5 text-xs font-black text-amber-100">
-                    {prediction.rewardClaimed ? `Reward claimed · ${prediction.rewardAmount} FTC` : prediction.rewardRevealed ? `Collect ${prediction.rewardAmount} FTC` : 'Scratch to reveal reward'}
-                  </button>
-                )}
-                {prediction.status === 'pending' && new Date(prediction.kickoffAt).getTime() < Date.now() && (
-                  <p className="mt-3 text-center text-[11px] text-slate-400">Waiting for the official result. Refresh later to update.</p>
-                )}
-              </article>
-            )) : <p className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-center text-sm text-slate-300">Your submitted predictions will appear here.</p>)}
+        {activeView === 'result' && (
+          <>
+            <div className="ft-body" style={{ paddingTop: 16 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div className="ft-kicker" style={{ fontSize: 18, color: '#f5d678' }}>You Won!</div>
+                <div className="ft-sub" style={{ marginTop: 3, color: '#dde' }}>FTC Tokens</div>
+              </div>
 
-            {section === 'rewards' && (rewardHistory.length ? rewardHistory.map(prediction => (
-              <article key={prediction.id} className="rounded-2xl border border-amber-200/20 bg-gradient-to-r from-slate-900 to-emerald-950/30 p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-300/10">
-                    <CoinIcon className="h-10 w-10" amount={prediction.rewardAmount} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-extrabold">{prediction.status === 'expired' ? 'Reward unavailable' : prediction.rewardRevealed ? `${prediction.rewardAmount} FTC Tokens` : 'FTC Scratch Reward'}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{prediction.status === 'expired' ? 'Fixture cancelled · no reward issued' : `Awarded ${prediction.rewardAwardedAt ? kickoffLabel(prediction.rewardAwardedAt) : ''}`}</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black ${prediction.status === 'expired' ? 'bg-slate-400/15 text-slate-300' : prediction.rewardClaimed ? 'bg-emerald-400/15 text-emerald-300' : 'bg-amber-300/15 text-amber-200'}`}>
-                    {prediction.status === 'expired' ? 'Expired' : prediction.rewardClaimed ? 'Claimed' : prediction.rewardRevealed ? 'Ready' : 'Unrevealed'}
-                  </span>
-                </div>
-                {prediction.status === 'correct' && !prediction.rewardClaimed && (
-                  <button onClick={() => setScratchPrediction(prediction)} className="mt-3 w-full rounded-xl bg-emerald-400 py-2.5 text-xs font-black text-slate-950">
-                    {prediction.rewardRevealed ? 'Claim reward' : 'Scratch to reveal'}
-                  </button>
-                )}
-              </article>
-            )) : <p className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-center text-sm text-slate-300">Correct predictions and reward history will appear here.</p>)}
-          </section>
+              <div style={{ margin: '14px 0 6px' }}>
+                <CoinSvg className="ft-coin ft-coin-lg" style={{ margin: '0 auto' }} />
+              </div>
+
+              <div className="ft-sub" style={{ textAlign: 'center', fontSize: 22, fontWeight: 900, color: 'var(--gold)' }}>50 FTC</div>
+              <div className="ft-sub" style={{ textAlign: 'center', color: '#dde' }}>Your reward has been added to your wallet.</div>
+
+              <div className="ft-home-cta" style={{ marginTop: 14 }}>
+                <button className="ft-btn" type="button" onClick={() => setActiveView('rewards')}>View Wallet</button>
+                <button className="ft-btn-secondary" type="button" onClick={() => setActiveView('matches')}>Back to Home</button>
+              </div>
+            </div>
+          </>
         )}
-        <p className="px-3 pb-2 text-center text-[10px] leading-relaxed text-slate-500">Predictions are free. Picks close at kick-off. Reward eligibility and claims are confirmed by FOOT-COLLECT.</p>
-      </main>
+
+        {activeView === 'rewards' && (
+          <>
+            <div className="ft-body">
+              <div style={{ marginTop: 16 }}>
+                <div className="ft-kicker" style={{ fontSize: 14, color: '#fff' }}>My Rewards</div>
+              </div>
+
+              <div className="ft-tabs" style={{ gridTemplateColumns: '0.7fr 1fr 1.4fr 1fr' }}>
+                <button className="ft-tab is-active" type="button">All</button>
+                <button className="ft-tab" type="button">Tokens</button>
+                <button className="ft-tab" type="button">Merch</button>
+                <button className="ft-tab" type="button">Other</button>
+              </div>
+
+              <div className="ft-list">
+                {rewardHistory.map((reward) => (
+                  <div key={reward.id} className="ft-item">
+                    {reward.kind === 'Token' ? <CoinSvg className="ft-coin ft-coin-sm" /> : <div className="ft-coin ft-coin-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#ebebeb', color: '#1d3643', fontWeight: 800, fontSize: 8 }}>J</div>}
+                    <div className="ft-item-title">
+                      {reward.title}
+                      <small>{reward.subtitle}</small>
+                    </div>
+                    <span className={`ft-tag ${reward.status === 'Processing' ? 'processing' : ''}`}>{reward.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ft-bnav">
+              <span>Home</span>
+              <span className="active">Pred</span>
+              <span>Collect</span>
+              <span>Forum</span>
+              <span>More</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
