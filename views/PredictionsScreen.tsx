@@ -1,70 +1,131 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { resolveClubBadge } from '../src/utils/clubBadge';
+import { getAuthToken, setAuthSession } from '../src/utils/versionControl';
 
+const API_BASE = 'https://footnfts.up.railway.app/api';
 type MatchFilter = 'upcoming' | 'live' | 'past';
-type Screen = 'matches' | 'pick' | 'scratch' | 'result' | 'rewards';
+type Section = 'matches' | 'picks' | 'rewards';
+type Screen = 'matches' | 'pick' | 'scratch' | 'result';
 type Pick = 'home' | 'draw' | 'away';
+type RewardType = 'ftc' | 'jersey' | 'sports_gear';
 
-interface MockMatch {
-  id: string;
-  league: string;
-  date: string;
-  status: MatchFilter;
-  home: { name: string; shortName: string; badge?: string };
-  away: { name: string; shortName: string; badge?: string };
-  score?: string;
+interface Team {
+  id?: number;
+  name: string;
+  shortName?: string;
+  tla?: string;
+  crest?: string;
 }
 
-const MOCK_MATCHES: MockMatch[] = [
-  {
-    id: 'man-utd-liverpool',
-    league: 'Premier League',
-    date: 'Sat, 17 Oct · 15:00',
-    status: 'upcoming',
-    home: { name: 'Manchester United', shortName: 'Man United' },
-    away: { name: 'Liverpool', shortName: 'Liverpool' },
-  },
-  {
-    id: 'madrid-barcelona',
-    league: 'La Liga',
-    date: 'Sat, 17 Oct · 20:00',
-    status: 'upcoming',
-    home: { name: 'Real Madrid', shortName: 'Real Madrid' },
-    away: { name: 'Barcelona', shortName: 'Barcelona' },
-  },
-  {
-    id: 'bayern-dortmund',
-    league: 'Bundesliga',
-    date: 'Sun, 18 Oct · 17:30',
-    status: 'upcoming',
-    home: { name: 'Bayern Munich', shortName: 'Bayern Munich' },
-    away: { name: 'Borussia Dortmund', shortName: 'Dortmund' },
-  },
-  {
-    id: 'juventus-inter',
-    league: 'Serie A',
-    date: 'LIVE · 62′',
-    status: 'live',
-    home: { name: 'Juventus', shortName: 'Juventus' },
-    away: { name: 'Inter Milan', shortName: 'Inter Milan' },
-    score: '1 – 1',
-  },
-  {
-    id: 'arsenal-chelsea',
-    league: 'Premier League',
-    date: 'Sun, 11 Oct · FT',
-    status: 'past',
-    home: { name: 'Arsenal', shortName: 'Arsenal' },
-    away: { name: 'Chelsea', shortName: 'Chelsea' },
-    score: '2 – 1',
-  },
-];
+interface Match {
+  id: string;
+  utcDate: string;
+  status: string;
+  competition?: { name?: string; emblem?: string } | null;
+  homeTeam: Team;
+  awayTeam: Team;
+  score?: { fullTime?: { home: number | null; away: number | null } } | null;
+}
 
-const MOCK_REWARDS = [
-  { id: 'reward-1', amount: 50, date: 'Oct 10, 2026', status: 'Claimed' },
-  { id: 'reward-2', amount: 100, date: 'Oct 3, 2026', status: 'Claimed' },
-  { id: 'reward-3', amount: 50, date: 'Sep 26, 2026', status: 'Processing' },
-];
+interface Prediction {
+  id: string;
+  matchId: string;
+  kickoffAt: string;
+  match: Match;
+  pick: Pick;
+  result: Pick | null;
+  status: 'pending' | 'correct' | 'incorrect' | 'expired';
+  rewardType: RewardType | null;
+  rewardName: string | null;
+  rewardAmount: number | null;
+  rewardAvailable: boolean;
+  rewardRevealed: boolean;
+  rewardClaimed: boolean;
+  rewardDeliveryStatus: string;
+  rewardAwardedAt: string | null;
+  createdAt: string;
+}
+
+interface TelegramWindow extends Window {
+  Telegram?: {
+    WebApp?: {
+      initData?: string;
+    };
+  };
+}
+
+const matchFilterFor = (status: string): MatchFilter => {
+  const normalized = status.toUpperCase();
+  if (['IN_PLAY', 'PAUSED', 'HALF_TIME', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'].includes(normalized)) return 'live';
+  if (['FINISHED', 'POST', 'CANCELLED', 'POSTPONED', 'AWARDED', 'SUSPENDED'].includes(normalized)) return 'past';
+  return 'upcoming';
+};
+
+const matchDate = (date: string) => new Date(date).toLocaleString([], {
+  weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+});
+
+const addDays = (date: Date, days: number) => {
+  const target = new Date(date);
+  target.setUTCDate(target.getUTCDate() + days);
+  return target.toISOString().slice(0, 10);
+};
+
+const loadCalendarMatches = async (): Promise<Match[]> => {
+  const today = new Date();
+  const params = new URLSearchParams({
+    dateFrom: addDays(today, -7),
+    dateTo: addDays(today, 7),
+    limit: '90',
+  });
+  const response = await fetch(`${API_BASE}/fanzone/calendar?${params.toString()}`);
+  const data = await response.json();
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.error || 'Football Calendar fixtures could not be loaded.');
+  }
+  return (data.matches || [])
+    .filter((match: Match) => match.homeTeam?.name && match.awayTeam?.name)
+    .map((match: Match) => ({ ...match, id: String(match.id) }));
+};
+
+const pickName = (pick: Pick, match: Match) => ({
+  home: match.homeTeam.shortName || match.homeTeam.name,
+  draw: 'Draw',
+  away: match.awayTeam.shortName || match.awayTeam.name,
+}[pick]);
+
+const predictionRequest = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+  const send = (token: string | null) => {
+    const headers = new Headers(init?.headers);
+    headers.set('Content-Type', 'application/json');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(`${API_BASE}/predictions${path}`, { ...init, headers });
+  };
+
+  let response = await send(getAuthToken() || localStorage.getItem('token'));
+  if (response.status === 401) {
+    const initData = (window as TelegramWindow).Telegram?.WebApp?.initData;
+    if (initData) {
+      const sessionResponse = await fetch(`${API_BASE}/auth/telegram/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      });
+      const session = await sessionResponse.json();
+      if (sessionResponse.ok && session.success && session.token && session.user?.id) {
+        setAuthSession(session.token, session.user.id);
+        response = await send(session.token);
+      }
+    }
+  }
+
+  const data = await response.json();
+  if (!response.ok || data?.success === false) {
+    if (response.status === 401) throw new Error('Your session expired. Reopen the Mini App and try again.');
+    throw new Error(data?.error || 'Predictions could not be loaded. Please try again.');
+  }
+  return data as T;
+};
 
 const COIN_GRADIENT_ID = 'predictions-coin-gold';
 
@@ -94,18 +155,37 @@ const BallIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
   </svg>
 );
 
-const TeamCrest: React.FC<{ team: MockMatch['home']; tone?: 'home' | 'away'; size?: 'normal' | 'large' }> = ({
+const TeamCrest: React.FC<{ team: Team; tone?: 'home' | 'away'; size?: 'normal' | 'large' }> = ({
   team,
   tone = 'home',
   size = 'normal',
 }) => {
-  const badge = resolveClubBadge({ name: team.name, shortName: team.shortName, crest: team.badge });
+  const badge = resolveClubBadge(team);
   return (
     <span className={`pred-crest pred-crest-${size} pred-crest-${tone}`}>
       {badge
         ? <img src={badge} alt={`${team.name} crest`} loading="lazy" />
-        : <span aria-hidden="true">{team.shortName.split(' ').map(word => word[0]).join('').slice(0, 3).toUpperCase()}</span>}
+        : <span aria-hidden="true">{(team.shortName || team.name).split(' ').map(word => word[0]).join('').slice(0, 3).toUpperCase()}</span>}
     </span>
+  );
+};
+
+const RewardArtwork: React.FC<{ type: RewardType; className?: string }> = ({ type, className = '' }) => {
+  if (type === 'ftc') return <CoinIcon size="medium" />;
+  if (type === 'jersey') {
+    return (
+      <svg className={className} viewBox="0 0 100 100" fill="none" role="img" aria-label="Football jersey">
+        <path d="m31 18 13-7h12l13 7 19 13-12 17-10-7v47H24V41l-10 7L2 31l19-13 10 0Z" fill="#12a65e" stroke="#7dffb2" strokeWidth="3" strokeLinejoin="round" />
+        <path d="m39 14 11 12 11-12M37 47h26M37 56h26" stroke="#d9ffe7" strokeWidth="4" strokeLinecap="round" />
+        <text x="50" y="76" textAnchor="middle" fill="white" fontSize="16" fontWeight="900">FTC</text>
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 100 100" fill="none" role="img" aria-label="Football sports gear">
+      <circle cx="50" cy="50" r="37" fill="#e9f3ed" stroke="#22e07a" strokeWidth="5" />
+      <path d="m50 36 12 9-5 14H43l-5-14 12-9Zm0 0V13m12 32 23-8M57 59l14 22M43 59 29 81M38 45l-23-8" stroke="#174238" strokeWidth="4" strokeLinejoin="round" />
+    </svg>
   );
 };
 
@@ -113,31 +193,205 @@ const PredictionsScreen: React.FC<{
   userId?: string | null;
   onBack: () => void;
   onRewardClaimed?: (amount: number, balance: number) => void;
-}> = ({ onBack }) => {
+}> = ({ userId, onBack, onRewardClaimed }) => {
   const [filter, setFilter] = useState<MatchFilter>('upcoming');
+  const [section, setSection] = useState<Section>('matches');
   const [screen, setScreen] = useState<Screen>('matches');
-  const [selectedMatch, setSelectedMatch] = useState<MockMatch | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [rewardWeights, setRewardWeights] = useState<Record<string, number>>({});
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [selectedPick, setSelectedPick] = useState<Pick | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [claimed, setClaimed] = useState(false);
-  const [rewardFilter, setRewardFilter] = useState<'All' | 'Tokens'>('All');
+  const [rewardFilter, setRewardFilter] = useState<'All' | RewardType>('All');
+  const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+  const [deliveryDetails, setDeliveryDetails] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    streetAddress: '',
+    cityRegion: '',
+    country: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    const [fixtureResult, rulesResult, predictionResult] = await Promise.allSettled([
+      loadCalendarMatches(),
+      predictionRequest<{ weights: Record<string, number> }>('/reward-rules'),
+      userId
+        ? predictionRequest<{ predictions: Prediction[] }>(`/mine/${encodeURIComponent(userId)}`)
+        : Promise.resolve({ predictions: [] as Prediction[] }),
+    ]);
+
+    if (fixtureResult.status === 'fulfilled') setMatches(fixtureResult.value);
+    else setError(fixtureResult.reason instanceof Error ? fixtureResult.reason.message : 'Fixtures could not be loaded.');
+    if (rulesResult.status === 'fulfilled') setRewardWeights(rulesResult.value.weights);
+    else setError(current => current || (rulesResult.reason instanceof Error ? rulesResult.reason.message : 'Reward rules could not be loaded.'));
+    if (predictionResult.status === 'fulfilled') setPredictions(predictionResult.value.predictions);
+    else setError(current => current || (predictionResult.reason instanceof Error ? predictionResult.reason.message : 'Your predictions could not be loaded.'));
+    if (!userId) setError(current => current || 'Sign in to submit picks and claim rewards.');
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    void load();
+    const refreshTimer = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(refreshTimer);
+  }, [load]);
 
   const visibleMatches = useMemo(
-    () => MOCK_MATCHES.filter(match => match.status === filter),
-    [filter],
+    () => matches.filter(match => matchFilterFor(match.status) === filter),
+    [matches, filter],
   );
 
-  const openPrediction = (match: MockMatch) => {
+  const openPrediction = (match: Match) => {
     setSelectedMatch(match);
     setSelectedPick(null);
     setScreen('pick');
   };
 
-  const submitMockPick = () => {
-    setRevealed(false);
-    setClaimed(false);
+  const submitPick = async () => {
+    if (!userId || !selectedMatch || !selectedPick) return;
+    setBusy(true);
+    setError('');
+    try {
+      await predictionRequest('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ userId, matchId: selectedMatch.id, pick: selectedPick }),
+      });
+      setSelectedMatch(null);
+      setSelectedPick(null);
+      setScreen('matches');
+      setSection('picks');
+      await load();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Your prediction could not be submitted.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openReward = (prediction: Prediction) => {
+    setSelectedPrediction(prediction);
+    setRevealed(prediction.rewardRevealed);
+    setShowDeliveryForm(false);
     setScreen('scratch');
   };
+
+  const revealReward = async () => {
+    if (!userId || !selectedPrediction || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await predictionRequest<{
+        rewardAmount: number | null;
+        rewardType: RewardType;
+        rewardName: string;
+      }>(`/${selectedPrediction.id}/reveal`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+      const updated = {
+        ...selectedPrediction,
+        rewardAmount: data.rewardAmount,
+        rewardType: data.rewardType,
+        rewardName: data.rewardName,
+        rewardRevealed: true,
+      };
+      setSelectedPrediction(updated);
+      setPredictions(current => current.map(item => item.id === updated.id ? updated : item));
+      setRevealed(true);
+    } catch (revealError) {
+      setError(revealError instanceof Error ? revealError.message : 'Your reward is not available to reveal yet.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const claimReward = async () => {
+    if (!userId || !selectedPrediction || busy) return;
+    if (selectedPrediction.rewardType !== 'ftc') {
+      setShowDeliveryForm(true);
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const data = await predictionRequest<{
+        amount: number | null;
+        balance: number | null;
+        rewardType: RewardType;
+        rewardName: string;
+        deliveryStatus: string;
+        alreadyClaimed: boolean;
+      }>(`/${selectedPrediction.id}/claim`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+      const updated = {
+        ...selectedPrediction,
+        rewardClaimed: true,
+        rewardDeliveryStatus: data.deliveryStatus,
+      };
+      setSelectedPrediction(updated);
+      setPredictions(current => current.map(item => item.id === updated.id ? updated : item));
+      if (data.rewardType === 'ftc' && data.amount != null && data.balance != null) {
+        onRewardClaimed?.(data.amount, data.balance);
+      }
+      setScreen('result');
+    } catch (claimError) {
+      setError(claimError instanceof Error ? claimError.message : 'Your reward could not be claimed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDeliveryDetails = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId || !selectedPrediction || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await predictionRequest<{
+        rewardType: RewardType;
+        rewardName: string;
+        deliveryStatus: string;
+      }>(`/${selectedPrediction.id}/delivery`, {
+        method: 'POST',
+        body: JSON.stringify({ userId, ...deliveryDetails }),
+      });
+      const updated = {
+        ...selectedPrediction,
+        rewardClaimed: true,
+        rewardDeliveryStatus: data.deliveryStatus,
+      };
+      setSelectedPrediction(updated);
+      setPredictions(current => current.map(item => item.id === updated.id ? updated : item));
+      setDeliveryDetails({
+        fullName: '',
+        phone: '',
+        email: '',
+        streetAddress: '',
+        cityRegion: '',
+        country: '',
+      });
+      setShowDeliveryForm(false);
+      setScreen('result');
+    } catch (deliveryError) {
+      setError(deliveryError instanceof Error ? deliveryError.message : 'Delivery details could not be submitted.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const predictionForMatch = (matchId: string) => predictions.find(item => item.matchId === matchId);
+  const rewardHistory = predictions.filter(item => item.status === 'correct');
 
   return (
     <div className="-mx-6 -my-6 min-h-full bg-[#06141a] text-[#f2f7f4]">
@@ -157,11 +411,11 @@ const PredictionsScreen: React.FC<{
           font-family: Inter, "Segoe UI", system-ui, sans-serif;
         }
         .predictions-page button { font: inherit; }
-        .pred-inner { width: min(100%, 920px); margin: 0 auto; padding: 26px clamp(18px, 4vw, 40px) 42px; }
-        .pred-page-top { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; }
+        .pred-inner { width: min(100%, 1120px); margin: 0 auto; padding: 24px clamp(16px, 4vw, 44px) 42px; }
+        .pred-page-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
         .pred-back { display:inline-flex; align-items:center; gap:8px; padding:9px 13px; border:1px solid #1d4a3f; border-radius:10px; background:#0b2226; color:#cfe2da; cursor:pointer; font-size:13px!important; font-weight:700!important; }
         .pred-page-caption { color:var(--pred-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.13em; }
-        .pred-balance { display:flex; align-items:center; gap:8px; border:1px solid rgba(232,184,48,.35); border-radius:999px; background:rgba(232,184,48,.08); color:#f3d26d; padding:6px 12px 6px 7px; font-size:12px; font-weight:800; }
+        .pred-play-mode { display:flex; align-items:center; gap:7px; border:1px solid rgba(34,224,122,.25); border-radius:999px; background:rgba(34,224,122,.07); color:#a8f2c6; padding:7px 12px; font-size:10px; font-weight:850; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap; }
         .pred-hero { position:relative; overflow:hidden; display:flex; align-items:center; min-height:142px; padding:24px clamp(20px,4vw,34px); border:1px solid rgba(34,224,122,.25); border-radius:20px; background:linear-gradient(115deg,rgba(9,70,49,.9),rgba(7,36,43,.93) 62%,rgba(9,29,39,.96)); box-shadow:0 16px 46px rgba(0,0,0,.18); }
         .pred-hero:before { content:""; position:absolute; inset:0; opacity:.4; background:repeating-linear-gradient(90deg,transparent 0 28px,rgba(195,255,221,.08) 29px 30px),linear-gradient(0deg,rgba(1,13,15,.38),transparent 80%); pointer-events:none; }
         .pred-pitch { position:absolute; right:8%; top:50%; width:172px; height:112px; transform:translateY(-50%); border:1px solid rgba(180,255,212,.16); border-radius:50%; }
@@ -174,14 +428,14 @@ const PredictionsScreen: React.FC<{
         .pred-overline { margin:25px 0 11px; display:flex; justify-content:space-between; align-items:end; gap:12px; }
         .pred-overline h2 { margin:0; font-size:18px; font-weight:850; }
         .pred-overline p { margin:4px 0 0; color:var(--pred-muted); font-size:12px; }
-        .pred-section-tabs { display:flex; gap:7px; padding:4px; border:1px solid rgba(255,255,255,.07); border-radius:12px; background:rgba(7,30,32,.85); }
+        .pred-section-tabs { display:flex; flex-wrap:wrap; gap:5px; padding:4px; border:1px solid rgba(255,255,255,.07); border-radius:12px; background:rgba(7,30,32,.85); }
         .pred-section-tab { border:0; border-radius:9px; background:transparent; color:#8fa7a0; padding:9px 15px; cursor:pointer; font-size:12px!important; font-weight:800!important; }
         .pred-section-tab.active { background:var(--pred-green); color:#032a14; }
         .pred-filter-tabs { display:flex; gap:8px; margin:15px 0; }
         .pred-filter { min-width:84px; padding:8px 14px; border:1px solid #25473f; border-radius:999px; background:#0b2226; color:#afc4bb; cursor:pointer; font-size:12px!important; font-weight:750!important; }
         .pred-filter.active { border-color:var(--pred-green); background:rgba(15,122,69,.65); color:#d9ffe8; box-shadow:inset 0 0 0 1px rgba(34,224,122,.14); }
         .pred-match-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-        .pred-match-card { position:relative; overflow:hidden; padding:16px; border:1px solid rgba(83,142,116,.22); border-radius:15px; background:linear-gradient(145deg,rgba(16,42,44,.98),rgba(9,27,32,.98)); box-shadow:0 8px 24px rgba(0,0,0,.13); }
+        .pred-match-card { position:relative; overflow:hidden; min-width:0; padding:clamp(13px,2vw,18px); border:1px solid rgba(83,142,116,.22); border-radius:15px; background:linear-gradient(145deg,rgba(16,42,44,.98),rgba(9,27,32,.98)); box-shadow:0 8px 24px rgba(0,0,0,.13); }
         .pred-match-card:before { content:""; position:absolute; top:0; left:16px; right:16px; height:1px; background:linear-gradient(90deg,transparent,rgba(34,224,122,.4),transparent); }
         .pred-match-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#a9c0b5; font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
         .pred-live-dot { width:6px; height:6px; display:inline-block; margin-right:5px; border-radius:50%; background:#ff5261; box-shadow:0 0 8px #ff5261; }
@@ -203,6 +457,8 @@ const PredictionsScreen: React.FC<{
         .pred-button:hover { transform:translateY(-1px); filter:brightness(1.05); }
         .pred-button.secondary { border:1px solid #2f6a63; background:#0b2226; color:#e5f2ec; }
         .pred-button.full { width:100%; min-height:44px; font-size:13px!important; }
+        .pred-button:disabled { cursor:not-allowed; opacity:.48; transform:none; }
+        .pred-refresh { border:0; background:transparent; color:#9effc7; cursor:pointer; font-size:11px!important; font-weight:850!important; }
         .pred-empty { grid-column:1/-1; padding:40px 20px; border:1px dashed rgba(143,167,160,.28); border-radius:15px; color:#a9c0b5; text-align:center; }
         .pred-detail { max-width:650px; margin:0 auto; }
         .pred-back-link { margin-bottom:15px; padding:0; border:0; background:transparent; color:#a9f3c9; cursor:pointer; font-size:12px!important; font-weight:800!important; }
@@ -223,23 +479,39 @@ const PredictionsScreen: React.FC<{
         .pred-scratch-card:before { content:""; position:absolute; inset:8px; border:1px solid rgba(255,228,142,.24); border-radius:9px; pointer-events:none; }
         .pred-scratch-brand { color:var(--pred-gold); font-size:19px; font-weight:950; letter-spacing:.08em; }
         .pred-scratch-caption { color:#e8d9a0; font-size:10px; font-weight:850; letter-spacing:.2em; text-transform:uppercase; }
-        .pred-tap-hint { display:flex; justify-content:center; align-items:center; gap:8px; color:#e8d9a0; font-size:12px; font-weight:700; }
+        .pred-coin { display:block; }
+        .pred-coin-large { width:clamp(90px,24vw,126px); height:auto; }
+        .pred-coin-medium { width:clamp(78px,20vw,104px); height:auto; }
+        .pred-coin-small { width:26px; height:26px; }
+        .pred-tap-hint { display:flex; justify-content:center; align-items:center; gap:8px; color:#e8d9a0; font-size:12px; font-weight:700; text-align:center; }
+        .pred-tap-coin { display:grid; place-items:center; align-self:center; padding:0; border:0; border-radius:50%; background:transparent; cursor:pointer; filter:drop-shadow(0 0 16px rgba(232,184,48,.38)); animation:pred-coin-pulse 1.8s ease-in-out infinite; }
+        .pred-tap-coin:hover { animation-play-state:paused; transform:scale(1.06); }
+        .pred-tap-coin:focus-visible { outline:3px solid #22e07a; outline-offset:5px; }
+        .pred-tap-coin:disabled { cursor:wait; animation-play-state:paused; opacity:.7; }
+        @keyframes pred-coin-pulse { 0%,100% { transform:translateY(0) rotate(-3deg); } 50% { transform:translateY(-5px) rotate(3deg); } }
         .pred-reward-reveal { padding:20px; border:2px solid #22e07a; border-radius:15px; background:linear-gradient(#0e5a36,#0b3a2a); text-align:center; animation:pred-reveal-in .35s ease-out both; }
         @keyframes pred-reveal-in { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
         .pred-reward-reveal h3 { margin:8px 0 2px; font-size:21px; font-weight:950; }
         .pred-reward-reveal p { margin:0; color:#c5dfd2; font-size:12px; }
         .pred-reward-actions { display:grid; gap:9px; }
+        .pred-delivery-form { display:grid; gap:12px; }
+        .pred-delivery-form h3 { margin:0; color:#f2f7f4; font-size:19px; font-weight:900; }
+        .pred-delivery-form p { margin:0 0 3px; color:#a9c0b5; font-size:12px; line-height:1.55; }
+        .pred-delivery-field { display:grid; gap:5px; color:#c8d9d1; font-size:11px; font-weight:750; }
+        .pred-delivery-field input { width:100%; min-width:0; border:1px solid #2a5a54; border-radius:9px; background:#081a1f; color:#f2f7f4; padding:11px 12px; font:inherit; font-size:13px; outline:none; }
+        .pred-delivery-field input:focus { border-color:#22e07a; box-shadow:0 0 0 2px rgba(34,224,122,.13); }
+        .pred-privacy-note { padding:10px 11px; border:1px solid rgba(232,184,48,.18); border-radius:9px; background:rgba(232,184,48,.05); color:#cbbd8a!important; font-size:10px!important; }
         .pred-result { max-width:560px; margin:0 auto; padding:32px 20px; border:1px solid rgba(232,184,48,.2); border-radius:20px; background:radial-gradient(circle at 50% 30%,rgba(65,77,27,.55),rgba(8,20,26,.98) 68%); text-align:center; }
         .pred-result h2 { margin:0; color:#f5d678; font-size:25px; font-weight:950; }
         .pred-result p { margin:5px 0; color:#d6e6de; font-size:12px; }
         .pred-reward-list { display:grid; gap:10px; }
-        .pred-reward-item { display:flex; align-items:center; gap:12px; padding:13px 15px; border:1px solid #1b3b3b; border-radius:12px; background:var(--pred-card); }
+        .pred-reward-item { display:flex; align-items:center; gap:12px; min-width:0; padding:13px 15px; border:1px solid #1b3b3b; border-radius:12px; background:var(--pred-card); }
         .pred-reward-title { flex:1; font-size:12px; font-weight:850; }
         .pred-reward-title small { display:block; margin-top:4px; color:#8fa7a0; font-size:10px; font-weight:500; }
         .pred-tag { border:1px solid var(--pred-green); border-radius:5px; background:#0f7a45; color:#bfffd8; padding:4px 8px; font-size:9px; font-weight:850; text-transform:uppercase; }
         .pred-tag.processing { border-color:#3cc; background:#0b4d6b; color:#bff; }
-        @media(max-width:700px) { .pred-match-list { grid-template-columns:1fr; } .pred-inner { padding-top:19px; } .pred-hero { min-height:125px; } .pred-pitch { right:-44px; opacity:.65; } }
-        @media(max-width:420px) { .pred-page-top { margin-bottom:16px; } .pred-section-tab { padding:9px 10px; } .pred-match-card { padding:13px; } .pred-teams { gap:5px; } .pred-team { gap:6px; } .pred-team-name { font-size:11px; } .pred-crest { width:30px; height:30px; } .pred-filter { min-width:0; flex:1; } }
+        @media(max-width:700px) { .pred-match-list { grid-template-columns:1fr; } .pred-inner { padding-top:18px; } .pred-hero { min-height:125px; } .pred-pitch { right:-44px; opacity:.65; } .pred-overline { align-items:start; flex-direction:column; } .pred-section-tabs { width:100%; } .pred-section-tab { flex:1; } }
+        @media(max-width:420px) { .pred-page-top { margin-bottom:16px; } .pred-page-caption { font-size:9px; letter-spacing:.08em; } .pred-page-top > .pred-page-caption { display:none; } .pred-play-mode { padding:7px 8px; font-size:8px; } .pred-section-tab { padding:9px 8px; } .pred-match-card { padding:13px; } .pred-teams { gap:5px; } .pred-team { gap:6px; } .pred-team-name { font-size:11px; } .pred-crest { width:30px; height:30px; } .pred-filter { min-width:0; flex:1; } .pred-scratch-page { min-height:0; padding:18px 14px; } .pred-scratch-card { min-height:200px; } .pred-reward-item { gap:8px; padding:11px; } .pred-tag { font-size:8px; padding:4px 6px; } }
       `}</style>
 
       <main className="predictions-page">
@@ -249,7 +521,7 @@ const PredictionsScreen: React.FC<{
               <span aria-hidden="true">‹</span> Home
             </button>
             <span className="pred-page-caption">Match Centre</span>
-            <div className="pred-balance"><CoinIcon size="small" /> 250 FTC</div>
+            <span className="pred-play-mode"><BallIcon className="h-4 w-4" /> Free-to-play picks</span>
           </div>
 
           <section className="pred-hero">
@@ -263,17 +535,38 @@ const PredictionsScreen: React.FC<{
 
           <div className="pred-overline">
             <div>
-              <h2>{screen === 'rewards' ? 'My Rewards' : screen === 'matches' ? 'Fixtures' : screen === 'pick' ? 'Make your prediction' : screen === 'scratch' ? 'Your reward' : 'Reward claimed'}</h2>
-              <p>{screen === 'matches' ? 'Choose a match and make your call.' : 'A demo experience — no real predictions or rewards are submitted.'}</p>
+              <h2>
+                {screen === 'pick' ? 'Make your prediction'
+                  : screen === 'scratch' ? 'Your reward'
+                    : screen === 'result' ? 'Reward status'
+                      : section === 'matches' ? 'Fixtures'
+                        : section === 'picks' ? 'My Picks' : 'My Rewards'}
+              </h2>
+              <p>
+                {screen === 'matches' && section === 'matches'
+                  ? 'Choose a fixture and make your call before kick-off.'
+                  : 'Correct predictions unlock a reward selected from the available reward pool.'}
+              </p>
             </div>
-            <nav className="pred-section-tabs" aria-label="Predictions sections">
-              <button type="button" className={`pred-section-tab ${screen !== 'rewards' ? 'active' : ''}`} onClick={() => setScreen('matches')}>Matches</button>
-              <button type="button" className={`pred-section-tab ${screen === 'rewards' ? 'active' : ''}`} onClick={() => setScreen('rewards')}>My Rewards</button>
+            <nav className="pred-section-tabs" aria-label="Predictions sections" hidden={screen !== 'matches'}>
+              <button type="button" className={`pred-section-tab ${section === 'matches' ? 'active' : ''}`} onClick={() => setSection('matches')}>Matches</button>
+              <button type="button" className={`pred-section-tab ${section === 'picks' ? 'active' : ''}`} onClick={() => setSection('picks')}>My Picks</button>
+              <button type="button" className={`pred-section-tab ${section === 'rewards' ? 'active' : ''}`} onClick={() => setSection('rewards')}>My Rewards</button>
             </nav>
           </div>
 
-          {screen === 'matches' && (
+          {error && <div role="alert" className="mb-4 rounded-xl border border-red-400/30 bg-red-950/40 px-4 py-3 text-sm text-red-100">{error}</div>}
+
+          {screen === 'matches' && section === 'matches' && (
             <>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="pred-page-caption">
+                  {matches.length ? `${matches.length} fixtures · Football Data` : 'Football fixtures'}
+                </span>
+                <button type="button" className="pred-refresh" onClick={() => void load()} disabled={loading}>
+                  {loading ? 'Refreshing…' : 'Refresh fixtures'}
+                </button>
+              </div>
               <div className="pred-filter-tabs" role="tablist" aria-label="Match status">
                 {(['upcoming', 'live', 'past'] as MatchFilter[]).map(option => (
                   <button key={option} type="button" role="tab" aria-selected={filter === option}
@@ -283,33 +576,51 @@ const PredictionsScreen: React.FC<{
                 ))}
               </div>
 
-              <div className="pred-match-list">
-                {visibleMatches.length ? visibleMatches.map(match => (
+              {loading && !matches.length ? (
+                <div className="pred-empty">Loading live football fixtures…</div>
+              ) : <div className="pred-match-list">
+                {visibleMatches.length ? visibleMatches.map(match => {
+                  const existing = predictionForMatch(match.id);
+                  const resultStatus = matchFilterFor(match.status);
+                  const homeScore = match.score?.fullTime?.home;
+                  const awayScore = match.score?.fullTime?.away;
+                  const hasScore = homeScore != null && awayScore != null;
+                  return (
                   <article className="pred-match-card" key={match.id}>
                     <div className="pred-match-meta">
-                      <span>{match.league}</span>
-                      {match.status === 'live' && <span><i className="pred-live-dot" />LIVE</span>}
+                      <span>{match.competition?.name || 'Football'}</span>
+                      {resultStatus === 'live' && <span><i className="pred-live-dot" />LIVE</span>}
                     </div>
                     <div className="pred-teams">
                       <div className="pred-team">
-                        <TeamCrest team={match.home} />
-                        <span className="pred-team-name">{match.home.shortName}</span>
+                        <TeamCrest team={match.homeTeam} />
+                        <span className="pred-team-name">{match.homeTeam.shortName || match.homeTeam.name}</span>
                       </div>
-                      <span className={match.score ? 'pred-score' : 'pred-vs'}>{match.score || 'VS'}</span>
+                      <span className={hasScore ? 'pred-score' : 'pred-vs'}>
+                        {hasScore ? `${homeScore} – ${awayScore}` : 'VS'}
+                      </span>
                       <div className="pred-team away">
-                        <TeamCrest team={match.away} tone="away" />
-                        <span className="pred-team-name">{match.away.shortName}</span>
+                        <TeamCrest team={match.awayTeam} tone="away" />
+                        <span className="pred-team-name">{match.awayTeam.shortName || match.awayTeam.name}</span>
                       </div>
                     </div>
                     <div className="pred-match-footer">
-                      <span className="pred-kickoff">{match.date}</span>
-                      {match.status === 'upcoming'
+                      <span className="pred-kickoff">{matchDate(match.utcDate)}</span>
+                      {resultStatus === 'upcoming' && !existing
                         ? <button className="pred-button" type="button" onClick={() => openPrediction(match)}>Predict <span aria-hidden="true">›</span></button>
-                        : <span className="pred-tag">{match.status === 'live' ? 'In play' : 'Full time'}</span>}
+                        : existing
+                          ? <span className="pred-tag">{existing.status === 'correct' ? 'Correct pick' : existing.status === 'incorrect' ? 'Missed' : 'Pick submitted'}</span>
+                          : <span className="pred-tag">{resultStatus === 'live' ? 'In play' : 'Full time'}</span>}
                     </div>
                   </article>
-                )) : <div className="pred-empty">No matches in this section yet.</div>}
-              </div>
+                );
+                }) : <div className="pred-empty">{error ? 'Fixtures are temporarily unavailable. Use refresh to try again.' : `No ${filter} fixtures available right now.`}</div>}
+              </div>}
+              <p className="pred-note">
+                {Object.keys(rewardWeights).length
+                  ? `Current reward mix: FTC ${rewardWeights.ftc ?? 0}% · Jerseys ${rewardWeights.jersey ?? 0}% · Sports gear ${rewardWeights.sports_gear ?? 0}%. Physical prizes are allocated only while stock is available.`
+                  : loading ? 'Checking reward eligibility and current prize stock…' : 'Reward odds could not be loaded. Refresh to check again.'}
+              </p>
             </>
           )}
 
@@ -318,17 +629,17 @@ const PredictionsScreen: React.FC<{
               <button type="button" className="pred-back-link" onClick={() => setScreen('matches')}>‹ Back to fixtures</button>
               <div className="pred-detail-card">
                 <div className="pred-detail-teams">
-                  <div className="pred-detail-team"><TeamCrest team={selectedMatch.home} size="large" />{selectedMatch.home.name}</div>
+                  <div className="pred-detail-team"><TeamCrest team={selectedMatch.homeTeam} size="large" />{selectedMatch.homeTeam.name}</div>
                   <span className="pred-vs">VS</span>
-                  <div className="pred-detail-team"><TeamCrest team={selectedMatch.away} tone="away" size="large" />{selectedMatch.away.name}</div>
+                  <div className="pred-detail-team"><TeamCrest team={selectedMatch.awayTeam} tone="away" size="large" />{selectedMatch.awayTeam.name}</div>
                 </div>
-                <p className="pred-note">{selectedMatch.league} · {selectedMatch.date}</p>
+                <p className="pred-note">{selectedMatch.competition?.name || 'Football'} · {matchDate(selectedMatch.utcDate)}</p>
                 <p style={{ textAlign: 'center', margin: '22px 0 0', fontWeight: 850 }}>Who will win?</p>
                 <div className="pred-choice-grid">
                   {([
-                    ['home', selectedMatch.home.shortName, '1'],
+                    ['home', selectedMatch.homeTeam.shortName || selectedMatch.homeTeam.name, '1'],
                     ['draw', 'Draw', 'X'],
-                    ['away', selectedMatch.away.shortName, '2'],
+                    ['away', selectedMatch.awayTeam.shortName || selectedMatch.awayTeam.name, '2'],
                   ] as [Pick, string, string][]).map(([value, label, mark]) => (
                     <button key={value} type="button" aria-pressed={selectedPick === value}
                       className={`pred-choice ${selectedPick === value ? 'active' : ''}`} onClick={() => setSelectedPick(value)}>
@@ -336,78 +647,148 @@ const PredictionsScreen: React.FC<{
                     </button>
                   ))}
                 </div>
-                <button type="button" disabled={!selectedPick} className="pred-button full" onClick={() => selectedPick && submitMockPick()}>
-                  Submit Prediction
+                <button type="button" disabled={!selectedPick || busy || !userId} className="pred-button full" onClick={() => void submitPick()}>
+                  {busy ? 'Submitting pick…' : 'Submit Prediction'}
                 </button>
-                <p className="pred-note">Demo only · your pick is not saved or submitted.</p>
+                <p className="pred-note">Picks lock at kick-off. Only one pick is allowed per match.</p>
               </div>
             </section>
           )}
 
-          {screen === 'scratch' && (
+          {screen === 'matches' && section === 'picks' && (
+            <div className="pred-reward-list">
+              {predictions.length ? predictions.map(prediction => (
+                <article className="pred-match-card" key={prediction.id}>
+                  <div className="pred-match-meta"><span>{prediction.match.competition?.name || 'Football'}</span><span className="pred-tag">{prediction.status}</span></div>
+                  <div className="pred-teams">
+                    <div className="pred-team"><TeamCrest team={prediction.match.homeTeam} /><span className="pred-team-name">{prediction.match.homeTeam.shortName || prediction.match.homeTeam.name}</span></div>
+                    <span className="pred-vs">VS</span>
+                    <div className="pred-team away"><TeamCrest team={prediction.match.awayTeam} tone="away" /><span className="pred-team-name">{prediction.match.awayTeam.shortName || prediction.match.awayTeam.name}</span></div>
+                  </div>
+                  <div className="pred-match-footer">
+                    <span className="pred-kickoff">Your pick: {pickName(prediction.pick, prediction.match)} · {matchDate(prediction.kickoffAt)}</span>
+                    {prediction.rewardAvailable && (
+                      <button type="button" className="pred-button" onClick={() => openReward(prediction)}>
+                        {prediction.rewardClaimed ? 'Reward details' : prediction.rewardRevealed ? 'View reward' : 'Reveal reward'}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )) : <div className="pred-empty">{loading ? 'Loading your picks…' : 'Your submitted predictions will appear here.'}</div>}
+            </div>
+          )}
+
+          {screen === 'scratch' && selectedPrediction && (
             <section className="pred-scratch-page">
-              {!revealed ? (
+              {showDeliveryForm ? (
+                <form className="pred-delivery-form" onSubmit={event => void submitDeliveryDetails(event)}>
+                  <button type="button" className="pred-back-link" onClick={() => setShowDeliveryForm(false)}>‹ Back to reward</button>
+                  <div>
+                    <h3>Where should we send your prize?</h3>
+                    <p>Enter your delivery information to claim {selectedPrediction.rewardName || 'your physical reward'}.</p>
+                  </div>
+                  <label className="pred-delivery-field">Full name
+                    <input autoComplete="name" required maxLength={120} value={deliveryDetails.fullName} onChange={event => setDeliveryDetails(current => ({ ...current, fullName: event.target.value }))} />
+                  </label>
+                  <label className="pred-delivery-field">Phone
+                    <input type="tel" autoComplete="tel" required maxLength={40} value={deliveryDetails.phone} onChange={event => setDeliveryDetails(current => ({ ...current, phone: event.target.value }))} />
+                  </label>
+                  <label className="pred-delivery-field">Email
+                    <input type="email" autoComplete="email" required maxLength={254} value={deliveryDetails.email} onChange={event => setDeliveryDetails(current => ({ ...current, email: event.target.value }))} />
+                  </label>
+                  <label className="pred-delivery-field">Street address
+                    <input autoComplete="street-address" required maxLength={240} value={deliveryDetails.streetAddress} onChange={event => setDeliveryDetails(current => ({ ...current, streetAddress: event.target.value }))} />
+                  </label>
+                  <label className="pred-delivery-field">City / Region
+                    <input autoComplete="address-level2" required maxLength={120} value={deliveryDetails.cityRegion} onChange={event => setDeliveryDetails(current => ({ ...current, cityRegion: event.target.value }))} />
+                  </label>
+                  <label className="pred-delivery-field">Country
+                    <input autoComplete="country-name" required maxLength={120} value={deliveryDetails.country} onChange={event => setDeliveryDetails(current => ({ ...current, country: event.target.value }))} />
+                  </label>
+                  <p className="pred-privacy-note">These details will be stored with this reward claim and used to fulfil delivery of your physical prize.</p>
+                  <button type="submit" className="pred-button full" disabled={busy}>{busy ? 'Submitting details…' : 'Submit details & claim prize'}</button>
+                </form>
+              ) : !revealed ? (
                 <>
                   <div className="pred-scratch-title">
-                    <h2>You're a winner!</h2>
-                    <p>Scratch the card to reveal your reward</p>
+                    <h2>You have a gift waiting!</h2>
+                    <p>Tap the coin to reveal your reward</p>
                   </div>
-                  <div className="pred-scratch-card">
-                    <BallIcon className="h-12 w-12" />
+                  <div className="pred-scratch-card" style={{ gap: 8 }}>
+                    <button type="button" className="pred-tap-coin" aria-label="Tap coin to reveal reward" onClick={() => void revealReward()} disabled={busy}>
+                      <CoinIcon />
+                    </button>
                     <span className="pred-scratch-brand">FOOT-COLLECT</span>
-                    <span className="pred-scratch-caption">Scratch &amp; win</span>
+                    <span className="pred-scratch-caption">{busy ? 'Revealing reward…' : 'Tap the coin'}</span>
                   </div>
-                  <div className="pred-tap-hint"><span aria-hidden="true">⌁</span> Tap below to reveal your mock reward</div>
-                  <button type="button" className="pred-button full" onClick={() => setRevealed(true)}>Tap to reveal reward</button>
+                  <div className="pred-tap-hint">Your confirmed reward stays hidden until you tap the coin.</div>
                 </>
               ) : (
                 <div className="pred-reward-reveal">
                   <h3>Congratulations!</h3>
-                  <p>Your demo reward is ready</p>
-                  <div style={{ margin: '15px 0 8px' }}><CoinIcon size="medium" /></div>
-                  <h3>50 FTC</h3>
-                  <p>Token reward · UI preview only</p>
-                  <div className="pred-reward-actions" style={{ marginTop: 18 }}>
-                    <button type="button" className="pred-button full" onClick={() => { setClaimed(true); setScreen('result'); }}>Claim Reward</button>
-                    <button type="button" className="pred-button secondary full" onClick={() => setScreen('rewards')}>View My Rewards</button>
+                  <p>Your prediction was correct — your reward is ready.</p>
+                  <div style={{ margin: '15px 0 8px' }}>
+                    <RewardArtwork type={selectedPrediction.rewardType || 'ftc'} className="h-20 w-20 mx-auto" />
                   </div>
+                  <h3>{selectedPrediction.rewardName || 'Reward'}</h3>
+                  {selectedPrediction.rewardType === 'ftc' && <p>{selectedPrediction.rewardAmount} FTC Tokens</p>}
+                  {selectedPrediction.rewardType !== 'ftc' && <p>Physical reward · delivery details collected after claim</p>}
+                  <div className="pred-reward-actions" style={{ marginTop: 18 }}>
+                    <button type="button" className="pred-button full" disabled={busy || selectedPrediction.rewardClaimed} onClick={() => void claimReward()}>
+                      {selectedPrediction.rewardClaimed ? 'Reward claimed' : selectedPrediction.rewardType === 'ftc' ? busy ? 'Claiming…' : 'Claim FTC Reward' : 'Claim physical prize'}
+                    </button>
+                    <button type="button" className="pred-button secondary full" onClick={() => { setScreen('matches'); setSection('rewards'); }}>View My Rewards</button>
+                  </div>
+                  {selectedPrediction.rewardClaimed && selectedPrediction.rewardType !== 'ftc' && <p className="pred-note">Your prize is reserved. We’ll collect delivery details in a follow-up step.</p>}
                 </div>
               )}
             </section>
           )}
 
-          {screen === 'result' && (
+          {screen === 'result' && selectedPrediction && (
             <section className="pred-result">
-              <h2>{claimed ? 'You Won!' : 'FTC Tokens'}</h2>
-              <p>FTC Tokens · Demo reward</p>
-              <div style={{ margin: '24px 0 12px' }}><CoinIcon /></div>
-              <div style={{ color: '#e8b830', fontSize: 26, fontWeight: 950 }}>50 FTC</div>
-              <p>Your mock reward is shown for preview only.</p>
+              <h2>{selectedPrediction.rewardType === 'ftc' ? 'FTC added to your wallet' : 'Prize reserved for you'}</h2>
+              <p>{selectedPrediction.rewardName}</p>
+              <div style={{ margin: '24px 0 12px' }}><RewardArtwork type={selectedPrediction.rewardType || 'ftc'} className="h-24 w-24 mx-auto" /></div>
+              {selectedPrediction.rewardType === 'ftc'
+                ? <div style={{ color: '#e8b830', fontSize: 26, fontWeight: 950 }}>{selectedPrediction.rewardAmount} FTC</div>
+                : <p>We’ll collect your delivery details in a follow-up step.</p>}
               <div className="pred-reward-actions" style={{ marginTop: 25 }}>
-                <button type="button" className="pred-button full" onClick={() => setScreen('rewards')}>View Rewards</button>
-                <button type="button" className="pred-button secondary full" onClick={() => setScreen('matches')}>Back to Matches</button>
+                <button type="button" className="pred-button full" onClick={() => { setScreen('matches'); setSection('rewards'); }}>View My Rewards</button>
+                <button type="button" className="pred-button secondary full" onClick={() => { setScreen('matches'); setSection('matches'); }}>Back to Matches</button>
               </div>
             </section>
           )}
 
-          {screen === 'rewards' && (
+          {screen === 'matches' && section === 'rewards' && (
             <section>
               <div className="pred-filter-tabs" role="tablist" aria-label="Reward type">
-                {(['All', 'Tokens'] as const).map(option => (
+                {([
+                  ['All', 'All rewards'],
+                  ['ftc', 'FTC'],
+                  ['jersey', 'Jerseys'],
+                  ['sports_gear', 'Sports gear'],
+                ] as [typeof rewardFilter, string][]).map(([option, label]) => (
                   <button type="button" role="tab" aria-selected={rewardFilter === option} key={option}
-                    className={`pred-filter ${rewardFilter === option ? 'active' : ''}`} onClick={() => setRewardFilter(option)}>{option}</button>
+                    className={`pred-filter ${rewardFilter === option ? 'active' : ''}`} onClick={() => setRewardFilter(option)}>{label}</button>
                 ))}
               </div>
               <div className="pred-reward-list">
-                {MOCK_REWARDS.filter(reward => rewardFilter === 'All' || reward.amount).map(reward => (
+                {rewardHistory.filter(reward => rewardFilter === 'All' || reward.rewardType === rewardFilter).map(reward => (
                   <article className="pred-reward-item" key={reward.id}>
-                    <CoinIcon size="small" />
-                    <div className="pred-reward-title">{reward.amount} FTC Tokens<small>{reward.date}</small></div>
-                    <span className={`pred-tag ${reward.status === 'Processing' ? 'processing' : ''}`}>{reward.status}</span>
+                    <RewardArtwork type={reward.rewardType || 'ftc'} className="h-9 w-9 shrink-0" />
+                    <div className="pred-reward-title">
+                      {reward.rewardRevealed ? reward.rewardName : 'Prediction reward'}
+                      <small>{reward.rewardAwardedAt ? matchDate(reward.rewardAwardedAt) : matchDate(reward.kickoffAt)}</small>
+                    </div>
+                    <span className={`pred-tag ${reward.rewardDeliveryStatus === 'pending_contact' || reward.rewardDeliveryStatus === 'processing' ? 'processing' : ''}`}>
+                      {reward.rewardClaimed ? reward.rewardType === 'ftc' ? 'Claimed' : reward.rewardDeliveryStatus === 'contact_submitted' ? 'Details submitted' : 'Processing' : reward.rewardRevealed ? 'Ready' : 'Unrevealed'}
+                    </span>
+                    {!reward.rewardRevealed && <button type="button" className="pred-button" onClick={() => openReward(reward)}>Reveal</button>}
                   </article>
                 ))}
               </div>
-              <p className="pred-note">Sample reward history for the UI mockup. No wallet balance is changed.</p>
+              {!rewardHistory.length && <div className="pred-empty">{loading ? 'Loading your rewards…' : 'Rewards from correct predictions will appear here.'}</div>}
             </section>
           )}
         </div>
