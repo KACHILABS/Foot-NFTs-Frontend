@@ -24,6 +24,7 @@ import CreatorApplicationScreen from './CreatorApplicationScreen';
 import DigitalTwinScreen from './DigitalTwinScreen';
 import FootballCalendarScreen from './FootballCalendarScreen';
 import PlayerRivalryScreen from './PlayerRivalryScreen';
+import PredictionsScreen from './PredictionsScreen';
 
 // ===== API FUNCTIONS =====
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -1072,7 +1073,7 @@ const refreshProfile = async () => {
   useEffect(() => {
     if (!tg) return;
     const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign;
-    const isNotHome = navigationHistory.length > 1;
+    const isNotHome = navigationHistory.length > 1 || activeTab === 'predictions';
     if (isOverlayVisible || isNotHome) {
       tg.BackButton.show();
       const handleBack = () => {
@@ -1092,6 +1093,8 @@ const refreshProfile = async () => {
           const previousScreen = newHistory[newHistory.length - 1];
           setActiveTab(previousScreen);
           setNavigationHistory(newHistory);
+        } else if (activeTab === 'predictions') {
+          setActiveTab('home');
         }
       };
       tg.BackButton.onClick(handleBack);
@@ -1099,7 +1102,7 @@ const refreshProfile = async () => {
     } else {
       tg.BackButton.hide();
     }
-  }, [showNotifications, showMarketplace, inChat, inBanterHall, inJerseyDay, inTrivia, inFanPod, inHopeCampaign, navigationHistory, tg]);
+  }, [showNotifications, showMarketplace, inChat, inBanterHall, inJerseyDay, inTrivia, inFanPod, inHopeCampaign, navigationHistory, activeTab, tg]);
 
   useEffect(() => {
     const isOverlayVisible = showNotifications || showMarketplace || inChat || inBanterHall || inJerseyDay || inTrivia || inFanPod || inHopeCampaign || inPlayerRivalry;
@@ -1635,7 +1638,7 @@ const refreshProfile = async () => {
               <span className="text-[8px] text-white">Change</span>
             </div>
           </div>
-          {(!showNotifications && !showMarketplace) && (
+          {(!showNotifications && !showMarketplace && activeTab !== 'predictions') && (
             <div className="animate-in fade-in duration-300 flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap"><p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-widest leading-none" style={{ fontFamily: "'Space Mono', monospace" }}>Fan Status</p><FanRankBadge rank={profile?.fanRank} /></div>
               <p className="font-bold text-white leading-tight truncate max-w-[150px]" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{profile?.displayName}</p>
@@ -1647,8 +1650,8 @@ const refreshProfile = async () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
             {unreadCount > 0 && !showNotifications && (<span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-green-500 rounded-full flex items-center justify-center text-[8px] font-black text-black px-1 animate-bounce" style={{ fontFamily: "'Oxanium', sans-serif" }}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
           </button>
-          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowLeaderboardModal(true); }} aria-label="Leaderboard" className="w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all bg-gray-800/50 text-gray-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8M12 17.5V21M7 4h10v4.5a5 5 0 01-10 0V4zM7 5.5H4.5a2.6 2.6 0 002.7 4.2M17 5.5h2.5a2.6 2.6 0 01-2.7 4.2" /></svg>
+          <button onClick={() => { tg?.HapticFeedback.selectionChanged(); setShowNotifications(false); setShowMarketplace(false); setActiveTab('predictions'); }} aria-label="Predictions" title="Predictions" className={`w-9 h-9 flex items-center justify-center rounded-xl active:scale-95 transition-all ${activeTab === 'predictions' ? 'bg-green-600 text-black' : 'bg-gray-800/50 text-gray-400'}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v4m0 10v4M3 12h4m10 0h4M8.5 8.5l2 2m3 3 2 2m0-7-2 2m-3 3-2 2" /></svg>
           </button>
         </div>
       </div>
@@ -1662,6 +1665,14 @@ const refreshProfile = async () => {
             {activeTab === 'creators' && <CreatorHubScreen profile={profile} backendUserId={backendUserId} onOpenProfile={handleOpenCreatorProfile} onOpenApplication={() => setInCreatorApplication(true)} onBack={() => setActiveTab('home')} />}
             {activeTab === 'market' && <MarketplaceScreen onNotify={() => { tg?.HapticFeedback.notificationOccurred('success'); alert("Interest recorded!"); }} onBack={() => setActiveTab('home')} />}
             {activeTab === 'calendar' && <FootballCalendarScreen onBack={() => setActiveTab('home')} />}
+            {activeTab === 'predictions' && <PredictionsScreen
+              userId={backendUserId || null}
+              onBack={() => setActiveTab('home')}
+              onRewardClaimed={(_amount, balance) => {
+                setUserFTCBalance(balance);
+                if (onUpdateWallet) onUpdateWallet({ balanceFTC: balance });
+              }}
+            />}
             {activeTab === 'twin' && <DigitalTwinScreen onBack={() => setActiveTab('home')} />}
             {activeTab === 'profile' && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 flex flex-col gap-6">
