@@ -163,21 +163,26 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);
-      
-      const token = getAuthToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      
-      const telegramId = localStorage.getItem('telegramId');
-      if (!telegramId) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        const profileRes = await api.user.getProfile(parseInt(telegramId));
+        const initData = tg?.initData;
+        if (initData) {
+          try {
+            const session = await api.auth.refreshTelegramSession(initData);
+            if (session.success && session.token && session.user?.id) {
+              setAuthSession(session.token, session.user.id);
+              setBackendUserId(session.user.id);
+              localStorage.setItem('telegramId', String(session.user.telegramId));
+            }
+          } catch (sessionError) {
+            console.warn('Could not refresh Telegram session:', sessionError);
+          }
+        }
+
+        const telegramId = localStorage.getItem('telegramId') || String(tg?.initDataUnsafe?.user?.id || '');
+        const token = getAuthToken() || localStorage.getItem('token');
+        if (!token || !telegramId) return;
+
+        const profileRes = await api.user.getProfile(parseInt(telegramId, 10));
         if (profileRes.success && profileRes.profile) {
           const userProfile = {
             id: profileRes.profile.id,

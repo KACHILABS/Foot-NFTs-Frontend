@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { CLUBS } from '../constants';
+import { resolveClubBadge as badgeOf } from '../src/utils/clubBadge';
 
 /* ============================================================
    FOOTBALL CALENDAR — MATCH / LINE UP / FORMATIONS
@@ -138,35 +138,8 @@ const TABS: { id: TabId; label: string; Icon: React.FC<{ className?: string }> }
 ];
 
 /* ---------- text helpers ---------- */
-const acc = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/ß/g, 'ss').replace(/ø/g, 'o')
-    .replace(/đ/g, 'd').replace(/ł/g, 'l')
-    .replace(/æ/g, 'ae').replace(/œ/g, 'oe');
-const norm = (s: string) =>
-  acc((s || '').toLowerCase()).replace(/[^a-z0-9]/g, '')
-    .replace(/^(fc|afc|sc|cf|af|ac|as)\s*/, '').trim();
 const initials = (name: string) =>
   (name || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('');
-/* ---------- Digital Terrace logos (the CLUBS list) ---------- */
-const findClubBadge = (names: string[]): string | undefined => {
-  const tries = names.map(norm).filter(s => s.length > 1);
-  for (const club of CLUBS) {
-    const clubNorm = norm(club.name);
-    if (tries.some(t => t === clubNorm)) return club.badge;
-  }
-  for (const club of CLUBS) {
-    const clubNorm = norm(club.name);
-    if (clubNorm.length > 4 && tries.some(t => t.length > 4 && (t.includes(clubNorm) || clubNorm.includes(t)))) return club.badge;
-  }
-  return undefined;
-};
-const badgeOf = (team: TeamRef | undefined): string | undefined => {
-  if (!team) return undefined;
-  // Prefer the same badges used on the Digital Terraces
-  const fromClubs = findClubBadge([team.name, team.shortName || '', team.tla || '']);
-  return fromClubs || team.crest || team.logo || undefined;
-};
 
 /* ---------- URL date helpers ---------- */
 const addDays = (iso: string, days: number) => {

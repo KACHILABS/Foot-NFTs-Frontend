@@ -6,14 +6,24 @@ export const api = {
   // Auth
   auth: {
     login: async (telegramId: number | string, username: string, referralCode?: string) => {
+      const initData = (window as any).Telegram?.WebApp?.initData;
       const res = await fetch(`${API_BASE}/auth/telegram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           telegramId,
           username,
+          initData,
           ...(referralCode ? { referralCode } : {}),
         }),
+      });
+      return res.json();
+    },
+    refreshTelegramSession: async (initData: string) => {
+      const res = await fetch(`${API_BASE}/auth/telegram/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
       });
       return res.json();
     }

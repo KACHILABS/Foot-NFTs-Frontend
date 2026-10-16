@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getAuthToken } from '../src/utils/versionControl';
+import { getAuthToken, setAuthSession } from '../src/utils/versionControl';
+import { resolveClubBadge } from '../src/utils/clubBadge';
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
 
@@ -11,7 +12,9 @@ type FixtureFilter = 'upcoming' | 'live' | 'past';
 interface Team {
   name: string;
   shortName?: string;
+  tla?: string;
   crest?: string;
+  logo?: string;
 }
 
 interface Match {
@@ -49,7 +52,7 @@ interface PredictionsScreenProps {
 
 const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
   const token = getAuthToken() || localStorage.getItem('token');
-  const response = await fetch(`${API_BASE}/predictions${path}`, {
+  let response = await fetch(`${API_BASE}/predictions${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -57,6 +60,28 @@ const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
       ...init?.headers,
     },
   });
+  if (response.status === 401) {
+    const initData = (window as any).Telegram?.WebApp?.initData;
+    if (initData) {
+      const sessionResponse = await fetch(`${API_BASE}/auth/telegram/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      });
+      const session = await sessionResponse.json();
+      if (sessionResponse.ok && session.success && session.token && session.user?.id) {
+        setAuthSession(session.token, session.user.id);
+        response = await fetch(`${API_BASE}/predictions${path}`, {
+          ...init,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.token}`,
+            ...init?.headers,
+          },
+        });
+      }
+    }
+  }
   const data = await response.json();
   if (!response.ok || data?.success === false) {
     if (response.status === 401) {
@@ -72,15 +97,53 @@ const kickoffLabel = (date: string) =>
 
 const pickLabel = (pick: Pick) => ({ home: 'Home Win', draw: 'Draw', away: 'Away Win' }[pick]);
 
-const TeamBadge: React.FC<{ team: Team; small?: boolean }> = ({ team, small = false }) => (
-  <div className={`${small ? 'h-8 w-8' : 'h-12 w-12'} flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 p-1`}>
-    {team.crest ? (
-      <img src={team.crest} alt={`${team.name} badge`} className="h-full w-full object-contain" loading="lazy" />
-    ) : (
-      <span className="text-lg" aria-hidden="true">⚽</span>
-    )}
-  </div>
+const CoinIcon: React.FC<{ className?: string; amount?: number | null }> = ({ className = 'h-20 w-20', amount }) => (
+  <svg className={className} viewBox="0 0 120 120" role="img" aria-label={amount ? `${amount} FTC coin` : 'FTC coin'}>
+    <defs>
+      <linearGradient id="ftc-coin-face" x1="18%" y1="8%" x2="82%" y2="92%">
+        <stop offset="0%" stopColor="#fff3a6" />
+        <stop offset="38%" stopColor="#f2c64f" />
+        <stop offset="72%" stopColor="#d99a20" />
+        <stop offset="100%" stopColor="#9b6210" />
+      </linearGradient>
+      <linearGradient id="ftc-coin-rim" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fff4b5" />
+        <stop offset="48%" stopColor="#d7a631" />
+        <stop offset="100%" stopColor="#7c4d0b" />
+      </linearGradient>
+      <radialGradient id="ftc-coin-glow">
+        <stop offset="0%" stopColor="#ffe987" stopOpacity=".7" />
+        <stop offset="100%" stopColor="#e8b830" stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <circle cx="60" cy="60" r="58" fill="url(#ftc-coin-glow)" />
+    <circle cx="60" cy="60" r="48" fill="#70470c" stroke="url(#ftc-coin-rim)" strokeWidth="5" />
+    <circle cx="60" cy="60" r="40" fill="url(#ftc-coin-face)" stroke="#ffe58a" strokeWidth="2" />
+    <circle cx="60" cy="60" r="34" fill="none" stroke="#9b6814" strokeOpacity=".65" strokeWidth="1.5" />
+    <text x="60" y="68" textAnchor="middle" fill="#80510d" fontFamily="Arial, sans-serif" fontSize="19" fontWeight="900" letterSpacing="1">FTC</text>
+    <text x="60" y="101" textAnchor="middle" fill="#70470c" fontFamily="Arial, sans-serif" fontSize="7" fontWeight="800" letterSpacing="1.5">FOOT-COLLECT</text>
+  </svg>
 );
+
+const FootballIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="m12 7 3.5 2.5-1.3 4h-4.4l-1.3-4L12 7Zm0 0V3m3.5 6.5 4-1.3M14.2 13.5l2.5 4m-8.9-4-2.5 4M8.5 9.5l-4-1.3" />
+  </svg>
+);
+
+const TeamBadge: React.FC<{ team: Team; small?: boolean }> = ({ team, small = false }) => {
+  const badge = resolveClubBadge(team);
+  return (
+    <div className={`${small ? 'h-8 w-8' : 'h-12 w-12'} flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 p-1`}>
+      {badge ? (
+        <img src={badge} alt={`${team.name} badge`} className="h-full w-full object-contain" loading="lazy" />
+      ) : (
+        <FootballIcon className="h-5 w-5 text-slate-400" />
+      )}
+    </div>
+  );
+};
 
 const ScratchCanvas: React.FC<{ onReveal: () => Promise<void>; busy: boolean }> = ({ onReveal, busy }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -160,10 +223,10 @@ const ScratchCanvas: React.FC<{ onReveal: () => Promise<void>; busy: boolean }> 
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-amber-300/40 bg-slate-950">
-      <div className="flex h-44 flex-col items-center justify-center gap-2 text-center">
-        <span className="text-4xl" aria-hidden="true">⚽</span>
-        <p className="font-black uppercase tracking-widest text-amber-200">A gift is waiting</p>
-        <p className="text-sm text-slate-300">Scratch to reveal your reward</p>
+      <div className="flex h-44 flex-col items-center justify-center gap-1 text-center">
+        <CoinIcon className="h-24 w-24" />
+        <p className="prediction-title font-black uppercase tracking-widest text-amber-200">FTC Reward</p>
+        <p className="text-sm text-slate-300">Your confirmed coin reward</p>
       </div>
       <canvas
         ref={canvasRef}
@@ -209,26 +272,31 @@ const PredictionsScreen: React.FC<PredictionsScreenProps> = ({ userId, onBack, o
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    if (!userId) {
-      setError('Sign in to submit predictions and collect rewards.');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError('');
-    try {
-      const [matchData, predictionData] = await Promise.all([
-        request<{ matches: Match[]; rewardAmount: number }>('/matches'),
-        request<{ predictions: Prediction[] }>(`/mine/${encodeURIComponent(userId)}`),
-      ]);
-      setMatches(matchData.matches);
-      setRewardAmount(matchData.rewardAmount);
-      setPredictions(predictionData.predictions);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load predictions.');
-    } finally {
-      setLoading(false);
+    const [matchResult, predictionResult] = await Promise.allSettled([
+      request<{ matches: Match[]; rewardAmount: number }>('/matches'),
+      userId
+        ? request<{ predictions: Prediction[] }>(`/mine/${encodeURIComponent(userId)}`)
+        : Promise.resolve({ predictions: [] as Prediction[] }),
+    ]);
+    if (matchResult.status === 'fulfilled') {
+      setMatches(matchResult.value.matches);
+      setRewardAmount(matchResult.value.rewardAmount);
+    } else {
+      setMatches([]);
+      setError(matchResult.reason instanceof Error ? matchResult.reason.message : 'Could not load current fixtures.');
     }
+    if (predictionResult.status === 'fulfilled') {
+      setPredictions(predictionResult.value.predictions);
+    } else {
+      setPredictions([]);
+      setError(current => current || (predictionResult.reason instanceof Error
+        ? predictionResult.reason.message
+        : 'Could not load your predictions.'));
+    }
+    if (!userId) setError(current => current || 'Sign in to submit predictions and collect rewards.');
+    setLoading(false);
   }, [userId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -374,11 +442,11 @@ const PredictionsScreen: React.FC<PredictionsScreenProps> = ({ userId, onBack, o
         ) : scratchPrediction ? (
           <section className="rounded-3xl border border-amber-300/20 bg-slate-900/70 p-5">
             <button onClick={() => setScratchPrediction(null)} className="mb-4 text-sm font-bold text-emerald-300">‹ {section === 'my-picks' ? 'My Picks' : 'My Rewards'}</button>
-            <h2 className="prediction-title mb-1 text-xl font-black">YOU HAVE A GIFT WAITING!</h2>
-            <p className="mb-4 text-sm text-slate-300">Scratch to reveal your confirmed reward.</p>
+            <h2 className="prediction-title mb-1 text-xl font-black">You have a gift waiting!</h2>
+            <p className="mb-4 text-sm text-slate-300">Scratch to reveal your reward.</p>
             {scratchPrediction.rewardRevealed ? (
               <div className="rounded-2xl border border-amber-300/50 bg-gradient-to-br from-amber-300/20 to-emerald-500/10 p-6 text-center">
-                <span className="text-4xl" aria-hidden="true">🪙</span>
+                <CoinIcon className="mx-auto h-32 w-32" amount={scratchPrediction.rewardAmount} />
                 <p className="prediction-title mt-2 text-3xl font-black text-amber-200">{scratchPrediction.rewardAmount} FTC</p>
                 <p className="mt-1 text-sm text-slate-300">Your reward is ready to collect into your app balance.</p>
               </div>
@@ -480,7 +548,9 @@ const PredictionsScreen: React.FC<PredictionsScreenProps> = ({ userId, onBack, o
             {section === 'rewards' && (rewardHistory.length ? rewardHistory.map(prediction => (
               <article key={prediction.id} className="rounded-2xl border border-amber-200/20 bg-gradient-to-r from-slate-900 to-emerald-950/30 p-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-300/15 text-2xl" aria-hidden="true">🪙</span>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-300/10">
+                    <CoinIcon className="h-10 w-10" amount={prediction.rewardAmount} />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-extrabold">{prediction.status === 'expired' ? 'Reward unavailable' : prediction.rewardRevealed ? `${prediction.rewardAmount} FTC Tokens` : 'FTC Scratch Reward'}</p>
                     <p className="mt-1 text-[11px] text-slate-400">{prediction.status === 'expired' ? 'Fixture cancelled · no reward issued' : `Awarded ${prediction.rewardAwardedAt ? kickoffLabel(prediction.rewardAwardedAt) : ''}`}</p>
