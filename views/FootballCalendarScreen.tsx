@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { CLUBS } from '../constants';
 
 /* ============================================================
-   FOOTBALL CALENDAR — MATCH / ODDS / LINE UP / FORMATIONS / VIRTUAL
+   FOOTBALL CALENDAR — MATCH / LINE UP / FORMATIONS
    System dark theme match centre, 430px portrait, stadium hero.
    Data: backend Football API proxy → football-data.org (real crests,
    multi-league fixtures, squads). Falls back to ESPN + local.
    ============================================================ */
 
-type TabId = 'match' | 'odds' | 'lineup' | 'formation' | 'virtuals';
+type TabId = 'match' | 'lineup' | 'formation';
 
 interface TeamRef {
   id?: string | number;
@@ -32,7 +32,6 @@ interface CalendarMatch {
   homeScore?: number | null;
   awayScore?: number | null;
   venue?: string | null;
-  odds?: any;
   source?: string;
 }
 
@@ -47,36 +46,6 @@ interface SquadPlayer {
 interface SquadData {
   team?: { id?: any; name?: string; shortName?: string; crest?: string; venue?: string };
   squad: SquadPlayer[];
-}
-
-interface OddsMarketRow {
-  bookmaker: string;
-  key: string;
-  outcomes: { name: string; price: number }[];
-}
-
-interface OddsPayload {
-  success: boolean;
-  source?: string;
-  available: boolean;
-  message?: string;
-  homeTeam?: string;
-  awayTeam?: string;
-  competition?: string;
-  markets?: OddsMarketRow[];
-}
-
-interface VirtualBet {
-  id: string;
-  matchId: string | number;
-  label: string;
-  outcome: '1' | 'X' | '2';
-  stake: number;
-  odds: number;
-  potential: number;
-  createdAt: string;
-  settled?: boolean;
-  won?: boolean;
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
@@ -114,12 +83,6 @@ const IcoBall: React.FC<{ className?: string }> = ({ className }) => (
     <path d="M12 3.5v3.9M19.8 9.3l-3.7 1.2M17.4 19.5l-2.7-4M9.3 15.5l-2.7 4M4.2 9.3l3.7 1.2" />
   </SvgIco>
 );
-const IcoChart: React.FC<{ className?: string }> = ({ className }) => (
-  <SvgIco className={className}>
-    <path d="M4 4v16h16" />
-    <path d="M8.5 16v-5M13 16V8M17.5 16v-3" />
-  </SvgIco>
-);
 const IcoUsers: React.FC<{ className?: string }> = ({ className }) => (
   <SvgIco className={className}>
     <circle cx="9" cy="8" r="3.2" />
@@ -133,12 +96,6 @@ const IcoClipboard: React.FC<{ className?: string }> = ({ className }) => (
     <rect x="5.5" y="4.5" width="13" height="16" rx="2" />
     <path d="M9 4.5V3h6v1.5" />
     <path d="M9 10h6M9 13.5h6M9 17h3.5" />
-  </SvgIco>
-);
-const IcoCoin: React.FC<{ className?: string }> = ({ className }) => (
-  <SvgIco className={className}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 7.5v9M9.8 9.6h3.4a1.9 1.9 0 010 3.8H9.8" />
   </SvgIco>
 );
 const IcoTrophy: React.FC<{ className?: string }> = ({ className }) => (
@@ -174,18 +131,10 @@ const IcoRefresh: React.FC<{ className?: string }> = ({ className }) => (
     <path d="M21 3v6h-6" />
   </SvgIco>
 );
-const IcoArrowRight: React.FC<{ className?: string }> = ({ className }) => (
-  <SvgIco className={className}><path d="M4.5 12h15M13.5 6l6 6-6 6" /></SvgIco>
-);
-const IcoCheck: React.FC<{ className?: string }> = ({ className }) => (
-  <SvgIco className={className}><path d="M4.5 12.5l4.8 4.8L19.5 6.5" /></SvgIco>
-);
 const TABS: { id: TabId; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { id: 'match', label: 'Match', Icon: IcoBall },
-  { id: 'odds', label: 'Odds', Icon: IcoChart },
   { id: 'lineup', label: 'Line up', Icon: IcoUsers },
   { id: 'formation', label: 'Formations', Icon: IcoClipboard },
-  { id: 'virtuals', label: 'Virtuals', Icon: IcoCoin },
 ];
 
 /* ---------- text helpers ---------- */
@@ -248,7 +197,6 @@ const statusInfo = (m: CalendarMatch): { label: string; live: boolean; done: boo
   return { label: fmtClock(m.utcDate), live: false, done: false };
 };
 
-/* ---------- deterministic EST odds (until a bookmaker key feeds live odds) ---------- */
 const hashNum = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -256,28 +204,6 @@ const hashNum = (s: string) => {
     h = (h * 16777619) & 0xffffffff;
   }
   return h;
-};
-const estimateOdds = (m: CalendarMatch) => {
-  const seed = `${m.id}-${m.homeTeam?.name}-${m.awayTeam?.name}`;
-  const h = hashNum(seed);
-  const r1 = ((h & 0xff) % 1000) / 1000;
-  const r2 = (((h >> 8) & 0xff) % 1000) / 1000;
-  const r3 = (((h >> 16) & 0xff) % 1000) / 1000;
-  let p1 = 0.34 + r1 * 0.4;
-  let pX = 0.16 + r2 * 0.16;
-  let p2 = 0.24 + r3 * 0.34;
-  const total = p1 + pX + p2;
-  p1 /= total; pX /= total; p2 /= total;
-  const margin = 0.945; // bookmaker hold
-  const dec = (p: number) => Math.round((1 / (p * margin)) * 100) / 100;
-  const ouSeed = hashNum(`${seed}-goals`);
-  const overP = 0.44 + ((ouSeed & 0xff) % 1000) / 1000 * 0.28;
-  const bttsP = 0.5 + (((ouSeed >> 8) & 0xff) % 1000) / 1000 * 0.22;
-  return {
-    home: dec(p1), draw: dec(pX), away: dec(p2),
-    over: dec(overP), under: dec(1 - overP + 0.04),
-    bttsYes: dec(bttsP), bttsNo: dec(1 - bttsP + 0.04),
-  };
 };
 /* ---------- local fallback fixtures (crests from the terraces) ---------- */
 const localFallback = (): CalendarMatch[] => [
@@ -320,7 +246,6 @@ const toCalendarMatch = (m: any, source: string): CalendarMatch => ({
   homeScore: m.score?.fullTime?.home,
   awayScore: m.score?.fullTime?.away,
   venue: m.venue || null,
-  odds: m.odds,
   source,
 });
 
@@ -385,10 +310,6 @@ const FootballCalendarScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [now, setNow] = useState<Date>(new Date());
   const [detailCache, setDetailCache] = useState<Record<string, CalendarMatch>>({});
   const [squadCache, setSquadCache] = useState<Record<string, SquadData>>({});
-  const [oddsCache, setOddsCache] = useState<Record<string, OddsPayload>>({});
-  const [virtuals, setVirtuals] = useState<VirtualBet[]>([]);
-  const [pickedOutcome, setPickedOutcome] = useState<'1' | 'X' | '2'>('1');
-  const [stake, setStake] = useState('10');
   const [formation, setFormation] = useState('4-3-3');
 
   const tg = (window as any).Telegram?.WebApp;
@@ -447,7 +368,7 @@ const FootballCalendarScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
     haptic();
   };
 
-  /* ---------- detail / squads / odds ---------- */
+  /* ---------- detail / squads ---------- */
   const ensureDetail = async (m: CalendarMatch | undefined) => {
     if (!m || detailCache[String(m.id)]) return;
     try {
@@ -470,18 +391,8 @@ const FootballCalendarScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
       } catch (_) {}
     }
   };
-  const ensureOdds = async (m: CalendarMatch | undefined) => {
-    if (!m || oddsCache[String(m.id)]) return;
-    try {
-      const res = await fetch(`${API_BASE}/fanzone/odds/${m.id}`);
-      const d: any = await res.json();
-      if (d?.success) setOddsCache(prev => ({ ...prev, [String(m.id)]: d }));
-    } catch (_) {}
-  };
-
   useEffect(() => {
     if (!selectedMatch) return;
-    if (tab === 'odds') { void ensureOdds(selectedMatch); void ensureDetail(selectedMatch); }
     if (tab === 'lineup' || tab === 'formation') void ensureSquads(selectedMatch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, selectedId, matches.length]);
@@ -612,20 +523,10 @@ const FC_STYLES = `
 .fc-pitch-box{ position:absolute; left:6%; width:88%; height:58%; top:21%; border:1px solid rgba(255,255,255,.5); border-radius:4px; opacity:.4; }
 .fc-player{ position:absolute; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#000; border:2px solid rgba(255,255,255,.65); cursor:pointer; transform:translate(-50%,-50%); box-shadow:0 0 10px rgba(0,0,0,.25); }
 
-/* ---- virtuals ---- */
-.fc-vir-out{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:9px; }
-.fc-vir-out-cell{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:11px 6px; border-radius:13px; background:rgba(17,24,39,.55); border:1px solid rgba(77,163,255,.16); cursor:pointer; }
-.fc-vir-out-cell.sel{ background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); border-color:transparent; color:#000; }
-.fc-stake-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; }
-.fc-stake-input{ flex:1; background:rgba(17,24,39,.6); border:1px solid rgba(77,163,255,.22); color:#fff; border-radius:11px; padding:10px 12px; font-family:${C.mono}; font-size:13px; outline:none; }
-.fc-vir-btn{ font-family:${C.font}; font-size:11.5px; font-weight:800; padding:11px 18px; border-radius:12px; background:linear-gradient(135deg, ${C.green}, ${C.greenDeep}); color:#000; border:none; cursor:pointer; box-shadow:0 4px 14px rgba(34,197,94,.25); }
-.fc-vir-trade{ display:flex; align-items:center; justify-content:space-between; gap:9px; padding:10px 12px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.09); border-radius:12px; }
-.fc-vir-sum{ display:flex; justify-content:space-between; gap:10px; font-family:${C.mono}; font-size:10px; color:rgba(255,255,255,.6); }
 /* ---- icon alignment (svg swap-in) ---- */
 .fc-info{ display:inline-flex; align-items:center; gap:5px; }
 .fc-meta-chip{ display:inline-flex; align-items:center; gap:4px; }
 .fc-quick-btn{ display:inline-flex; align-items:center; gap:5px; }
-.fc-vir-btn{ display:inline-flex; align-items:center; gap:6px; }
 .fc-filter{ display:inline-flex; align-items:center; gap:4px; }
 .fc-league svg{ width:16px; height:16px; flex-shrink:0; }
 .fc-tab svg{ width:13px; height:13px; flex-shrink:0; }
@@ -686,7 +587,7 @@ const FC_STYLES = `
           </div>
           <div className="fc-stadium-title">Your Matchday Hub</div>
           <div className="fc-stadium-sub">
-            Fresh fixtures across {Math.max(filters.length - 1, 1)} leagues — live scores, odds, line-ups &amp; formations.
+            Fresh fixtures across {Math.max(filters.length - 1, 1)} leagues — live scores, line-ups &amp; formations.
           </div>
           <div className="fc-stadium-meta">
             <span className="fc-meta-chip"><IcoRefresh className="w-3 h-3" /> auto 60s</span>
@@ -767,10 +668,8 @@ const renderMatchRow = (m: CalendarMatch): React.ReactNode => {
           ) : null}
         </div>
         <div className="fc-quick">
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('odds'); }}><IcoChart className="w-3 h-3" /> Odds</button>
           <button className="fc-quick-btn" onClick={() => { haptic(); setTab('lineup'); }}><IcoUsers className="w-3 h-3" /> XI</button>
           <button className="fc-quick-btn" onClick={() => { haptic(); setTab('formation'); }}><IcoClipboard className="w-3 h-3" /> Formation</button>
-          <button className="fc-quick-btn" onClick={() => { haptic(); setTab('virtuals'); }}><IcoCoin className="w-3 h-3" /> Virtuals</button>
         </div>
       </div>
     );
@@ -834,93 +733,6 @@ const noMatchCard = (msg: string): React.ReactNode => (
           ))}
           {visibleMatches.length === 0 && (
             <div className="fc-odds-note" style={{ textAlign: 'center' }}>No fixtures for this filter yet.</div>
-          )}
-        </div>
-      </React.Fragment>
-    );
-  };
-const renderEstOdds = (m: CalendarMatch) => {
-    const est = estimateOdds(m);
-    const pick = (o: '1' | 'X' | '2') => {
-      setPickedOutcome(o);
-      haptic();
-    };
-    return (
-      <React.Fragment>
-        <div style={{ padding: '4px 12px 2px', fontFamily: C.mono, fontSize: 8.5, color: 'rgba(255,255,255,.5)', letterSpacing: '.06em' }}>
-          MATCH RESULT · 1X2
-        </div>
-        <div className="fc-odds-3col">
-          <div className={`fc-odds-cell${pickedOutcome === '1' ? ' sel' : ''}`} onClick={() => pick('1')}>
-            <span className="fc-odds-label">1</span>
-            <span className="fc-odds-val">{est.home}</span>
-            <span className="fc-odds-name">{m.homeTeam?.shortName || m.homeTeam?.name}</span>
-          </div>
-          <div className={`fc-odds-cell${pickedOutcome === 'X' ? ' sel' : ''}`} onClick={() => pick('X')}>
-            <span className="fc-odds-label">X</span>
-            <span className="fc-odds-val">{est.draw}</span>
-            <span className="fc-odds-name">Draw</span>
-          </div>
-          <div className={`fc-odds-cell${pickedOutcome === '2' ? ' sel' : ''}`} onClick={() => pick('2')}>
-            <span className="fc-odds-label">2</span>
-            <span className="fc-odds-val">{est.away}</span>
-            <span className="fc-odds-name">{m.awayTeam?.shortName || m.awayTeam?.name}</span>
-          </div>
-        </div>
-        <div className="fc-odds-row" style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
-          <span className="fc-team-name" style={{ flex: 1 }}>Over / Under 2.5 goals</span>
-          <span className="fc-odds-val" style={{ width: 60 }}>O {est.over}</span>
-          <span className="fc-odds-val" style={{ width: 60 }}>U {est.under}</span>
-        </div>
-        <div className="fc-odds-row">
-          <span className="fc-team-name" style={{ flex: 1 }}>Both teams to score</span>
-          <span className="fc-odds-val" style={{ width: 60 }}>Y {est.bttsYes}</span>
-          <span className="fc-odds-val" style={{ width: 60 }}>N {est.bttsNo}</span>
-        </div>
-      </React.Fragment>
-    );
-  };
-
-  const renderLiveMarkets = (markets: OddsMarketRow[]) => (
-    <React.Fragment>
-      {markets.map((mk, i) => (
-        <div key={i} className="fc-odds-row" style={{ alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="fc-team-name" style={{ fontSize: 11.5 }}>
-              {mk.key === 'h2h' ? 'Match result' : mk.key === 'totals' ? 'Over/Under 2.5' : 'Both to score'}
-            </div>
-            <div className="fc-pos-meta">{mk.bookmaker}</div>
-          </div>
-          {mk.outcomes.slice(0, 3).map(o => (
-            <span key={o.name} className="fc-info" style={{ border: '1px solid rgba(34,197,94,.3)', color: C.green }}>
-              {o.name.split(' ')[0]} {o.price}
-            </span>
-          ))}
-        </div>
-      ))}
-    </React.Fragment>
-  );
-
-  const renderOddsTab = (m: CalendarMatch | undefined): React.ReactNode => {
-    if (!m) return noMatchCard('Odds');
-    const cached = oddsCache[String(m.id)];
-    const live = Boolean(cached?.available && cached.markets && cached.markets.length);
-    return (
-      <React.Fragment>
-        <div className="fc-card">
-          <div className="fc-section-head">
-            <span className="fc-section-title">Bookmaker odds</span>
-            <span className={`fc-pill ${live ? 'live' : 'soon'}`}>{live ? 'LIVE' : 'EST'}</span>
-          </div>
-          <div className="fc-odds-note">
-            {m.homeTeam?.name} vs {m.awayTeam?.name} · {m.competition?.name}
-          </div>
-          {live ? renderLiveMarkets(cached!.markets!) : renderEstOdds(m)}
-          {!live && (
-            <div className="fc-odds-note">
-              Estimates shown until the bookmaker feed opens for this fixture.
-              {cached?.message ? ` Feed: ${cached.message}` : ''}
-            </div>
           )}
         </div>
       </React.Fragment>
@@ -1131,110 +943,6 @@ const FORMATIONS: Record<string, { def: number; mid: number; off: number }> = {
     } catch (_) {}
     haptic();
   };
-const renderVirtualsTab = (m: CalendarMatch | undefined): React.ReactNode => {
-    if (!m) return noMatchCard('Virtuals');
-    const est = estimateOdds(m);
-    const oddsOf = pickedOutcome === '1' ? est.home : pickedOutcome === 'X' ? est.draw : est.away;
-    const stakeNum = Math.max(1, parseInt(stake, 10) || 1);
-    const potential = Math.round(stakeNum * oddsOf * 100) / 100;
-    const outcomeLabel = (o: '1' | 'X' | '2') =>
-      o === '1' ? `1 · ${m.homeTeam?.shortName || m.homeTeam?.name}` :
-        o === 'X' ? 'X · Draw' : `2 · ${m.awayTeam?.shortName || m.awayTeam?.name}`;
-
-    const placeTrade = () => {
-      const bet: VirtualBet = {
-        id: `vt-${Date.now()}`,
-        matchId: m.id,
-        label: `${m.homeTeam?.name} vs ${m.awayTeam?.name}`,
-        outcome: pickedOutcome,
-        stake: stakeNum,
-        odds: oddsOf,
-        potential,
-        createdAt: new Date().toISOString(),
-      };
-      setVirtuals(prev => [bet, ...prev]);
-      try { tg?.HapticFeedback?.notificationOccurred('success'); } catch (_) {}
-    };
-    const settleTrade = (id: string, won: boolean) => {
-      setVirtuals(prev => prev.map(t => t.id === id ? { ...t, settled: true, won } : t));
-      haptic();
-    };
-    const totalStaked = virtuals.reduce((s, t) => s + t.stake, 0);
-    const totalPotential = virtuals.reduce((s, t) => s + (t.settled && t.won ? t.potential : t.settled ? 0 : t.potential), 0);
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div className="fc-card">
-          <div className="fc-section-head">
-            <span className="fc-section-title">Virtuals · match trading</span>
-            <span className="fc-pill soon">FTC</span>
-          </div>
-          <div className="fc-odds-note">
-            {m.homeTeam?.name} vs {m.awayTeam?.name} · predict &amp; trade the virtual outcome.
-          </div>
-          <div className="fc-vir-out">
-            <div className={`fc-vir-out-cell${pickedOutcome === '1' ? ' sel' : ''}`} onClick={() => { setPickedOutcome('1'); haptic(); }}>
-              <span className="fc-odds-val">1</span>
-              <span className="fc-odds-name">{m.homeTeam?.shortName || m.homeTeam?.name}</span>
-            </div>
-            <div className={`fc-vir-out-cell${pickedOutcome === 'X' ? ' sel' : ''}`} onClick={() => { setPickedOutcome('X'); haptic(); }}>
-              <span className="fc-odds-val">X</span>
-              <span className="fc-odds-name">Draw</span>
-            </div>
-            <div className={`fc-vir-out-cell${pickedOutcome === '2' ? ' sel' : ''}`} onClick={() => { setPickedOutcome('2'); haptic(); }}>
-              <span className="fc-odds-val">2</span>
-              <span className="fc-odds-name">{m.awayTeam?.shortName || m.awayTeam?.name}</span>
-            </div>
-          </div>
-          <div className="fc-stake-row" style={{ marginTop: 10 }}>
-            <input className="fc-stake-input" type="number" min="1" step="1" value={stake}
-              onChange={(e) => setStake(e.target.value)} aria-label="Stake in FTC" />
-            <span style={{ fontFamily: C.mono, fontSize: 10.5, color: 'rgba(255,255,255,.68)', whiteSpace: 'nowrap' }}>
-              @ {oddsOf} <IcoArrowRight className="w-3 h-3" /> ~{potential} FTC
-            </span>
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="fc-vir-btn" onClick={placeTrade}><IcoArrowRight className="w-3.5 h-3.5" /> Place virtual trade</button>
-          </div>
-        </div>
-
-        <div className="fc-card">
-          <div className="fc-section-head">
-            <span className="fc-section-title">Open &amp; settled trades</span>
-            <span className="fc-pill soon">{virtuals.length}</span>
-          </div>
-          {virtuals.length === 0 ? (
-            <div className="fc-odds-note" style={{ textAlign: 'center' }}>
-              No virtual trades yet. Predict the result and stake some FTC.
-            </div>
-          ) : (
-            virtuals.map(t => (
-              <div key={t.id} className="fc-vir-trade">
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="fc-pos-name">{t.label}</div>
-                  <div className="fc-pos-meta">{t.outcome} @ {t.odds} · {t.stake} FTC · {t.settled ? (t.won ? 'WON' : 'VOID') : 'OPEN'}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                  <span style={{ color: C.green, fontWeight: 800, fontFamily: C.mono, fontSize: 12 }}>±{t.potential}</span>
-                  {!t.settled ? (
-                    <button className="fc-filter" onClick={() => settleTrade(t.id, true)}><IcoCheck className="w-3 h-3" /> Settle</button>
-                  ) : (
-                    <span className="fc-pos-tag">{t.won ? 'WON' : 'VOID'}</span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="fc-vir-sum">
-          <span>PORTFOLIO · {virtuals.length} TRADES</span>
-          <span>STAKED {totalStaked} · RETURN {Math.round(totalPotential * 100) / 100} FTC</span>
-        </div>
-      </div>
-    );
-  };
-
   /* ============================================================
      RENDER
      ============================================================ */
@@ -1245,10 +953,8 @@ const renderVirtualsTab = (m: CalendarMatch | undefined): React.ReactNode => {
       {renderTabs()}
       <div className="fc-body">
         {tab === 'match' && renderMatchTab()}
-        {tab === 'odds' && renderOddsTab(selectedMatch)}
         {tab === 'lineup' && renderLineupTab(selectedMatch)}
         {tab === 'formation' && renderFormationTab(selectedMatch)}
-        {tab === 'virtuals' && renderVirtualsTab(selectedMatch)}
       </div>
     </div>
   );
