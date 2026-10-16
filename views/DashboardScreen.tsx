@@ -94,14 +94,34 @@ const api = {
       const res = await fetch(`${API_BASE}/banter/feed`);
       return res.json();
     }
+  },
+  notifications: {
+    getUser: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/notifications/${userId}?limit=20`);
+      return res.json();
+    },
+    markAllRead: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/notifications/user/${userId}/read-all`, {
+        method: 'PATCH'
+      });
+      return res.json();
+    },
+    clearAll: async (userId: string) => {
+      const res = await fetch(`${API_BASE}/notifications/user/${userId}`, {
+        method: 'DELETE'
+      });
+      return res.json();
+    }
   }
 };
+
+type NotificationType = 'banter' | 'earnings' | 'referral' | 'welcome' | 'creator' | 'badge' | 'announcement' | 'match' | 'system';
 
 interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'banter' | 'earnings' | 'referral' | 'welcome';
+  type: NotificationType;
   time: string;
   read: boolean;
   actionData?: any;
@@ -268,6 +288,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const NOTIFICATIONS_STORAGE_KEY = 'footnfts_notifications';
 
+  const formatNotificationTime = (dateString?: string) => {
+    if (!dateString) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    try {
+      return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+  };
+
+  const mapBackendNotification = (notification: any): NotificationItem => ({
+    id: String(notification.id),
+    title: notification.title || 'Notification',
+    message: notification.message || '',
+    type: (notification.type || 'earnings') as NotificationType,
+    time: formatNotificationTime(notification.created_at),
+    read: Boolean(notification.read_at),
+    actionData: notification.actionData || undefined
+  });
+
   // Load referral stats
   const loadReferralStats = async () => {
     if (!backendUserId) return;
@@ -281,8 +321,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // Load notifications from localStorage
-  const loadNotificationsFromStorage = () => {
+  // Load notifications from backend or local fallback
+  const loadNotificationsFromStorage = async () => {
+    if (backendUserId) {
+      try {
+        const res = await api.notifications.getUser(backendUserId);
+        if (res.success && Array.isArray(res.notifications)) {
+          const mapped = res.notifications.map(mapBackendNotification);
+          setNotifications(mapped);
+          saveNotificationsToStorage(mapped);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to load notifications from backend:', error);
+      }
+    }
+
     try {
       const saved = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (saved) {
@@ -607,7 +661,7 @@ const refreshProfile = async () => {
   // Load persistent notifications on mount
   useEffect(() => {
     loadNotificationsFromStorage();
-  }, []);
+  }, [backendUserId]);
 
   // Refresh balance when component mounts
   useEffect(() => {
@@ -726,7 +780,18 @@ const refreshProfile = async () => {
     );
   };
 
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = async () => {
+    if (backendUserId) {
+      try {
+        const res = await api.notifications.markAllRead(backendUserId);
+        if (!res.success) {
+          console.error('Failed to mark notifications as read on backend:', res.error);
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    }
+
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, read: true }));
       saveNotificationsToStorage(updated);
@@ -734,7 +799,18 @@ const refreshProfile = async () => {
     });
   };
 
-  const clearAllNotifications = () => {
+  const clearAllNotifications = async () => {
+    if (backendUserId) {
+      try {
+        const res = await api.notifications.clearAll(backendUserId);
+        if (!res.success) {
+          console.error('Failed to clear notifications on backend:', res.error);
+        }
+      } catch (error) {
+        console.error('Error clearing notifications:', error);
+      }
+    }
+
     setNotifications([]);
     saveNotificationsToStorage([]);
     tg?.HapticFeedback.notificationOccurred('success');

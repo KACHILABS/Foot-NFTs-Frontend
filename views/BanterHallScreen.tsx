@@ -214,7 +214,12 @@ const BanterHallScreen: React.FC<BanterHallScreenProps> = ({
       const res = await fetch(`${API_BASE}/banter/post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ userId: backendUserId, content: finalContent, clubTag: null }),
+        body: JSON.stringify({
+          userId: backendUserId,
+          content: finalContent,
+          clubTag: null,
+          replyToPostId: replyTarget?.id,
+        }),
       });
       const data = await res.json();
       if (data.success) {
