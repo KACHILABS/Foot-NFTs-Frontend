@@ -161,11 +161,18 @@ const TeamCrest: React.FC<{ team: Team; tone?: 'home' | 'away'; size?: 'normal' 
   size = 'normal',
 }) => {
   const badge = resolveClubBadge(team);
+  const [failedBadge, setFailedBadge] = useState<string | null>(null);
+  const initials = (team.shortName || team.name)
+    .split(/\s+/)
+    .map(word => word[0])
+    .join('')
+    .slice(0, 3)
+    .toUpperCase();
   return (
-    <span className={`pred-crest pred-crest-${size} pred-crest-${tone}`}>
-      {badge
-        ? <img src={badge} alt={`${team.name} crest`} loading="lazy" />
-        : <span aria-hidden="true">{(team.shortName || team.name).split(' ').map(word => word[0]).join('').slice(0, 3).toUpperCase()}</span>}
+    <span className={`pred-crest pred-crest-${size} pred-crest-${tone}`} role="img" aria-label={`${team.name} crest`}>
+      {badge && failedBadge !== badge
+        ? <img src={badge} alt="" loading="lazy" onError={() => setFailedBadge(badge)} />
+        : <span aria-hidden="true">{initials}</span>}
     </span>
   );
 };
@@ -397,26 +404,26 @@ const PredictionsScreen: React.FC<{
     <div className="-mx-6 -my-6 min-h-full bg-[#06141a] text-[#f2f7f4]">
       <style>{`
         .predictions-page {
-          --pred-bg: #06141a;
-          --pred-panel: #0c1c22;
-          --pred-card: #102a2c;
-          --pred-line: #1d4a3f;
+          --pred-bg: #0b0f15;
+          --pred-panel: #0b1219;
+          --pred-card: #0f172a;
+          --pred-line: #263342;
           --pred-green: #22e07a;
           --pred-green-deep: #0f7a45;
-          --pred-muted: #8fa7a0;
+          --pred-muted: #9ca3af;
           --pred-gold: #e8b830;
           min-height: 100%;
           color: #f2f7f4;
-          background: radial-gradient(ellipse at 50% -8%, #0b2a2c 0%, #06141a 48%, #041018 100%);
+          background: radial-gradient(ellipse at 50% -8%, #14231f 0%, #0b0f15 48%, #080c12 100%);
           font-family: Inter, "Segoe UI", system-ui, sans-serif;
         }
         .predictions-page button { font: inherit; }
-        .pred-inner { width: min(100%, 1120px); margin: 0 auto; padding: 24px clamp(16px, 4vw, 44px) 42px; }
+        .pred-inner { width: min(100%, 820px); margin: 0 auto; padding: 20px clamp(14px, 4vw, 30px) 36px; }
         .pred-page-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
         .pred-back { display:inline-flex; align-items:center; gap:8px; padding:9px 13px; border:1px solid #1d4a3f; border-radius:10px; background:#0b2226; color:#cfe2da; cursor:pointer; font-size:13px!important; font-weight:700!important; }
         .pred-page-caption { color:var(--pred-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.13em; }
         .pred-play-mode { display:flex; align-items:center; gap:7px; border:1px solid rgba(34,224,122,.25); border-radius:999px; background:rgba(34,224,122,.07); color:#a8f2c6; padding:7px 12px; font-size:10px; font-weight:850; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap; }
-        .pred-hero { position:relative; overflow:hidden; display:flex; align-items:center; min-height:142px; padding:24px clamp(20px,4vw,34px); border:1px solid rgba(34,224,122,.25); border-radius:20px; background:linear-gradient(115deg,rgba(9,70,49,.9),rgba(7,36,43,.93) 62%,rgba(9,29,39,.96)); box-shadow:0 16px 46px rgba(0,0,0,.18); }
+        .pred-hero { position:relative; overflow:hidden; display:flex; align-items:center; min-height:118px; padding:18px clamp(16px,4vw,26px); border:1px solid rgba(34,224,122,.25); border-radius:16px; background:linear-gradient(115deg,rgba(8,55,38,.86),rgba(15,23,42,.96) 72%); box-shadow:0 16px 46px rgba(0,0,0,.18); }
         .pred-hero:before { content:""; position:absolute; inset:0; opacity:.4; background:repeating-linear-gradient(90deg,transparent 0 28px,rgba(195,255,221,.08) 29px 30px),linear-gradient(0deg,rgba(1,13,15,.38),transparent 80%); pointer-events:none; }
         .pred-pitch { position:absolute; right:8%; top:50%; width:172px; height:112px; transform:translateY(-50%); border:1px solid rgba(180,255,212,.16); border-radius:50%; }
         .pred-pitch:before { content:""; position:absolute; top:-1px; bottom:-1px; left:50%; border-left:1px solid rgba(180,255,212,.16); }
@@ -434,19 +441,19 @@ const PredictionsScreen: React.FC<{
         .pred-filter-tabs { display:flex; gap:8px; margin:15px 0; }
         .pred-filter { min-width:84px; padding:8px 14px; border:1px solid #25473f; border-radius:999px; background:#0b2226; color:#afc4bb; cursor:pointer; font-size:12px!important; font-weight:750!important; }
         .pred-filter.active { border-color:var(--pred-green); background:rgba(15,122,69,.65); color:#d9ffe8; box-shadow:inset 0 0 0 1px rgba(34,224,122,.14); }
-        .pred-match-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-        .pred-match-card { position:relative; overflow:hidden; min-width:0; padding:clamp(13px,2vw,18px); border:1px solid rgba(83,142,116,.22); border-radius:15px; background:linear-gradient(145deg,rgba(16,42,44,.98),rgba(9,27,32,.98)); box-shadow:0 8px 24px rgba(0,0,0,.13); }
+        .pred-match-list { display:grid; grid-template-columns:1fr; gap:9px; }
+        .pred-match-card { position:relative; overflow:hidden; min-width:0; padding:14px; border:1px solid rgba(148,163,184,.16); border-radius:13px; background:linear-gradient(145deg,rgba(15,23,42,.98),rgba(11,18,25,.98)); box-shadow:0 8px 24px rgba(0,0,0,.13); }
         .pred-match-card:before { content:""; position:absolute; top:0; left:16px; right:16px; height:1px; background:linear-gradient(90deg,transparent,rgba(34,224,122,.4),transparent); }
         .pred-match-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#a9c0b5; font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
         .pred-live-dot { width:6px; height:6px; display:inline-block; margin-right:5px; border-radius:50%; background:#ff5261; box-shadow:0 0 8px #ff5261; }
-        .pred-teams { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:8px; margin:18px 0 15px; }
+        .pred-teams { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:8px; margin:14px 0 12px; }
         .pred-team { min-width:0; display:flex; align-items:center; gap:9px; }
         .pred-team.away { flex-direction:row-reverse; text-align:right; }
         .pred-team-name { overflow:hidden; color:#f2f7f4; font-size:12px; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
         .pred-vs { color:#78968a; font-size:9px; font-weight:900; letter-spacing:.08em; }
-        .pred-crest { width:34px; height:34px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.13); border-radius:50%; background:rgba(255,255,255,.06); }
+        .pred-crest { width:32px; height:32px; padding:4px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.13); border-radius:50%; background:rgba(255,255,255,.06); }
         .pred-crest-large { width:58px; height:58px; padding:8px; }
-        .pred-crest img { width:100%; height:100%; object-fit:contain; }
+        .pred-crest img { display:block; width:100%; height:100%; object-fit:contain; }
         .pred-crest-home { background:radial-gradient(circle at 35% 30%,rgba(34,224,122,.22),rgba(7,24,26,.9)); }
         .pred-crest-away { background:radial-gradient(circle at 35% 30%,rgba(232,184,48,.17),rgba(7,24,26,.9)); }
         .pred-crest > span { color:#d4f1e2; font-size:9px; font-weight:900; }
@@ -466,9 +473,10 @@ const PredictionsScreen: React.FC<{
         .pred-detail-teams { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; text-align:center; }
         .pred-detail-team { display:flex; flex-direction:column; align-items:center; gap:10px; font-size:13px; font-weight:850; }
         .pred-choice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:23px 0 13px; }
-        .pred-choice { min-height:78px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:10px 6px; border:1px solid #2a5a54; border-radius:11px; background:#0b2226; color:#e8f2ed; cursor:pointer; font-size:11px!important; font-weight:850!important; }
-        .pred-choice.active { border-color:var(--pred-green); background:rgba(15,122,69,.35); box-shadow:inset 0 0 0 1px var(--pred-green); color:#c8ffdd; }
+        .pred-choice { min-width:0; min-height:82px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:9px 5px; border:1px solid #374151; border-radius:11px; background:#0f172a; color:#e8f2ed; cursor:pointer; font-size:10px!important; font-weight:850!important; }
+        .pred-choice.active { border:2px solid var(--pred-green); background:rgba(6,78,45,.38); box-shadow:0 0 14px rgba(34,224,122,.1); color:#c8ffdd; }
         .pred-choice-mark { width:22px; height:22px; display:grid; place-items:center; border-radius:50%; background:rgba(34,224,122,.12); color:#9effc7; font-size:10px; font-weight:900; }
+        .pred-choice .pred-crest { width:28px; height:28px; padding:3px; }
         .pred-note { margin:12px 0 0; color:#8fa7a0; font-size:11px; text-align:center; line-height:1.6; }
         .pred-mock-note { width:fit-content; margin:0 auto 16px; border:1px solid rgba(232,184,48,.22); border-radius:999px; background:rgba(232,184,48,.07); color:#dfc778; padding:6px 11px; font-size:10px; font-weight:750; }
         .pred-scratch-page { max-width:560px; margin:0 auto; min-height:460px; display:flex; flex-direction:column; justify-content:center; gap:18px; padding:clamp(20px,5vw,44px); border:1px solid rgba(232,184,48,.2); border-radius:20px; background:radial-gradient(circle at 50% 38%,rgba(53,70,28,.55),rgba(8,20,26,.97) 70%); }
@@ -510,7 +518,7 @@ const PredictionsScreen: React.FC<{
         .pred-reward-title small { display:block; margin-top:4px; color:#8fa7a0; font-size:10px; font-weight:500; }
         .pred-tag { border:1px solid var(--pred-green); border-radius:5px; background:#0f7a45; color:#bfffd8; padding:4px 8px; font-size:9px; font-weight:850; text-transform:uppercase; }
         .pred-tag.processing { border-color:#3cc; background:#0b4d6b; color:#bff; }
-        @media(max-width:700px) { .pred-match-list { grid-template-columns:1fr; } .pred-inner { padding-top:18px; } .pred-hero { min-height:125px; } .pred-pitch { right:-44px; opacity:.65; } .pred-overline { align-items:start; flex-direction:column; } .pred-section-tabs { width:100%; } .pred-section-tab { flex:1; } }
+        @media(max-width:700px) { .pred-inner { padding-top:14px; } .pred-hero { min-height:96px; } .pred-pitch { right:-44px; opacity:.65; } .pred-overline { align-items:start; flex-direction:column; } .pred-section-tabs { width:100%; } .pred-section-tab { flex:1; } }
         @media(max-width:420px) { .pred-page-top { margin-bottom:16px; } .pred-page-caption { font-size:9px; letter-spacing:.08em; } .pred-page-top > .pred-page-caption { display:none; } .pred-play-mode { padding:7px 8px; font-size:8px; } .pred-section-tab { padding:9px 8px; } .pred-match-card { padding:13px; } .pred-teams { gap:5px; } .pred-team { gap:6px; } .pred-team-name { font-size:11px; } .pred-crest { width:30px; height:30px; } .pred-filter { min-width:0; flex:1; } .pred-scratch-page { min-height:0; padding:18px 14px; } .pred-scratch-card { min-height:200px; } .pred-reward-item { gap:8px; padding:11px; } .pred-tag { font-size:8px; padding:4px 6px; } }
       `}</style>
 
@@ -643,7 +651,10 @@ const PredictionsScreen: React.FC<{
                   ] as [Pick, string, string][]).map(([value, label, mark]) => (
                     <button key={value} type="button" aria-pressed={selectedPick === value}
                       className={`pred-choice ${selectedPick === value ? 'active' : ''}`} onClick={() => setSelectedPick(value)}>
-                      <span className="pred-choice-mark">{mark}</span>{label}
+                      {value === 'home' ? <TeamCrest team={selectedMatch.homeTeam} />
+                        : value === 'away' ? <TeamCrest team={selectedMatch.awayTeam} tone="away" />
+                          : <span className="pred-choice-mark">{mark}</span>}
+                      <span>{label}</span>
                     </button>
                   ))}
                 </div>
