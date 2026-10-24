@@ -74,7 +74,7 @@ const addDays = (date: Date, days: number) => {
 const loadCalendarMatches = async (): Promise<Match[]> => {
   const today = new Date();
   const params = new URLSearchParams({
-    dateFrom: addDays(today, -7),
+    dateFrom: addDays(today, -2),
     dateTo: addDays(today, 7),
     limit: '90',
   });
