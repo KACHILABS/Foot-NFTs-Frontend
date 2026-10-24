@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { SearchIcon, BackIcon, VerifiedIcon } from '../src/components/Icons';
+import { SearchIcon, BackIcon } from '../src/components/Icons';
 
 export interface CreatorPreview {
   id: string;
@@ -9,7 +9,7 @@ export interface CreatorPreview {
   handle: string;
   club: string;
   niche: string;
-  avatar: string;
+  avatar: string | null;
   follower_count: number;
   verified: boolean;
 }
@@ -23,6 +23,20 @@ interface CreatorHubScreenProps {
 }
 
 const API_BASE = 'https://footnfts.up.railway.app/api';
+const VERIFIED_BADGE_URL = 'https://img.icons8.com/color/48/instagram-verification-badge.png';
+
+const CreatorAvatar: React.FC<{ name: string; avatar: string | null }> = ({ name, avatar }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = name.trim().split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+  return (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-700 bg-gradient-to-br from-emerald-500/40 to-slate-700 text-sm font-black text-white">
+      {avatar && !imageFailed
+        ? <img src={avatar} alt={name} loading="lazy" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+        : <span aria-label={`${name} avatar`}>{initials}</span>}
+    </span>
+  );
+};
 
 const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOpenApplication, onBack, backendUserId }) => {
   const [query, setQuery] = useState('');
@@ -154,7 +168,7 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
               <Card key={creator.id} className="p-3 border border-gray-800 bg-darkCard">
                 <div className="flex items-center gap-3">
                   <button onClick={() => onOpenProfile?.(creator.id, creator)} className="shrink-0">
-                    <img src={creator.avatar} alt={creator.name} className="w-12 h-12 rounded-full object-cover border border-gray-700" />
+                    <CreatorAvatar name={creator.name} avatar={creator.avatar} />
                   </button>
 
                   <div className="min-w-0 flex-1">
@@ -162,7 +176,7 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-black text-white">{creator.name}</p>
                         {creator.verified && (
-                          <VerifiedIcon className="w-4 h-4 text-blue-400" />
+                          <img src={VERIFIED_BADGE_URL} alt="Verified creator" title="Verified creator" className="h-4 w-4 object-contain" />
                         )}
                       </div>
                     </button>
