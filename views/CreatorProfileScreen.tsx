@@ -1,7 +1,9 @@
 import React from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { VerifiedIcon, BackIcon, HeartIcon, ChatIcon, StarIcon } from '../src/components/Icons';
+import { BackIcon, HeartIcon, ChatIcon, StarIcon } from '../src/components/Icons';
+
+const VERIFIED_BADGE_URL = 'https://img.icons8.com/color/48/instagram-verification-badge.png';
 
 export interface CreatorProfileData {
   id: string;
@@ -37,12 +39,13 @@ export interface CreatorProfileData {
 interface CreatorProfileScreenProps {
   creator: CreatorProfileData;
   isFollowing?: boolean;
+  canFollow?: boolean;
   onBack?: () => void;
   onToggleFollow?: () => void;
   onToggleAlign?: () => void;
 }
 
-const CreatorProfileScreen: React.FC<CreatorProfileScreenProps> = ({ creator, isFollowing = false, onBack, onToggleFollow, onToggleAlign }) => {
+const CreatorProfileScreen: React.FC<CreatorProfileScreenProps> = ({ creator, isFollowing = false, canFollow = true, onBack, onToggleFollow, onToggleAlign }) => {
   const tg = (window as any).Telegram?.WebApp;
 
   const formatNumber = (num: number) => {
@@ -90,7 +93,12 @@ const CreatorProfileScreen: React.FC<CreatorProfileScreenProps> = ({ creator, is
             <img src={creator.avatar} alt={creator.name} className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0 pt-1">
-            <h2 className="text-[22px] font-bold text-white leading-tight mb-2">{creator.name}</h2>
+            <h2 className="mb-2 flex items-center gap-2 text-[22px] font-bold leading-tight text-white">
+              {creator.name}
+              {creator.verified && (
+                <img src={VERIFIED_BADGE_URL} alt="Verified creator" title="Verified creator" className="h-5 w-5 shrink-0 object-contain" />
+              )}
+            </h2>
             <div className="flex gap-2 flex-wrap mb-2">
               {creator.verified && (
                 <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#142433] text-[#9fd6ff] border border-[#24425e]">Verified Creator</span>
@@ -129,21 +137,23 @@ const CreatorProfileScreen: React.FC<CreatorProfileScreenProps> = ({ creator, is
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-5">
-          <button
-            onClick={handleFollow}
-            className={`flex-1 rounded-full py-3.5 text-base font-bold flex items-center justify-center gap-2 transition-all ${
-              isFollowing
-                ? 'bg-gray-800 text-white border border-gray-700'
-                : 'bg-[#2ecc71] text-[#0b1a10]'
-            }`}
-          >
-            {isFollowing ? 'Following' : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Follow
-              </>
-            )}
-          </button>
+          {canFollow && (
+            <button
+              onClick={handleFollow}
+              className={`flex-1 rounded-full py-3.5 text-base font-bold flex items-center justify-center gap-2 transition-all ${
+                isFollowing
+                  ? 'bg-gray-800 text-white border border-gray-700'
+                  : 'bg-[#2ecc71] text-[#0b1a10]'
+              }`}
+            >
+              {isFollowing ? 'Following' : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Follow
+                </>
+              )}
+            </button>
+          )}
           <button
             onClick={handleAlign}
             className="flex-1 rounded-full py-3.5 text-base font-semibold border border-[#2c3648] text-white flex items-center justify-center gap-2 bg-transparent"

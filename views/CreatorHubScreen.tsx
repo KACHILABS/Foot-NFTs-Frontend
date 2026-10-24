@@ -5,6 +5,7 @@ import { SearchIcon, BackIcon } from '../src/components/Icons';
 
 export interface CreatorPreview {
   id: string;
+  userId?: string;
   name: string;
   handle: string;
   club: string;
@@ -88,6 +89,7 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
       if (data.success && data.creators) {
         setCreators(data.creators.map((creator: CreatorPreview & { followers?: number; badge?: string }) => ({
           ...creator,
+          userId: creator.userId,
           follower_count: creator.follower_count ?? creator.followers ?? 0,
           verified: creator.verified ?? creator.badge === 'Verified',
         })));
@@ -108,6 +110,8 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
 
   const handleFollow = async (creatorId: string) => {
     if (!backendUserId) return;
+    const creator = creators.find(item => item.id === creatorId);
+    if (creator?.userId === backendUserId) return;
     
     try {
       const res = await fetch(`${API_BASE}/creator/follow`, {
@@ -164,6 +168,7 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
         <div className="flex flex-col gap-3">
           {filteredCreators.map(creator => {
             const isFollowing = followed.includes(creator.id);
+            const isOwnProfile = creator.userId === backendUserId;
             return (
               <Card key={creator.id} className="p-3 border border-gray-800 bg-darkCard">
                 <div className="flex items-center gap-3">
@@ -186,12 +191,14 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
                     <div className="text-[9px] text-gray-400 mt-1">{creator.niche} • {creator.follower_count?.toLocaleString() || 0} followers</div>
                   </div>
 
-                  <button
-                    onClick={() => handleFollow(creator.id)}
-                    className={`rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] ${isFollowing ? 'bg-gray-800 text-white border border-gray-700' : 'bg-green-600 text-black border border-green-600'}`}
-                  >
-                    {isFollowing ? 'Following' : 'Follow'}
-                  </button>
+                  {!isOwnProfile && (
+                    <button
+                      onClick={() => handleFollow(creator.id)}
+                      className={`rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] ${isFollowing ? 'bg-gray-800 text-white border border-gray-700' : 'bg-green-600 text-black border border-green-600'}`}
+                    >
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                  )}
                 </div>
               </Card>
             );

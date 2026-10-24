@@ -999,7 +999,7 @@ const refreshProfile = async () => {
         verified: creatorData.verified || false,
         isFollowing: !!creatorData.is_following,
         creatorId: creatorData.creator_id || creatorId,
-        creatorUserId: creatorData.creator_user_id || null,
+        creatorUserId: creatorData.creator_user_id || creatorData.userId || null,
         stats: creatorData.stats || { posts: 0, avgLikes: 0, engagement: '0%' },
         bio: creatorData.bio || '',
         likes: creatorData.likes || 0,
@@ -1016,6 +1016,7 @@ const refreshProfile = async () => {
 
   const handleCreatorFollowToggle = async () => {
     if (!selectedCreator || !backendUserId) return;
+    if (selectedCreator.creatorUserId === backendUserId) return;
     const creatorId = (selectedCreator as any).creatorId || selectedCreator.id;
     const wasFollowing = !!(selectedCreator as any).isFollowing;
     const nextFollowing = !wasFollowing;
@@ -1487,6 +1488,7 @@ const refreshProfile = async () => {
     <CreatorProfileScreen
       creator={selectedCreator}
       isFollowing={!!(selectedCreator as any).isFollowing}
+      canFollow={selectedCreator.creatorUserId !== backendUserId}
       onBack={() => setInCreatorProfile(false)}
       onToggleFollow={handleCreatorFollowToggle}
     />
