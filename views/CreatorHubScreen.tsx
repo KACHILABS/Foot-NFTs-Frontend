@@ -72,7 +72,11 @@ const CreatorHubScreen: React.FC<CreatorHubScreenProps> = ({ onOpenProfile, onOp
       const res = await fetch(`${API_BASE}/creator/top-creators`);
       const data = await res.json();
       if (data.success && data.creators) {
-        setCreators(data.creators);
+        setCreators(data.creators.map((creator: CreatorPreview & { followers?: number; badge?: string }) => ({
+          ...creator,
+          follower_count: creator.follower_count ?? creator.followers ?? 0,
+          verified: creator.verified ?? creator.badge === 'Verified',
+        })));
       }
     } catch (error) {
       console.error('Failed to load creators:', error);
